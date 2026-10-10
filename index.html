@@ -368,7 +368,6 @@ db.orders=db.orders||[];db.items=db.items||[];db.users=db.users||[];db.invites=d
 db.settings=db.settings||{phone:'',website:'',telegram:'',slogan:'замеры зеркал и стекла',email:''};
 db.nextOrder=db.nextOrder||1;db.nextItem=db.nextItem||1;db.nextUser=db.nextUser||1;db.schemaVersion=SCHEMA_VERSION;
 if(!db.users.length){db.users.push({id:1,name:'Администратор',role:'admin',login:'admin',phone:'',pinHash:null,pinPlain:'0000',active:true,createdBy:null,createdAt:Date.now(),lastLogin:0,note:'',mustChangePassword:true});db.nextUser=2;}
-
 /* ============ КОНСТАНТЫ ============ */
 var OLD_GLASS_MAP={'Тонированное':'Графит'};
 var MIRROR_DEFAULT_INSET_MM=1.5;
@@ -881,7 +880,6 @@ function drawTechIso(ctx,x,y,w,h,dims,scale,d){
   ctx.save();ctx.translate(x0-34,y0+pxH/2);ctx.rotate(-Math.PI/2);ctx.textBaseline='middle';ctx.fillText(numFmt(gd.h)+' см',0,0);ctx.restore();
   ctx.restore();
 }
-
 /* ============ ВИД 2: СПЕРЕДИ ============ */
 function drawTechFront(ctx,x,y,w,h,d){
   ctx.save();ctx.strokeStyle='#e8eef7';ctx.lineWidth=1;ctx.strokeRect(x-4,y-4,w+8,h+8);
@@ -956,11 +954,17 @@ function drawTechFront(ctx,x,y,w,h,d){
   ctx.restore();
 }
 
-/* ============ ВИД 3: СВЕРХУ ============ */
+/* ============ ВИД 3: СВЕРХУ (ИСПРАВЛЕНО) ============ */
 function drawTechPlan(ctx,x,y,w,h,d){
-  ctx.save();ctx.strokeStyle='#e8eef7';ctx.lineWidth=1;ctx.strokeRect(x-4,y-4,w+8,h+8);
-  var cx=x+w/2,cy=y+h/2;
-  var blue='#1e4d7b',accent='#3d86c8',red='#c14d4d',ink='#1a2733',gray='#5b6b7d',lightGray='#c8d2dd';
+  ctx.save();
+  ctx.strokeStyle='#e8eef7';
+  ctx.lineWidth=1;
+  ctx.strokeRect(x-4,y-4,w+8,h+8);
+  var cx=x+w/2, cy=y+h/2;
+  /* ИСПРАВЛЕНИЕ: переменные объявлены ОДИН РАЗ в начале функции,
+     до всех if. Это гарантирует, что accent (и остальные) определены
+     для любой ветки выполнения. */
+  var blue='#1e4d7b', accent='#3d86c8', red='#c14d4d', ink='#1a2733', gray='#5b6b7d', lightGray='#c8d2dd';
 
   if(d.type==='SHOWER'){
     var pl=buildShowerPanels(d);
