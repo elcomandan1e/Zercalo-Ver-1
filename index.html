@@ -761,6 +761,7 @@ function makeTechCanvas(d){
 function drawTechIso(ctx,x,y,w,h,dims,scale,d){
   var cx=x+w/2,cy=y+h/2;
   ctx.save();
+  var blue='#1e4d7b',accent='#3d86c8',red='#c14d4d',ink='#1a2733',gray='#5b6b7d',lightGray='#c8d2dd';
   ctx.strokeStyle='#e8eef7';ctx.lineWidth=1;ctx.strokeRect(x-4,y-4,w+8,h+8);
 
   if(d.type==='SHOWER'){
@@ -885,8 +886,7 @@ function drawTechIso(ctx,x,y,w,h,dims,scale,d){
 function drawTechFront(ctx,x,y,w,h,d){
   ctx.save();ctx.strokeStyle='#e8eef7';ctx.lineWidth=1;ctx.strokeRect(x-4,y-4,w+8,h+8);
   var cx=x+w/2,cy=y+h/2;
-  var accent='#3d86c8',blue='#1e4d7b',red='#c14d4d';
-
+  var blue='#1e4d7b',accent='#3d86c8',red='#c14d4d',ink='#1a2733',gray='#5b6b7d',lightGray='#c8d2dd';
   if(d.type==='SHOWER'){
     var H=Number(d.showerH)||220,pl=Array.isArray(d.showerPanels)?d.showerPanels:[];
     if(!pl.length){ctx.fillStyle='#98a2b3';ctx.font='400 18px Arial';ctx.textAlign='center';ctx.fillText('—',cx,cy);ctx.restore();return;}
@@ -960,7 +960,7 @@ function drawTechFront(ctx,x,y,w,h,d){
 function drawTechPlan(ctx,x,y,w,h,d){
   ctx.save();ctx.strokeStyle='#e8eef7';ctx.lineWidth=1;ctx.strokeRect(x-4,y-4,w+8,h+8);
   var cx=x+w/2,cy=y+h/2;
-  var accent='#3d86c8',blue='#1e4d7b',red='#c14d4d';
+  var blue='#1e4d7b',accent='#3d86c8',red='#c14d4d',ink='#1a2733',gray='#5b6b7d',lightGray='#c8d2dd';
 
   if(d.type==='SHOWER'){
     var pl=buildShowerPanels(d);
