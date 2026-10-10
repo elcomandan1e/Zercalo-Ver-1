@@ -709,9 +709,27 @@ function techDims(d){
   }
   if(d.type==='APRON'){
     var secs=Array.isArray(d.apronSections)?d.apronSections:[];
-    var totalW=secs.reduce(function(s,x){return s+(Number(x.bottom)||0);},0);
-    var maxH=0;secs.forEach(function(x){maxH=Math.max(maxH,Number(x.left)||0,Number(x.right)||0);});
-    return {W:Math.max(1,totalW),D:60,H:Math.max(1,maxH),label:'Фартук'};
+    if(!secs.length)return {W:100,D:60,H:60,label:'Фартук'};
+    var angles=apronSectionAngles(d);
+    var cx=0,cy=0,hd=0,pts=[{x:0,y:0}];
+    secs.forEach(function(s,i){
+      var b=Number(s.bottom)||0;
+      var a=i===0?0:(angles[i]||0);
+      hd+=a;
+      var rad=hd*Math.PI/180;
+      cx+=Math.cos(rad)*b;
+      cy+=Math.sin(rad)*b;
+      pts.push({x:cx,y:cy});
+    });
+    var xs=pts.map(function(p){return p.x;}),ys=pts.map(function(p){return p.y;});
+    var minX=Math.min.apply(null,xs),maxX=Math.max.apply(null,xs);
+    var minY=Math.min.apply(null,ys),maxY=Math.max.apply(null,ys);
+    var W=Math.max(1,Math.round((maxX-minX)*10)/10);
+    var D=Math.max(1,Math.round((maxY-minY)*10)/10);
+    var maxH=1;
+    secs.forEach(function(s){maxH=Math.max(maxH,Number(s.left)||0,Number(s.right)||0);});
+    secs.forEach(function(s){maxH=Math.max(maxH,Number(s.top!=null?s.top:s.bottom)||0);});
+    return {W:W,D:D,H:Math.round(maxH*10)/10,label:'Фартук'};
   }
   var gd=glassDimensions(d);return {W:Math.max(1,gd.w||0),D:4,H:Math.max(1,gd.h||0),label:typeInfo(d.type).label};
 }
@@ -848,22 +866,57 @@ function drawTechIso(ctx,x,y,w,h,dims,scale,d){
   if(d.type==='APRON'){
     var secs=Array.isArray(d.apronSections)?d.apronSections:[];
     if(!secs.length){ctx.fillStyle='#98a2b3';ctx.font='400 18px Arial';ctx.textAlign='center';ctx.fillText('Добавьте секции',cx,cy);ctx.restore();return;}
-    var totalW=secs.reduce(function(s,x){return s+(Number(x.bottom)||0);},0);
-    var maxH=Math.max.apply(null,secs.map(function(x){return Math.max(Number(x.left)||0,Number(x.right)||0);}).concat([1]));
-    var sc2=Math.min((w-80)/Math.max(totalW,1),(h-60)/Math.max(maxH,1));
-    var baseY=cy+maxH*sc2/2-20,startX=cx-totalW*sc2/2;
+    var angles=apronSectionAngles(d);
     var isMirror=d.apronMaterial==='mirror';
+    var planPts=[{x:0,y:0}];
+    var px=0,py=0,hd=0;
     secs.forEach(function(s,i){
-      var b=(Number(s.bottom)||0)*sc2,t=(Number(s.top!=null?s.top:s.bottom)||0)*sc2;
-      var l=(Number(s.left)||0)*sc2,r=(Number(s.right)||0)*sc2,x0=startX;
-      var p1x=x0,p1y=baseY,p2x=x0+b,p2y=baseY,p3x=x0+(b+t)/2,p3y=baseY-r,p4x=x0+(b-t)/2,p4y=baseY-l;
-      ctx.beginPath();ctx.moveTo(p1x,p1y);ctx.lineTo(p2x,p2y);ctx.lineTo(p3x,p3y);ctx.lineTo(p4x,p4y);ctx.closePath();
-      ctx.fillStyle=isMirror?'rgba(200,221,240,0.55)':'rgba(61,134,200,0.12)';ctx.fill();
-      ctx.strokeStyle=isMirror?'#3b5c8f':accent;ctx.lineWidth=2;ctx.stroke();
-      ctx.fillStyle=blue;ctx.font='700 14px "PT Sans Narrow",Arial';ctx.textAlign='center';ctx.textBaseline='middle';
-      ctx.fillText('№'+(i+1),x0+b/2,baseY-r/2);
-      startX+=b;
+      var b=Number(s.bottom)||0;
+      var a=i===0?0:(angles[i]||0);
+      hd+=a;
+      var rad=hd*Math.PI/180;
+      px+=Math.cos(rad)*b;
+      py+=Math.sin(rad)*b;
+      planPts.push({x:px,y:py});
     });
+    var cosA=0.6, sinA=0.4;
+    function iso(x,y,z){return {x:x+y*cosA, y:-y*sinA - z};}
+    var allPts=[];
+    planPts.forEach(function(p,i){
+      var sec=secs[Math.min(i,secs.length-1)];
+      var l=Number(sec.left)||0, r=Number(sec.right)||0;
+      var maxH=Math.max(l,r);
+      allPts.push(iso(p.x,p.y,0));
+      allPts.push(iso(p.x,p.y,maxH));
+    });
+    var pxMin=Math.min.apply(null,allPts.map(function(q){return q.x;})),pxMax=Math.max.apply(null,allPts.map(function(q){return q.x;}));
+    var pyMin=Math.min.apply(null,allPts.map(function(q){return q.y;})),pyMax=Math.max.apply(null,allPts.map(function(q){return q.y;}));
+    var projW=pxMax-pxMin||1, projH=pyMax-pyMin||1;
+    var sc=Math.min((w-80)/projW,(h-60)/projH);
+    var offX=cx-projW*sc/2-pxMin*sc, offY=cy-projH*sc/2-pyMin*sc;
+    function t2d(x,y,z){var q=iso(x,y,z);return {x:offX+q.x*sc, y:offY+q.y*sc};}
+    secs.forEach(function(s,i){
+      var p1=planPts[i], p2=planPts[i+1];
+      var b=Number(s.bottom)||0;
+      var t=Number(s.top!=null?s.top:s.bottom)||0;
+      var l=Number(s.left)||0, r=Number(s.right)||0;
+      var a0=t2d(p1.x,p1.y,0), b0=t2d(p2.x,p2.y,0);
+      var a1=t2d(p1.x,p1.y,l), b1=t2d(p2.x,p2.y,r);
+      ctx.beginPath();ctx.moveTo(a0.x,a0.y);ctx.lineTo(b0.x,b0.y);ctx.lineTo(b1.x,b1.y);ctx.lineTo(a1.x,a1.y);ctx.closePath();
+      ctx.fillStyle=isMirror?'rgba(200,221,240,0.55)':'rgba(61,134,200,0.15)';ctx.fill();
+      ctx.strokeStyle=isMirror?'#3b5c8f':accent;ctx.lineWidth=1.8;ctx.stroke();
+      var a1t=t2d(p1.x,p1.y,l), b1t=t2d(p2.x,p2.y,r);
+      ctx.beginPath();ctx.moveTo(a1t.x,a1t.y);ctx.lineTo(b1t.x,b1t.y);
+      ctx.strokeStyle=red;ctx.lineWidth=1;ctx.setLineDash([4,3]);ctx.stroke();ctx.setLineDash([]);
+      var mid=t2d((p1.x+p2.x)/2,(p1.y+p2.y)/2,(l+r)/2);
+      ctx.fillStyle=blue;ctx.font='700 12px "PT Sans Narrow",Arial';ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillText('№'+(i+1),mid.x,mid.y);
+    });
+    ctx.strokeStyle=red;ctx.lineWidth=1;ctx.setLineDash([3,3]);
+    var hTopY=cy-projH*sc/2, hBotY=cy+projH*sc/2, hX=cx+w/2-16;
+    ctx.beginPath();ctx.moveTo(hX,hTopY);ctx.lineTo(hX,hBotY);ctx.stroke();ctx.setLineDash([]);
+    ctx.fillStyle=red;ctx.font='700 14px "PT Sans Narrow",Arial';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.save();ctx.translate(hX+14,(hTopY+hBotY)/2);ctx.rotate(-Math.PI/2);ctx.fillText('H='+numFmt(dims.H)+' см',0,0);ctx.restore();
     ctx.restore();return;
   }
 
@@ -880,6 +933,7 @@ function drawTechIso(ctx,x,y,w,h,dims,scale,d){
   ctx.save();ctx.translate(x0-34,y0+pxH/2);ctx.rotate(-Math.PI/2);ctx.textBaseline='middle';ctx.fillText(numFmt(gd.h)+' см',0,0);ctx.restore();
   ctx.restore();
 }
+
 /* ============ ВИД 2: СПЕРЕДИ ============ */
 function drawTechFront(ctx,x,y,w,h,d){
   ctx.save();ctx.strokeStyle='#e8eef7';ctx.lineWidth=1;ctx.strokeRect(x-4,y-4,w+8,h+8);
@@ -924,20 +978,58 @@ function drawTechFront(ctx,x,y,w,h,d){
   if(d.type==='APRON'){
     var secs=Array.isArray(d.apronSections)?d.apronSections:[];
     if(!secs.length){ctx.fillStyle='#98a2b3';ctx.font='400 18px Arial';ctx.textAlign='center';ctx.fillText('—',cx,cy);ctx.restore();return;}
-    var totalW=secs.reduce(function(s,x){return s+(Number(x.bottom)||0);},0),gap=3,totalDisp=totalW+gap*(secs.length-1);
-    var maxH=Math.max.apply(null,secs.map(function(x){return Math.max(Number(x.left)||0,Number(x.right)||0);}).concat([1]));
-    var sc2=Math.min((w-80)/totalDisp,(h-60)/maxH),baseY=cy+maxH*sc2/2-20,startX=cx-totalDisp*sc2/2;
+    var angles=apronSectionAngles(d);
+    var px=0,py=0,hd=0,planPts=[{x:0,y:0}];
+    secs.forEach(function(s,i){
+      var b=Number(s.bottom)||0;
+      var a=i===0?0:(angles[i]||0);
+      hd+=a;
+      var rad=hd*Math.PI/180;
+      px+=Math.cos(rad)*b;py+=Math.sin(rad)*b;
+      planPts.push({x:px,y:py});
+    });
+    var xs=planPts.map(function(p){return p.x;});
+    var minX=Math.min.apply(null,xs),maxX=Math.max.apply(null,xs);
+    var W=Math.max(1,maxX-minX);
+    var maxH=1;
+    secs.forEach(function(s){maxH=Math.max(maxH,Number(s.left)||0,Number(s.right)||0);});
+    var sc=Math.min((w-80)/W,(h-60)/maxH);
+    var baseY=cy+maxH*sc/2-10, startX=cx-W*sc/2;
     var isMirror=d.apronMaterial==='mirror';
-    secs.forEach(function(p,i){
-      var b=(Number(p.bottom)||0)*sc2,t=(Number(p.top!=null?p.top:p.bottom)||0)*sc2;
-      var l=(Number(p.left)||0)*sc2,r=(Number(p.right)||0)*sc2,x0=startX;
-      ctx.beginPath();ctx.moveTo(x0,baseY);ctx.lineTo(x0+b,baseY);ctx.lineTo(x0+(b+t)/2,baseY-r);ctx.lineTo(x0+(b-t)/2,baseY-l);ctx.closePath();
+    var curX=startX;
+    secs.forEach(function(s,i){
+      var b=(Number(s.bottom)||0)*sc;
+      var t=(Number(s.top!=null?s.top:s.bottom)||0)*sc;
+      var l=(Number(s.left)||0)*sc, r=(Number(s.right)||0)*sc;
+      var x0=curX;
+      var p1x=x0,p1y=baseY;
+      var p2x=x0+b,p2y=baseY;
+      var p3x=x0+(b+t)/2,p3y=baseY-r;
+      var p4x=x0+(b-t)/2,p4y=baseY-l;
+      ctx.beginPath();ctx.moveTo(p1x,p1y);ctx.lineTo(p2x,p2y);ctx.lineTo(p3x,p3y);ctx.lineTo(p4x,p4y);ctx.closePath();
       ctx.fillStyle=isMirror?'rgba(200,221,240,0.55)':'rgba(61,134,200,0.12)';ctx.fill();
       ctx.strokeStyle=isMirror?'#3b5c8f':accent;ctx.lineWidth=2;ctx.stroke();
       ctx.fillStyle=blue;ctx.font='700 13px "PT Sans Narrow",Arial';ctx.textAlign='center';ctx.textBaseline='middle';
       ctx.fillText('№'+(i+1),x0+b/2,baseY-r/2);
-      startX+=b+gap*sc2;
+      ctx.strokeStyle=red;ctx.lineWidth=1;ctx.setLineDash([3,3]);
+      ctx.beginPath();ctx.moveTo(x0,baseY+10);ctx.lineTo(x0+b,baseY+10);
+      ctx.moveTo(x0,baseY+6);ctx.lineTo(x0,baseY+14);
+      ctx.moveTo(x0+b,baseY+6);ctx.lineTo(x0+b,baseY+14);ctx.stroke();ctx.setLineDash([]);
+      ctx.fillStyle=red;ctx.font='700 12px "PT Sans Narrow",Arial';ctx.textAlign='center';ctx.textBaseline='top';
+      ctx.fillText(numFmt(s.bottom||0),x0+b/2,baseY+16);
+      if(i===0){
+        ctx.strokeStyle=red;ctx.lineWidth=1;ctx.setLineDash([3,3]);
+        var hX=x0-16;
+        ctx.beginPath();ctx.moveTo(hX,baseY);ctx.lineTo(hX,baseY-l);ctx.stroke();ctx.setLineDash([]);
+        ctx.fillStyle=red;ctx.font='700 12px "PT Sans Narrow",Arial';ctx.textAlign='right';ctx.textBaseline='middle';
+        ctx.fillText(numFmt(s.left||0),hX-4,baseY-l/2);
+      }
+      curX=x0+b;
     });
+    ctx.strokeStyle=red;ctx.lineWidth=1;ctx.setLineDash([3,3]);
+    ctx.beginPath();ctx.moveTo(startX,baseY-maxH*sc-16);ctx.lineTo(startX+W*sc,baseY-maxH*sc-16);ctx.stroke();ctx.setLineDash([]);
+    ctx.fillStyle=red;ctx.font='700 14px "PT Sans Narrow",Arial';ctx.textAlign='center';ctx.textBaseline='bottom';
+    ctx.fillText('Ш='+numFmt(W)+' см',startX+W*sc/2,baseY-maxH*sc-20);
     ctx.restore();return;
   }
 
@@ -954,16 +1046,13 @@ function drawTechFront(ctx,x,y,w,h,d){
   ctx.restore();
 }
 
-/* ============ ВИД 3: СВЕРХУ (ИСПРАВЛЕНО) ============ */
+/* ============ ВИД 3: СВЕРХУ ============ */
 function drawTechPlan(ctx,x,y,w,h,d){
   ctx.save();
   ctx.strokeStyle='#e8eef7';
   ctx.lineWidth=1;
   ctx.strokeRect(x-4,y-4,w+8,h+8);
   var cx=x+w/2, cy=y+h/2;
-  /* ИСПРАВЛЕНИЕ: переменные объявлены ОДИН РАЗ в начале функции,
-     до всех if. Это гарантирует, что accent (и остальные) определены
-     для любой ветки выполнения. */
   var blue='#1e4d7b', accent='#3d86c8', red='#c14d4d', ink='#1a2733', gray='#5b6b7d', lightGray='#c8d2dd';
 
   if(d.type==='SHOWER'){
@@ -998,7 +1087,6 @@ function drawTechPlan(ctx,x,y,w,h,d){
     ctx.moveTo(maxPx,maxPy+18);ctx.lineTo(maxPx,maxPy+26);ctx.stroke();ctx.setLineDash([]);
     ctx.fillStyle=red;ctx.font='700 14px "PT Sans Narrow",Arial';ctx.textAlign='center';ctx.textBaseline='top';
     ctx.fillText(numFmt(Math.round(projW*10)/10)+' см',(minPx+maxPx)/2,maxPy+28);
-    /* Поддон */
     if(d.showerBaseType==='tray'&&d.baseW>0&&d.baseD>0){
       ctx.strokeStyle=accent;ctx.lineWidth=1.5;ctx.setLineDash([6,4]);
       ctx.beginPath();ctx.rect(offX,offY,d.baseW*sc,d.baseD*sc);ctx.stroke();ctx.setLineDash([]);
@@ -1010,32 +1098,50 @@ function drawTechPlan(ctx,x,y,w,h,d){
     var secs=Array.isArray(d.apronSections)?d.apronSections:[];
     if(!secs.length){ctx.fillStyle='#98a2b3';ctx.font='400 18px Arial';ctx.textAlign='center';ctx.fillText('—',cx,cy);ctx.restore();return;}
     var angles=apronSectionAngles(d);
-    var cxA=0,cyA=0,hd=0,pts=[{x:0,y:0}];
-    secs.forEach(function(s,i){var b=Number(s.bottom)||0;var a=i===0?0:angles[i];hd+=a;var rad=hd*Math.PI/180;cxA+=Math.cos(rad)*b;cyA+=Math.sin(rad)*b;pts.push({x:cxA,y:cyA});});
-    var pxs=pts.map(function(p){return p.x;}),pys=pts.map(function(p){return p.y;});
-    var minXp=Math.min.apply(null,pxs),maxXp=Math.max.apply(null,pxs),minYp=Math.min.apply(null,pys),maxYp=Math.max.apply(null,pys);
-    var projWp=Math.max(1,maxXp-minXp),projHp=Math.max(1,maxYp-minYp);
-    var scp=Math.min((w-80)/projWp,(h-60)/projHp);
-    var offXp=cx-projWp*scp/2-minXp*scp,offYp=cy-projHp*scp/2-minYp*scp;
+    var px=0,py=0,hd=0,pts=[{x:0,y:0}];
+    secs.forEach(function(s,i){
+      var b=Number(s.bottom)||0;
+      var a=i===0?0:(angles[i]||0);
+      hd+=a;
+      var rad=hd*Math.PI/180;
+      px+=Math.cos(rad)*b;py+=Math.sin(rad)*b;
+      pts.push({x:px,y:py});
+    });
+    var xs=pts.map(function(p){return p.x;}),ys=pts.map(function(p){return p.y;});
+    var minX=Math.min.apply(null,xs),maxX=Math.max.apply(null,xs);
+    var minY=Math.min.apply(null,ys),maxY=Math.max.apply(null,ys);
+    var W=Math.max(1,maxX-minX),D=Math.max(1,maxY-minY);
+    var sc=Math.min((w-80)/W,(h-60)/D);
+    var offX=cx-W*sc/2-minX*sc, offY=cy-D*sc/2-minY*sc;
     ctx.strokeStyle=accent;ctx.lineWidth=3;
     ctx.beginPath();
-    pts.forEach(function(p,i){var sx=offXp+p.x*scp,sy=offYp+p.y*scp;if(i===0)ctx.moveTo(sx,sy);else ctx.lineTo(sx,sy);});
+    pts.forEach(function(p,i){
+      var sx=offX+p.x*sc, sy=offY+p.y*sc;
+      if(i===0)ctx.moveTo(sx,sy);else ctx.lineTo(sx,sy);
+    });
     ctx.stroke();
     ctx.fillStyle=blue;ctx.font='700 12px "PT Sans Narrow",Arial';ctx.textAlign='center';ctx.textBaseline='middle';
-    for(var j=0;j<secs.length;j++){
-      var p1=pts[j],p2=pts[j+1];
-      ctx.fillText('№'+(j+1),offXp+((p1.x+p2.x)/2)*scp,offYp+((p1.y+p2.y)/2)*scp-10);
-    }
-    /* Углы между секциями */
+    secs.forEach(function(s,i){
+      var p1=pts[i], p2=pts[i+1];
+      var midX=offX+((p1.x+p2.x)/2)*sc, midY=offY+((p1.y+p2.y)/2)*sc;
+      ctx.fillText('№'+(i+1)+' ('+numFmt(s.bottom||0)+' см)',midX,midY-12);
+    });
     for(var k=2;k<pts.length-1;k++){
       var a1=pts[k-1],a2=pts[k],a3=pts[k+1];
       var u1x=a2.x-a1.x,u1y=a2.y-a1.y,l1=Math.hypot(u1x,u1y)||1;u1x/=l1;u1y/=l1;
       var u2x=a3.x-a2.x,u2y=a3.y-a2.y,l2=Math.hypot(u2x,u2y)||1;u2x/=l2;u2y/=l2;
       var angS=Math.round(Math.acos(Math.max(-1,Math.min(1,u1x*u2x+u1y*u2y)))*180/Math.PI);
-      var vxS=offXp+a2.x*scp,vyS=offYp+a2.y*scp;
+      var vxS=offX+a2.x*sc,vyS=offY+a2.y*sc;
       ctx.fillStyle=red;ctx.font='700 12px "PT Sans Narrow",Arial';ctx.textAlign='center';ctx.textBaseline='middle';
       ctx.fillText(angS+'°',vxS+18,vyS+18);
     }
+    var minPx=offX+minX*sc, maxPx=offX+maxX*sc, maxPy=offY+maxY*sc;
+    ctx.strokeStyle=red;ctx.lineWidth=1;ctx.setLineDash([3,3]);
+    ctx.beginPath();ctx.moveTo(minPx,maxPy+22);ctx.lineTo(maxPx,maxPy+22);
+    ctx.moveTo(minPx,maxPy+18);ctx.lineTo(minPx,maxPy+26);
+    ctx.moveTo(maxPx,maxPy+18);ctx.lineTo(maxPx,maxPy+26);ctx.stroke();ctx.setLineDash([]);
+    ctx.fillStyle=red;ctx.font='700 14px "PT Sans Narrow",Arial';ctx.textAlign='center';ctx.textBaseline='top';
+    ctx.fillText('Ш='+numFmt(W)+' см',(minPx+maxPx)/2,maxPy+28);
     ctx.restore();return;
   }
 
@@ -1049,7 +1155,6 @@ function drawTechPlan(ctx,x,y,w,h,d){
   ctx.fillText('Вид сверху: '+numFmt(gd.w)+' см × '+numFmt(d.th||4)+' мм',cx,cy-pxH/2-10);
   ctx.restore();
 }
-
 /* ============ ОТКРЫТИЕ ЧЕРТЕЖА ============ */
 function openTechDraw(itemId){
   try{
