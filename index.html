@@ -783,15 +783,6 @@ function drawTechPlan(ctx,x,y,w,h,d){
   }
   ctx.restore();
 }
-async function openTechDraw(itemId){
-  var i=db.items.find(function(x){return x.id===itemId;});if(!i){uiAlert('Позиция не найдена');return;}
-  var cv=makeTechCanvas(i);
-  var url=cv.toDataURL('image/png');
-  var html='<h2>'+LOGO_MARK(30)+' Чертёж А4</h2><div style="margin-top:8px;background:#fff;border-radius:14px;overflow:hidden;border:1px solid var(--line)"><img src="'+url+'" style="width:100%;display:block"></div><div class="tech-toolbar" style="margin-top:12px"><button onclick="downloadTechDraw()">💾 Скачать PNG</button><button onclick="printTechDraw()">🖨 Печать A4</button><button class="btn-secondary" onclick="closeModal()">Закрыть</button></div>';
-  showModal(html);
-  window._techDrawUrl=url;window._techDrawItem=i;
-}
-function downloadTechDraw(){if(!window._techDrawUrl)return;var a=document.createElement('a');a.href=window._techDrawUrl;a.download='zerzalo-drawing.png';document.body.appendChild(a);a.click();a.remove();}
 function printTechDraw(){if(!window._techDrawUrl)return;var i=window._techDrawItem||{};var w=window.open('','_blank');if(!w){uiAlert('Разрешите всплывающие окна');return;}var o=db.orders.find(function(x){return x.id===currentOrderId;});w.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>Чертёж</title><style>@page{size:A4 portrait;margin:0}body{margin:0;padding:0;text-align:center}img{max-width:100%;max-height:100vh;display:block;margin:0 auto}.no-print{margin:12px auto;text-align:center;padding:8px;font-family:Arial}@media print{.no-print{display:none}}</style></head><body><img src="'+window._techDrawUrl+'"><div class="no-print"><button onclick="window.print()" style="padding:12px 24px;font-size:16px">🖨 Печать / PDF</button></div></body></html>');w.document.cl дюose();}
 function openItem(id){
   var i=id?db.items.find(function(x){return x.id===id;}):null;
