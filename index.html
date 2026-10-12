@@ -5559,6 +5559,97 @@ var _fbApplyingRemote = false;  // флаг: сейчас применяем д�
 var _fbPushTimer = null;        // дебаунс push
 var _fbLastPushedAt = 0;        // время последнего set() — чтобы отсекать эхо от своего же push
 
+/* === Сборка данных для отправки в Firebase. === */
+function buildSyncPayload(){
+  return {
+    schemaVersion:SCHEMA_VERSION,
+    exportedAt:Date.now(),
+    deviceId:db.sync?db.sync.deviceId:'',
+    orders:db.orders,
+    items:db.items,
+    users:db.users,
+    clients:db.clients,
+    addresses:db.addresses,
+    events:db.events,
+    contractors:db.contractors,
+    routes:db.routes,
+    notifications:db.notifications,
+    roles:db.roles,
+    settings:db.settings,
+    trash:[],
+    nextOrder:db.nextOrder,nextItem:db.nextItem,nextUser:db.nextUser,
+    nextClient:db.nextClient,nextAddress:db.nextAddress,nextEvent:db.nextEvent,
+    nextContractor:db.nextContractor,nextRoute:db.nextRoute,nextNotification:db.nextNotification
+  };
+}
+/* === Merge локальных и удалённых данных по updatedAt (last-write-wins). === */
+function mergeEntityArray(localArr,remoteArr,idKey){
+  idKey=idKey||'id';
+  var result={};
+  (localArr||[]).forEach(function(o){if(o&&o[idKey]!=null)result[o[idKey]]={src:'local',obj:o};});
+  (remoteArr||[]).forEach(function(ro){
+    if(!ro||ro[idKey]==null)return;
+    var lid=ro[idKey];
+    var entry=result[lid];
+    if(!entry){result[lid]={src:'remote',obj:ro};return;}
+    var local=entry.obj,remote=ro;
+    var lU=Number(local.updatedAt)||Number(local.createdAt)||0;
+    var rU=Number(remote.updatedAt)||Number(remote.createdAt)||0;
+    if(rU>lU)result[lid]={src:'remote',obj:remote};
+  });
+  var out=[];
+  Object.keys(result).forEach(function(k){out.push(result[k].obj);});
+  return out;
+}
+/* === Применить merge к массиву в db. === */
+function applyMergedArray(arrName,remoteArr,idKey){
+  if(!Array.isArray(remoteArr))return;
+  db[arrName]=mergeEntityArray(db[arrName]||[],remoteArr,idKey||'id');
+}
+/* === Общий вход: применяем данные из Firebase к локальной базе. === */
+function applySyncPayload(remote){
+  if(!remote||typeof remote!=='object')return;
+  applyMergedArray('orders',remote.orders);
+  applyMergedArray('items',remote.items);
+  applyMergedArray('users',remote.users);
+  applyMergedArray('clients',remote.clients);
+  applyMergedArray('addresses',remote.addresses);
+  applyMergedArray('events',remote.events);
+  applyMergedArray('contractors',remote.contractors);
+  applyMergedArray('routes',remote.routes);
+  applyMergedArray('notifications',remote.notifications);
+  if(remote.settings){
+    var localS=Number(db.settings&&db.settings.updatedAt)||0;
+    var remoteS=Number(remote.settings.updatedAt)||remote.exportedAt||0;
+    if(remoteS>localS)db.settings=Object.assign({},db.settings,remote.settings);
+  }
+  if(remote.roles&&typeof remote.roles==='object'){
+    if(!db.roles||typeof db.roles!=='object')db.roles={};
+    Object.keys(remote.roles).forEach(function(roleKey){
+      var remoteRole=remote.roles[roleKey];
+      if(!remoteRole||typeof remoteRole!=='object')return;
+      var localRole=db.roles[roleKey];
+      if(!localRole||typeof localRole!=='object'){db.roles[roleKey]=Object.assign({},remoteRole);return;}
+      var lU=Number(localRole.updatedAt)||0;
+      var rU=Number(remoteRole.updatedAt)||0;
+      if(rU>lU)db.roles[roleKey]=Object.assign({},remoteRole);
+    });
+  }
+  ['nextOrder','nextItem','nextUser','nextClient','nextAddress','nextEvent','nextContractor','nextRoute','nextNotification'].forEach(function(k){
+    var lv=Number(db[k])||1,rv=Number(remote[k])||1;
+    db[k]=Math.max(lv,rv);
+  });
+  (db.orders||[]).forEach(migrateOrder);
+  (db.items||[]).forEach(migrateItem);
+  (db.users||[]).forEach(migrateUser);
+  (db.clients||[]).forEach(migrateClient);
+  (db.addresses||[]).forEach(migrateAddress);
+  (db.events||[]).forEach(migrateEvent);
+  (db.contractors||[]).forEach(migrateContractor);
+  (db.routes||[]).forEach(migrateRoute);
+  (db.notifications||[]).forEach(migrateNotification);
+  touchAllEntities();
+}
 /* === Инициализация. Вызывается при boot() и в панели синхронизации. === */
 function syncEnsureDefaults(){
   if(!db.sync)db.sync={};
