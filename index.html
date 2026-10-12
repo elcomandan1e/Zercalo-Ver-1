@@ -3660,6 +3660,136 @@ async function saveEditOrder(id){
   save();closeModal();render();
 }
 async function deleteOrder(id){var o=db.orders.find(function(x){return x.id===id;});if(!o)return;if(!canDeleteOrder(o)){uiAlert('Нет прав');return;}var ok=await uiConfirm('Удалить заказ № '+(o.orderNum||'—')+'?','Удаление',{danger:true,yesLabel:'Удалить'});if(!ok)return;var items=db.items.filter(function(i){return i.orderId===id;});db.trash.push({type:'order',deletedAt:Date.now(),deletedBy:db.currentUserId,order:JSON.parse(JSON.stringify(o)),items:items.map(function(i){return JSON.parse(JSON.stringify(i));})});var dk=orderDateKey(o);db.orders=db.orders.filter(function(x){return x.id!==id;});db.items=db.items.filter(function(i){return i.orderId!==id;});purgeNotificationsForOrder(id);db.events.filter(function(e){return e.orderId===id;}).forEach(function(e){purgeNotificationsForEvent(e.id);});if(dk)renumberDayOrders(dk);save();history.replaceState({view:'list'},'','#');withViewTransition(function(){view='list';currentOrderId=null;render();window.scrollTo(0,0);});showUndo('Заказ в корзине',function(){var t=db.trash[db.trash.length-1];if(t)restoreTrashEntry(t);},7000);}
+/* ============ БЛОК СОБЫТИЙ ПО ЗАКАЗУ (замеры и монтажи) ============ */
+function renderOrderEventsBlock(o){
+  var evs=eventsOfOrder(o.id);
+  var html='<div class="card no-tap" style="padding-left:20px">';
+  html+='<div class="section-title" style="margin-top:0">📅 События по заказу ('+evs.length+')</div>';
+  if(!evs.length){
+    html+='<div style="color:#8894a9;font-size:13px;margin:6px 0">Замеров и монтажей пока нет</div>';
+  }else{
+    evs.sort(function(a,b){
+      var c=String(a.date||'').localeCompare(String(b.date||''));
+      if(c!==0)return c;
+      var am=parseTimeToMinutes(a.time),bm=parseTimeToMinutes(b.time);
+      if(am==null&&bm==null)return 0;
+      if(am==null)return 1;
+      if(bm==null)return -1;
+      return am-bm;
+    });
+    html+=evs.map(function(e){
+      var isDone=(e.status==='done');
+      var dateStr='';
+      if(e.date){var d=ymdToDate(e.date);dateStr=d?(pad2(d.getDate())+' '+monthNameRuGen(d.getMonth())):e.date;}
+      return '<div class="cal-ev'+(isDone?' done':'')+'" style="margin-bottom:6px" onclick="event.stopPropagation();openEventFromCalendar('+e.id+')">'+
+        '<div class="cal-ev-ico '+(e.type||'measure')+'">'+eventTypeIco(e.type||'measure')+'</div>'+
+        '<div class="cal-ev-body">'+
+          '<div class="cal-ev-date">'+esc(dateStr)+(e.time?(' • '+esc(e.time)):'')+'</div>'+
+          '<div class="cal-ev-title">'+esc(eventTypeLabel(e.type||'measure'))+'</div>'+
+          (e.note?'<div class="cal-ev-sub">'+esc(e.note)+'</div>':'')+
+        '</div>'+
+      '</div>';
+    }).join('');
+  }
+  if(canManageEvents())html+='<button type="button" class="btn btn-secondary" style="margin-top:10px;padding:10px;font-size:14px" onclick="event.stopPropagation();openEventForm(null,null,'+o.id+')">📅 + Событие (замер / монтаж)</button>';
+  html+='</div>';
+  return html;
+}
+
+/* ============ СМЕНА КЛИЕНТА И АДРЕСА У ЗАКАЗА ============ */
+function openChangeOrderClient(orderId){
+  var o=db.orders.find(function(x){return x.id===orderId;});if(!o)return;
+  if(!canEditOrder(o)){uiAlert('Нет прав');return;}
+  var list=db.clients.filter(function(c){return !c.archived;}).sort(function(a,b){return (clientFullName(a)||'').localeCompare(clientFullName(b)||'','ru');});
+  var html='<h2>'+LOGO_MARK(30)+' Сменить клиента</h2>';
+  if(!list.length)html+='<div class="empty" style="padding:20px;font-size:13px">Клиентов нет</div>';
+  else html+='<div style="max-height:56vh;overflow-y:auto">'+list.map(function(c){
+    var nm=clientFullName(c)||'Без имени';
+    var sub=[];if(c.phone)sub.push(formatPhone(c.phone));
+    var initials=(nm||'?').split(' ').map(function(p){return p.charAt(0);}).join('').slice(0,2).toUpperCase();
+    return '<div class="wz-pick-item'+(o.clientId===c.id?' active':'')+'" onclick="confirmChangeOrderClient('+o.id+','+c.id+')">'+
+      '<div class="wz-pick-avatar">'+esc(initials)+'</div>'+
+      '<div class="wz-pick-body"><div class="wz-pick-title">'+esc(nm)+'</div><div class="wz-pick-sub">'+esc(sub.join(' • '))+'</div></div>'+
+    '</div>';
+  }).join('')+'</div>';
+  html+='<button class="btn btn-secondary" onclick="closeModal()">Отмена</button>';
+  showModal(html);
+}
+function confirmChangeOrderClient(orderId,clientId){
+  var o=db.orders.find(function(x){return x.id===orderId;});if(!o)return;
+  var c=clientById(clientId);if(!c)return;
+  o.clientId=clientId;
+  o.lastName=c.lastName||'';o.firstName=c.firstName||'';o.middleName=c.middleName||'';o.phone=c.phone||'';
+  o.snapshot=o.snapshot||{};
+  o.snapshot.clientName=clientFullName(c);
+  o.snapshot.clientPhone=c.phone||c.phoneExtra||'';
+  touch(o);save();closeModal();render();
+}
+function openChangeOrderAddress(orderId){
+  var o=db.orders.find(function(x){return x.id===orderId;});if(!o)return;
+  if(!canEditOrder(o)){uiAlert('Нет прав');return;}
+  if(!o.clientId){uiAlert('Сначала выберите клиента');return;}
+  var addrs=addressesOfClient(o.clientId);
+  var html='<h2>'+LOGO_MARK(30)+' Сменить адрес</h2>';
+  if(!addrs.length)html+='<div class="empty" style="padding:20px;font-size:13px">У клиента нет адресов</div>';
+  else html+='<div style="max-height:56vh;overflow-y:auto">'+addrs.map(function(a){
+    var lbl=a.label||'Без названия';
+    return '<div class="wz-pick-item'+(o.addressId===a.id?' active':'')+'" onclick="confirmChangeOrderAddress('+o.id+','+a.id+')">'+
+      '<div class="wz-pick-avatar" style="background:linear-gradient(135deg,#4fb5e6,#229ED9)">📍</div>'+
+      '<div class="wz-pick-body"><div class="wz-pick-title">'+esc(lbl)+'</div><div class="wz-pick-sub">'+esc(addressFull(a)||'')+'</div></div>'+
+    '</div>';
+  }).join('')+'</div>';
+  html+='<button class="btn btn-secondary" onclick="closeModal()">Отмена</button>';
+  showModal(html);
+}
+function confirmChangeOrderAddress(orderId,addressId){
+  var o=db.orders.find(function(x){return x.id===orderId;});if(!o)return;
+  var a=addressById(addressId);if(!a)return;
+  o.addressId=addressId;
+  o.city=a.city||'';o.street=a.street||'';o.house=a.house||'';o.building=a.building||'';
+  o.entrance=a.entrance||'';o.floor=a.floor||'';o.apartment=a.apartment||'';o.intercom=a.intercom||'';
+  o.liftNeeded=!!a.liftNeeded;o.liftFloor=a.liftFloor||0;o.parkingCarry=!!a.parkingCarry;o.needPass=!!a.needPass;
+  o.snapshot=o.snapshot||{};
+  o.snapshot.addressFull=addressFull(a);
+  touch(o);save();closeModal();render();
+}
+
+/* ============ ДОБАВЛЕНИЕ ЗАКАЗА В МАРШРУТ ============ */
+function addOrderToRoute(orderId){
+  if(!canManageRoutes()){uiAlert('Нет прав');return;}
+  var o=db.orders.find(function(x){return x.id===orderId;});if(!o)return;
+  var routes=db.routes.slice().sort(function(a,b){return String(a.date||'').localeCompare(String(b.date||''));});
+  var html='<h2>'+LOGO_MARK(30)+' В маршрут</h2>';
+  if(!routes.length){
+    html+='<div class="empty" style="padding:20px;font-size:13px">Маршрутов пока нет</div>';
+    html+='<button class="btn btn-primary" onclick="closeModal();createRouteWithOrder('+orderId+')">+ Создать новый маршрут</button>';
+  }else{
+    html+='<div style="max-height:44vh;overflow-y:auto">'+routes.map(function(r){
+      var dt=r.date?r.date.split('-').reverse().join('.'):'без даты';
+      return '<div class="wz-pick-item" onclick="confirmAddOrderToRoute('+orderId+','+r.id+')">'+
+        '<div class="wz-pick-avatar" style="background:linear-gradient(135deg,#3a7a5a,#4caf7d)">🚚</div>'+
+        '<div class="wz-pick-body"><div class="wz-pick-title">'+esc(r.title||'Маршрут')+'</div><div class="wz-pick-sub">'+esc(dt)+' • точек '+((r.points||[]).length)+'</div></div>'+
+      '</div>';
+    }).join('')+'</div>';
+    html+='<button class="btn btn-secondary" onclick="closeModal();createRouteWithOrder('+orderId+')">+ Создать новый маршрут</button>';
+  }
+  html+='<button class="btn btn-secondary" onclick="closeModal()">Отмена</button>';
+  showModal(html);
+}
+function confirmAddOrderToRoute(orderId,routeId){
+  var r=routeById(routeId);if(!r)return;
+  if(!Array.isArray(r.points))r.points=[];
+  r.points.push({kind:'order',refId:orderId,addressId:null,label:'',note:'',time:''});
+  touch(r);save();haptic(8);closeModal();
+  uiAlert('Заказ добавлен в маршрут «'+(r.title||'')+'»');
+}
+function createRouteWithOrder(orderId){
+  if(!canManageRoutes())return;
+  var o=db.orders.find(function(x){return x.id===orderId;});
+  var r={id:db.nextRoute++,title:'Маршрут по заказу № '+(o?(o.orderNum||'—'):'—'),date:dateToYmd(new Date()),assignedUserId:null,points:[{kind:'order',refId:orderId,addressId:null,label:'',note:'',time:''}],note:'',createdAt:Date.now(),createdBy:db.currentUserId,updatedAt:Date.now()};
+  db.routes.push(r);save();
+  uiAlert('Маршрут создан');
+}
 /* ============ ЭТАП 3: КЛИЕНТЫ (UI) ============ */
 function onClientsSearchInput(v){clientsSearchQ=v;var el=document.getElementById('clientsList');if(el)el.innerHTML=renderClientsList();}
 function setClientsSort(m){clientsSortMode=m;var el=document.getElementById('clientsList');if(el)el.innerHTML=renderClientsList();renderTabs();}
