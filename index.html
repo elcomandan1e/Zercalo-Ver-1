@@ -13,6 +13,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=PT+Sans+Narrow:wght@400;700&family=Montserrat:wght@500;600;700;800&display=swap" rel="stylesheet">
 <link id="appManifest" rel="manifest">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <style>
 :root{color-scheme:light;--font-sans:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;--font-mono:"PT Mono","SF Mono",ui-monospace,Menlo,Consolas,monospace;--bg-1:#f6f8fc;--bg-2:#eef3fa;--cloud-1:rgba(184,209,247,0.45);--cloud-2:rgba(222,213,250,0.40);--cloud-3:rgba(196,231,248,0.45);--accent:#5b7fb8;--accent-deep:#3b5c8f;--accent-soft:#eaf1fb;--accent-line:#d6e2f3;--text:#2a3547;--text-soft:#5a6780;--muted:#8894a9;--muted-2:#aab4c5;--line:#e8eef7;--line-soft:#f0f4fa;--surface:#ffffff;--ok:#4caf7d;--ok-soft:#e6f4ec;--warn:#d9924a;--warn-soft:#fdf3e6;--danger:#c96565;--danger-soft:#fcedec;--r-card:24px;--r-btn:16px;--r-input:14px;--r-pill:999px;--sh-sm:0 2px 10px rgba(90,120,170,0.07);--sh-md:0 8px 28px rgba(90,120,170,0.09);--sh-lg:0 16px 48px rgba(90,120,170,0.13);--sh-accent:0 8px 22px rgba(91,127,184,0.28);--t-fast:0.16s ease;--t:0.24s cubic-bezier(.4,0,.2,1);--logo-blue:#1e4d7b;--logo-ring:#1e4d7b;--logo-bg:#e6f1fb;--logo-bg-inner:#f5fafe;--logo-glass-1:#eef6fd;--logo-glass-2:#bfdcf2;--logo-glass-3:#8fbce2;--logo-spark:#e8a70c;--font-tech:"PT Sans Narrow","Arial Narrow","Helvetica Neue",Arial,sans-serif;--tech-ink:#1a2733;--tech-line:#3b5c8f;--tech-dim:#c14d4d;--tech-accent:#3d86c8}
 :root[data-theme="dark"]{color-scheme:dark;--bg-1:#141a24;--bg-2:#101621;--cloud-1:rgba(80,120,190,0.14);--cloud-2:rgba(120,100,180,0.12);--cloud-3:rgba(70,130,190,0.14);--accent:#7ba0dd;--accent-deep:#a8c3eb;--accent-soft:rgba(123,160,221,0.14);--accent-line:rgba(123,160,221,0.28);--text:#e6ecf5;--text-soft:#b6c2d4;--muted:#8a97ac;--muted-2:#606b80;--line:#232c3b;--line-soft:#1b2230;--surface:#1c2431;--ok:#4ec38c;--ok-soft:rgba(78,195,140,0.15);--warn:#e0a866;--warn-soft:rgba(224,168,102,0.14);--danger:#e08080;--danger-soft:rgba(224,128,128,0.14);--sh-sm:0 2px 10px rgba(0,0,0,0.35);--sh-md:0 8px 28px rgba(0,0,0,0.4);--sh-lg:0 16px 48px rgba(0,0,0,0.55);--sh-accent:0 8px 22px rgba(123,160,221,0.25);--logo-blue:#a8c3eb;--logo-ring:#7ba0dd;--logo-bg:#252f42;--logo-bg-inner:#2f3b52;--logo-glass-1:#dcebf9;--logo-glass-2:#9fc6e8;--logo-glass-3:#5e8fc0;--logo-spark:#f0b400}
@@ -5532,294 +5534,172 @@ function renderGlobalSearchResults(q){
   });
   return html;
 }
-/* ============ СИНХРОНИЗАЦИЯ С ЯНДЕКС.ДИСКОМ ============
-   Вариант A: REST API Яндекс.Диска напрямую.
-   Merge: last-write-wins на уровне сущностей по updatedAt + id.
-   Файл: app:/Зерцало/sync.json (папка приложения).
-   Токен: OAuth, хранится в localStorage (db.sync.token).
+/* ============ СИНХРОНИЗАЦИЯ ЧЕРЕЗ FIREBASE REALTIME DATABASE ============
+   Заменяет прежний модуль Яндекс.Диска.
+   Вся база хранится в одной ветке: zerzalo/ (корень — объект со всеми полями).
+   Каждое изменение на любом устройстве появляется у всех остальных в течение ~1 сек.
+   Ручные кнопки pull/push не нужны — данные уходят сами.
    ==================================================== */
 
-/* === ВАРИАНТ A: предустановленный OAuth-токен ===
-   При первом запуске на новом устройстве приложение автоматически
-   подставляет этот токен и включает синхронизацию. Все устройства
-   работают через один аккаунт Яндекс.Диска и общий файл sync.json.
-   Если пользователь потом отключит синхронизацию — повторно НЕ подставляем. */
-var AUTO_SYNC_TOKEN='y0__wgBEJbB-ZAJGPahTCCI8L-vGQ4oXYq-uXzb1xHY07ZRO5SueZVK';
+/* === Конфиг Firebase (публичный, не секретный — доступ защищён правилами базы) === */
+var firebaseConfig = {
+  apiKey: "AIzaSyD68sZPnMDDSuvogZUi2KzJvtYYAOfKjfw",
+  authDomain: "zercalo-673ed.firebaseapp.com",
+  databaseURL: "https://zercalo-673ed-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "zercalo-673ed",
+  storageBucket: "zercalo-673ed.firebasestorage.app",
+  messagingSenderId: "1007857092023",
+  appId: "1:1007857092023:web:67bf468565dd8f0be89432"
+};
 
-var YANDEX_CLIENT_ID='';/* Пустая строка = пользователь подставит свой OAuth client_id в настройках. */
-var YD_API='https://cloud-api.yandex.net/v1/disk';
-var SYNC_FOLDER='Зерцало';
-var SYNC_FILENAME='sync.json';
-var SYNC_PATH='app:/'+SYNC_FOLDER+'/'+SYNC_FILENAME;
+/* === Состояние === */
+var _fbApp = null;              // firebase app
+var _fbDbRef = null;            // ref на корень ветки 'zerzalo'
+var _fbApplyingRemote = false;  // флаг: сейчас применяем данные из Firebase (не запускать push)
+var _fbPushTimer = null;        // дебаунс push
+var _fbLastPushedAt = 0;        // время последнего set() — чтобы отсекать эхо от своего же push
 
+/* === Инициализация. Вызывается при boot() и в панели синхронизации. === */
 function syncEnsureDefaults(){
-  if(!db.sync)db.sync={enabled:false,token:'',clientId:'',lastPushAt:0,lastPullAt:0,lastError:'',status:'off',deviceId:'',remoteRev:0,autoSetupDone:false};
+  if(!db.sync)db.sync={};
   if(!db.sync.deviceId)db.sync.deviceId='dev_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8);
-  /* === ВАРИАНТ A: авто-подстановка токена при первом запуске ===
-     Срабатывает ровно один раз — на новом устройстве, где sync ещё не настроен.
-     Если пользователь потом отключит синхронизацию через UI — повторно не активируем. */
-  if(!db.sync.autoSetupDone){
-    db.sync.autoSetupDone=true;
-    if(!db.sync.token&&AUTO_SYNC_TOKEN){
-      db.sync.token=AUTO_SYNC_TOKEN;
-      db.sync.enabled=true;
+  if(!db.sync.status)db.sync.status='off';
+  if(db.sync.enabled==null)db.sync.enabled=true;
+
+  if(db.sync.enabled&&!_fbApp){
+    try{
+      _fbApp=firebase.initializeApp(firebaseConfig);
+      _fbDbRef=firebase.database().ref('zerzalo');
+      _fbSubscribe();
       db.sync.status='idle';
-      try{save();}catch(e){}
+      db.sync.lastError='';
+      /* При самом первом запуске (lastPushAt=0) отправляем свою локальную базу в Firebase. */
+      if(!db.sync.lastPushAt){
+        setTimeout(function(){ fbPushAll().catch(function(){}); },1500);
+      }
+    }catch(e){
+      db.sync.status='error';
+      db.sync.lastError=String((e&&e.message)||e);
     }
   }
-  if(!db.sync.status)db.sync.status=db.sync.enabled?'idle':'off';
   return db.sync;
 }
 
-async function ydRequest(method,path,opts){
-  syncEnsureDefaults();
-  var token=db.sync.token;
-  if(!token)throw new Error('Нет токена Яндекс.Диска');
-  opts=opts||{};
-  var url=path.indexOf('http')===0?path:(YD_API+path);
-  var init={method:method||'GET',headers:Object.assign({'Authorization':'OAuth '+token},opts.headers||{})};
-  if(opts.body)init.body=opts.body;
-  var resp=await fetch(url,init);
-  if(!resp.ok){
-    /* 404 при первом pull — норма (файла на Диске ещё нет). Если allow404 — вернём null. */
-    if(resp.status===404&&opts.allow404)return null;
-    var text='';
-    try{text=await resp.text();}catch(e){}
-    var msg='HTTP '+resp.status;
-    try{var j=JSON.parse(text);if(j&&j.message)msg+=' — '+j.message;}catch(e){}
-    if(resp.status===401)msg='401 — Токен недействителен или истёк';
-    if(resp.status===403)msg='403 — Нет прав (проверьте scope cloud_api:disk.app_folder)';
-    throw new Error(msg);
-  }
-  var ct=resp.headers.get('content-type')||'';
-  if(ct.indexOf('application/json')>=0)return await resp.json();
-  return await resp.text();
-}
-async function ydPing(){
-  var r=await ydRequest('GET','/');
-  return {user:r&&r.user?r.user.login:null,totalSpace:r&&r.total_space||0,usedSpace:r&&r.used_space||0};
-}
-async function ydEnsureFolder(){
-  /* Папка в app:/ обычно уже существует; но попробуем создать — если 409 (exists) — ок. */
-  try{
-    await ydRequest('PUT','/resources?path='+encodeURIComponent('app:/'+SYNC_FOLDER));
-    return true;
-  }catch(e){
-    if(String(e.message||'').indexOf('409')>=0)return true;
-    /* Возможно папка app:/ уже есть — тогда не считаем ошибкой. */
-    if(String(e.message||'').indexOf('already exists')>=0)return true;
-    throw e;
-  }
-}
-async function ydUpload(filename,text){
-  var path='app:/'+SYNC_FOLDER+'/'+filename;
-  var link=await ydRequest('GET','/resources/upload?overwrite=true&path='+encodeURIComponent(path));
-  if(!link||!link.href)throw new Error('Не получен upload URL');
-  var resp=await fetch(link.href,{method:'PUT',headers:{'Content-Type':'application/json; charset=utf-8'},body:text});
-  if(!resp.ok)throw new Error('Upload HTTP '+resp.status);
-  return true;
-}
-async function ydDownload(filename){
-  var path='app:/'+SYNC_FOLDER+'/'+filename;
-  var link;
-  try{
-    link=await ydRequest('GET','/resources/download?path='+encodeURIComponent(path),{allow404:true});
-  }catch(e){
-    /* Если 404 прилетел как исключение — трактуем как «файла нет», не роняем pull. */
-    if(String(e.message||'').indexOf('404')>=0)return null;
-    throw e;
-  }
-  if(!link||!link.href)return null;
-  var resp=await fetch(link.href);
-  if(resp.status===404)return null;
-  if(!resp.ok)throw new Error('Download HTTP '+resp.status);
-  return await resp.text();
-}
-
-/* === Сборка payload для синхронизации: только данные, без временных полей сессии. === */
-function buildSyncPayload(){
-  var payload={
-    schemaVersion:SCHEMA_VERSION,
-    exportedAt:Date.now(),
-    deviceId:db.sync?db.sync.deviceId:'',
-    orders:db.orders,
-    items:db.items,
-    users:db.users,
-    clients:db.clients,
-    addresses:db.addresses,
-    events:db.events,
-    contractors:db.contractors,
-    routes:db.routes,
-    notifications:db.notifications,
-    roles:db.roles,
-    settings:db.settings,
-    trash:[],/* Корзину не синхронизируем — она локальная. */
-    nextOrder:db.nextOrder,nextItem:db.nextItem,nextUser:db.nextUser,nextClient:db.nextClient,nextAddress:db.nextAddress,nextEvent:db.nextEvent,nextContractor:db.nextContractor,nextRoute:db.nextRoute,nextNotification:db.nextNotification
-  };
-  return payload;
-}
-
-/* === Merge входящего payload в db. LWW по updatedAt + id. === */
-function mergeEntityArray(localArr,remoteArr,localById,idKey){
-  idKey=idKey||'id';
-  var result={};/* id -> объект. */
-  (localArr||[]).forEach(function(o){if(o&&o[idKey]!=null)result[o[idKey]]={src:'local',obj:o};});
-  (remoteArr||[]).forEach(function(ro){
-    if(!ro||ro[idKey]==null)return;
-    var lid=ro[idKey];
-    var entry=result[lid];
-    if(!entry){result[lid]={src:'remote',obj:ro};return;}
-    var local=entry.obj,remote=ro;
-    var lU=Number(local.updatedAt)||Number(local.createdAt)||0;
-    var rU=Number(remote.updatedAt)||Number(remote.createdAt)||0;
-    if(rU>lU)result[lid]={src:'remote',obj:remote};
-    /* Иначе оставляем локальный. */
-  });
-  var out=[];
-  Object.keys(result).forEach(function(k){
-    var e=result[k];
-    if(e.src==='local')out.push(e.obj);
-    else{
-      /* Применяем remote-объект: заменяем в локальном массиве или добавляем. */
-      out.push(e.obj);
+/* === Реалтайм-подписка. Срабатывает при каждом изменении ветки 'zerzalo'. === */
+function _fbSubscribe(){
+  if(!_fbDbRef)return;
+  _fbDbRef.on('value',function(snap){
+    /* Если это эхо нашего же push — игнорируем. */
+    if(Date.now()-_fbLastPushedAt<800)return;
+    var remote=snap.val();
+    if(!remote)return;
+    _fbApplyingRemote=true;
+    try{
+      applySyncPayload(remote);
+      db.sync.lastPullAt=Date.now();
+      save();
+      if(typeof render==='function'){try{render();}catch(e){}}
+    }finally{
+      setTimeout(function(){ _fbApplyingRemote=false; },300);
     }
-  });
-  return out;
-}
-function applyMergedArray(arrName,remoteArr,idKey){
-  if(!Array.isArray(remoteArr))return;
-  var merged=mergeEntityArray(db[arrName]||[],remoteArr,null,idKey||'id');
-  db[arrName]=merged;
-}
-function applySyncPayload(remote){
-  if(!remote||typeof remote!=='object')return;
-  applyMergedArray('orders',remote.orders);
-  applyMergedArray('items',remote.items);
-  applyMergedArray('users',remote.users);
-  applyMergedArray('clients',remote.clients);
-  applyMergedArray('addresses',remote.addresses);
-  applyMergedArray('events',remote.events);
-  applyMergedArray('contractors',remote.contractors);
-  applyMergedArray('routes',remote.routes);
-  applyMergedArray('notifications',remote.notifications);
-  /* Настройки — берём те, у которых updatedAt больше, а если его нет — по времени exportedAt. */
-  if(remote.settings){
-    var localS=Number(db.settings&&db.settings.updatedAt)||0;
-    var remoteS=Number(remote.settings.updatedAt)||remote.exportedAt||0;
-    if(remoteS>localS){db.settings=Object.assign({},db.settings,remote.settings);}
-  }
-  /* === РОЛИ: merge по ключам, а не «только если локально пусто» ===
-     Для каждой роли:
-       - если у нас её нет — берём из remote;
-       - если у нас есть, а у remote новее (по updatedAt внутри объекта) — берём remote;
-       - иначе оставляем локальную. Это не затирает настройки этого устройства,
-         но подтягивает изменения, сделанные на других устройствах. */
-  if(remote.roles&&typeof remote.roles==='object'){
-    if(!db.roles||typeof db.roles!=='object')db.roles={};
-    Object.keys(remote.roles).forEach(function(roleKey){
-      var remoteRole=remote.roles[roleKey];
-      if(!remoteRole||typeof remoteRole!=='object')return;
-      var localRole=db.roles[roleKey];
-      if(!localRole||typeof localRole!=='object'){db.roles[roleKey]=Object.assign({},remoteRole);return;}
-      var lU=Number(localRole.updatedAt)||0;
-      var rU=Number(remoteRole.updatedAt)||0;
-      if(rU>lU)db.roles[roleKey]=Object.assign({},remoteRole);
-    });
-  }
-  /* Счётчики next* — берём максимум из local и remote. */
-  ['nextOrder','nextItem','nextUser','nextClient','nextAddress','nextEvent','nextContractor','nextRoute','nextNotification'].forEach(function(k){
-    var lv=Number(db[k])||1,rv=Number(remote[k])||1;
-    db[k]=Math.max(lv,rv);
-  });
-  /* Миграции для вновь добавленных записей. */
-  (db.orders||[]).forEach(migrateOrder);
-  (db.items||[]).forEach(migrateItem);
-  (db.users||[]).forEach(migrateUser);
-  (db.clients||[]).forEach(migrateClient);
-  (db.addresses||[]).forEach(migrateAddress);
-  (db.events||[]).forEach(migrateEvent);
-  (db.contractors||[]).forEach(migrateContractor);
-  (db.routes||[]).forEach(migrateRoute);
-  (db.notifications||[]).forEach(migrateNotification);
-  touchAllEntities();
-}
-
-async function yandexPull(){
-  syncEnsureDefaults();
-  if(!db.sync.token)throw new Error('Нет токена');
-  var text=await ydDownload(SYNC_FILENAME);
-  if(!text){return {ok:true,empty:true};}/* Файла ещё нет — это норма, не ошибка. */
-  var remote=null;
-  try{remote=JSON.parse(text);}catch(e){throw new Error('Файл повреждён (не JSON)');}
-  applySyncPayload(remote);
-  db.sync.lastPullAt=Date.now();
-  if(remote&&remote.exportedAt)db.sync.remoteRev=remote.exportedAt;
-  save();
-  return {ok:true,merged:true};
-}
-async function yandexPush(){
-  syncEnsureDefaults();
-  if(!db.sync.token)throw new Error('Нет токена');
-  await ydEnsureFolder();
-  var payload=buildSyncPayload();
-  await ydUpload(SYNC_FILENAME,JSON.stringify(payload));
-  db.sync.lastPushAt=Date.now();
-  save();
-  return {ok:true};
-}
-async function syncNow(bothWays){
-  syncEnsureDefaults();
-  if(!db.sync.enabled){uiAlert('Синхронизация выключена');return;}
-  if(!db.sync.token){uiAlert('Введите токен Яндекс.Диска в настройках');return;}
-  if(!isOnline()){uiAlert('Нет интернета');return;}
-  db.sync.status='syncing';updateSyncDot();
-  try{
-    if(bothWays!==false){
-      await yandexPull();
-    }
-    await yandexPush();
-    db.sync.status='idle';db.sync.lastError='';
-    save();updateSyncDot();
-    return {ok:true};
-  }catch(e){
+  },function(err){
     db.sync.status='error';
-    db.sync.lastError=String(e.message||e);
-    save();updateSyncDot();
-    throw e;
-  }
+    db.sync.lastError=String((err&&err.message)||err);
+    updateSyncDot();
+  });
 }
 
-/* === Дебаунс push. === */
-var _pushTimer=null,_pushScheduled=false;
+/* === Полная отправка всей базы в Firebase. === */
+function fbPushAll(){
+  if(!_fbDbRef)return Promise.reject(new Error('Firebase не инициализирован'));
+  if(!isOnline())return Promise.reject(new Error('Нет интернета'));
+  var payload=buildSyncPayload();
+  _fbLastPushedAt=Date.now();
+  return _fbDbRef.set(payload).then(function(){
+    db.sync.lastPushAt=Date.now();
+    db.sync.status='idle';
+    db.sync.lastError='';
+    updateSyncDot();
+  }).catch(function(e){
+    db.sync.status='error';
+    db.sync.lastError=String((e&&e.message)||e);
+    updateSyncDot();
+    throw e;
+  });
+}
+
+/* === Дебаунс-отправка. Вызывается из save() при каждом изменении базы. === */
 function schedulePush(){
-  if(!db.sync||!db.sync.enabled||!db.sync.token)return;
+  if(_fbApplyingRemote)return;
+  if(!db.sync||!db.sync.enabled)return;
+  if(!_fbDbRef)return;
   if(!isOnline())return;
-  _pushScheduled=true;
-  clearTimeout(_pushTimer);
-  _pushTimer=setTimeout(function(){
-    _pushScheduled=false;
-    yandexPush().then(function(){updateSyncDot();}).catch(function(e){db.sync.status='error';db.sync.lastError=String(e.message||e);updateSyncDot();});
-  },5000);
+  clearTimeout(_fbPushTimer);
+  _fbPushTimer=setTimeout(function(){ fbPushAll().catch(function(){}); },1500);
 }
-/* === Дебаунс pull — не чаще раза в 60 сек. === */
-var _pullTimer=null;
+
+/* === Подстраховочное чтение при возврате фокуса/интернета (не чаще раза в минуту). === */
 function schedulePull(){
-  if(!db.sync||!db.sync.enabled||!db.sync.token)return;
+  if(!_fbDbRef)return;
   if(!isOnline())return;
-  var now=Date.now();
-  var last=db.sync.lastPullAt||0;
-  if(now-last<60000)return;
-  clearTimeout(_pullTimer);
-  _pullTimer=setTimeout(function(){
-    yandexPull().then(function(){updateSyncDot();render();}).catch(function(e){db.sync.status='error';db.sync.lastError=String(e.message||e);updateSyncDot();});
-  },800);
+  if(Date.now()-(db.sync.lastPullAt||0)<60000)return;
+  _fbDbRef.once('value').then(function(snap){
+    if(Date.now()-_fbLastPushedAt<800)return;
+    var remote=snap.val();
+    if(!remote)return;
+    _fbApplyingRemote=true;
+    try{
+      applySyncPayload(remote);
+      db.sync.lastPullAt=Date.now();
+      save();
+      if(typeof render==='function'){try{render();}catch(e){}}
+    }finally{
+      setTimeout(function(){ _fbApplyingRemote=false; },300);
+    }
+  }).catch(function(){});
 }
+
+/* === «Синхронизировать сейчас» — pull + push. === */
+function syncNow(){
+  syncEnsureDefaults();
+  if(!db.sync.enabled){uiAlert('Синхронизация выключена');return Promise.resolve();}
+  if(!isOnline()){uiAlert('Нет интернета');return Promise.resolve();}
+  if(!_fbDbRef){uiAlert('Firebase не инициализирован');return Promise.resolve();}
+  db.sync.status='syncing';updateSyncDot();
+  return _fbDbRef.once('value').then(function(snap){
+    if(Date.now()-_fbLastPushedAt>=800){
+      var remote=snap.val();
+      if(remote){
+        _fbApplyingRemote=true;
+        try{applySyncPayload(remote);}finally{setTimeout(function(){ _fbApplyingRemote=false; },300);}
+      }
+    }
+    return fbPushAll();
+  }).then(function(){
+    db.sync.status='idle';
+    updateSyncDot();
+  }).catch(function(e){
+    db.sync.status='error';
+    db.sync.lastError=String((e&&e.message)||e);
+    updateSyncDot();
+    throw e;
+  });
+}
+
+/* === Наблюдатель за фокусом/возвратом в приложение. === */
 function initSyncWatcher(){
   if(window._syncWatcherBound)return;window._syncWatcherBound=true;
   document.addEventListener('visibilitychange',function(){
     if(document.visibilityState==='visible')schedulePull();
   });
   window.addEventListener('focus',function(){schedulePull();});
+}
+
+/* === Точка-индикатор в шапке. === */
+function updateSyncDot(){
+  var dot=document.getElementById('syncDot');if(!dot)return;
+  var st=(db.sync&&db.sync.status)||'off';
+  dot.className='sync-dot '+st;
 }
 
 /* === Экран синхронизации. === */
@@ -5839,25 +5719,19 @@ function renderSyncPanel(){
     else{statusTxt='⚪️ Ожидание';}
   }
   var html='<h2>'+LOGO_MARK(30)+' Синхронизация</h2>';
-  html+='<div class="draft-notice">Через Яндекс.Диск — данные доступны на всех ваших устройствах.<br>Используется папка <b>Зерцало/</b> на Диске. Токен хранится только на этом устройстве.</div>';
+  html+='<div class="draft-notice">Синхронизация через Firebase Realtime Database.<br>Изменения появляются на всех устройствах <b>автоматически</b>. Кнопки нужны только для принудительной отправки.</div>';
   html+='<div class="sync-panel">';
+  html+='<div class="sync-status-row"><span class="slbl">Провайдер:</span><span class="sval ok">Firebase (Google)</span></div>';
   html+='<div class="sync-status-row"><span class="slbl">Статус:</span><span class="sval '+statusCls+'">'+statusTxt+'</span></div>';
   html+='<div class="sync-status-row"><span class="slbl">Устройство:</span><span class="sval">'+esc(s.deviceId||'—')+'</span></div>';
-  html+='<div class="sync-status-row"><span class="slbl">Последний pull:</span><span class="sval">'+(s.lastPullAt?new Date(s.lastPullAt).toLocaleString('ru-RU'):'—')+'</span></div>';
-  html+='<div class="sync-status-row"><span class="slbl">Последний push:</span><span class="sval">'+(s.lastPushAt?new Date(s.lastPushAt).toLocaleString('ru-RU'):'—')+'</span></div>';
+  html+='<div class="sync-status-row"><span class="slbl">Последний приём:</span><span class="sval">'+(s.lastPullAt?new Date(s.lastPullAt).toLocaleString('ru-RU'):'—')+'</span></div>';
+  html+='<div class="sync-status-row"><span class="slbl">Последняя отправка:</span><span class="sval">'+(s.lastPushAt?new Date(s.lastPushAt).toLocaleString('ru-RU'):'—')+'</span></div>';
   if(s.lastError)html+='<div class="sync-status-row"><span class="slbl">Ошибка:</span><span class="sval err">'+esc(s.lastError)+'</span></div>';
   html+='</div>';
-  html+='<div class="section-title">Подключение</div>';
-  html+='<label>OAuth-токен Яндекс.Диска</label><input id="syncToken" type="password" value="'+esc(s.token||'')+'" placeholder="y0_...">';
-  html+='<div style="font-size:12px;color:var(--muted);margin-top:6px;line-height:1.5">Где взять: создайте приложение на <b>oauth.yandex.ru</b> с правами <b>cloud_api:disk.app_folder</b>, получите токен и вставьте здесь.</div>';
-  html+='<button class="btn btn-secondary" onclick="saveSyncToken()">💾 Сохранить токен</button>';
-  html+='<button class="btn btn-secondary" onclick="testSyncToken()">🔗 Проверить токен</button>';
-  html+='<div class="section-title">Управление</div>';
   html+='<div class="checkbox-row"><input type="checkbox" id="syncEnabled" '+(s.enabled?'checked':'')+'><label for="syncEnabled">Включить синхронизацию</label></div>';
-  html+='<button class="btn btn-primary" onclick="syncNow(true).then(function(){uiAlert(\'✔ Синхронизировано\');}).catch(function(e){uiAlert(\'Ошибка: \'+(e.message||e));})">🔄 Синхронизировать сейчас</button>';
-  html+='<button class="btn btn-secondary" onclick="syncPushOnly()">📤 Только отправить (push)</button>';
-  html+='<button class="btn btn-secondary" onclick="syncPullOnly()">📥 Только получить (pull)</button>';
-  html+='<button class="btn btn-danger" onclick="syncDisconnect()">⏹ Отключить синхронизацию</button>';
+  html+='<button class="btn btn-primary" onclick="fbForceSync()">🔄 Синхронизировать сейчас</button>';
+  html+='<button class="btn btn-secondary" onclick="fbPushAll().then(function(){uiAlert(\'✔ Отправлено\');}).catch(function(e){uiAlert(\'Ошибка: \'+(e.message||e));})">📤 Отправить всё</button>';
+  html+='<button class="btn btn-secondary" onclick="fbForcePull()">📥 Скачать из Firebase</button>';
   html+='<button class="btn btn-secondary" onclick="closeModal()">Закрыть</button>';
   showModal(html);
   var en=document.getElementById('syncEnabled');
@@ -5866,56 +5740,23 @@ function renderSyncPanel(){
     db.sync.status=en.checked?'idle':'off';
     save();
     updateSyncDot();
-    if(en.checked&&isOnline())schedulePull();
   };
 }
-function saveSyncToken(){
-  syncEnsureDefaults();
-  var t=(document.getElementById('syncToken').value||'').trim();
-  db.sync.token=t;
-  if(!t)db.sync.status='off';
-  save();
-  haptic(8);
-  uiAlert(t?'✔ Токен сохранён':'Токен очищен');
+function fbForceSync(){
+  syncNow().then(function(){uiAlert('✔ Синхронизировано');}).catch(function(e){uiAlert('Ошибка: '+(e.message||e));});
 }
-async function testSyncToken(){
-  syncEnsureDefaults();
-  var t=(document.getElementById('syncToken').value||'').trim();
-  var old=db.sync.token;
-  db.sync.token=t;
-  try{
-    var r=await ydPing();
-    uiAlert('✔ Токен рабочий\nПользователь: '+(r.user||'—'));
-  }catch(e){
-    db.sync.token=old;
+function fbForcePull(){
+  if(!_fbDbRef){uiAlert('Firebase не инициализирован');return;}
+  _fbDbRef.once('value').then(function(snap){
+    var remote=snap.val();
+    if(!remote){uiAlert('На Firebase пока пусто');return;}
+    _fbApplyingRemote=true;
+    try{applySyncPayload(remote);}finally{setTimeout(function(){ _fbApplyingRemote=false; },300);}
+    db.sync.lastPullAt=Date.now();
     save();
-    uiAlert('✗ Ошибка: '+(e.message||e));
-    return;
-  }
-  save();
-}
-async function syncPushOnly(){
-  try{await yandexPush();uiAlert('✔ Отправлено');}
-  catch(e){uiAlert('Ошибка: '+(e.message||e));}
-}
-async function syncPullOnly(){
-  try{var r=await yandexPull();uiAlert(r.empty?'Файл на Диске пуст (нечего получить)':'✔ Получено');render();}
-  catch(e){uiAlert('Ошибка: '+(e.message||e));}
-}
-async function syncDisconnect(){
-  var ok=await uiConfirm('Отключить синхронизацию?\n\nДанные на Диске не удалятся, токен будет очищен локально.','Отключение',{danger:true,yesLabel:'Отключить'});
-  if(!ok)return;
-  if(db.sync){
-    db.sync.enabled=false;
-    db.sync.token='';
-    db.sync.status='off';
-    db.sync.lastError='';
-    /* Ставим autoSetupDone, чтобы авто-подстановка токена не сработала повторно. */
-    db.sync.autoSetupDone=true;
-  }
-  save();
-  updateSyncDot();
-  closeModal();
+    render();
+    uiAlert('✔ Данные получены');
+  }).catch(function(e){uiAlert('Ошибка: '+(e.message||e));});
 }
 /* ============ НАСТРОЙКИ ============ */
 function openSettings(){
@@ -6119,7 +5960,7 @@ function selfTests(){
     return out.length===1&&out[0].v==='R';
   })());
   ok('computeOrderPrice без прайса → null',(function(){var s=db.settings.prices;db.settings.prices={};var r=computeOrderPrice({},[]);db.settings.prices=s;return r===null;})());
-  ok('AUTO_SYNC_TOKEN задан',typeof AUTO_SYNC_TOKEN==='string'&&AUTO_SYNC_TOKEN.length>10);
+  ok('Firebase config задан',typeof firebaseConfig==='object'&&!!firebaseConfig.databaseURL);
   return r;
 }
 function runSelfTests(){
