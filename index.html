@@ -868,7 +868,10 @@ function migrateItem(i){
     }
   }
   if(!Array.isArray(i.photos))i.photos=[];if(!Array.isArray(i.showerPanels))i.showerPanels=[];
-  i.showerPanels.forEach(function(p){if(p.hingeSide!=='right')p.hingeSide='left';});
+  i.showerPanels.forEach(function(p){
+      if(p.hingeSide!=='right')p.hingeSide='left';
+      if(p.swing!=='in'&&p.swing!=='out'&&p.swing!=='both')p.swing='out';
+    });
   if(i.showIso===undefined)i.showIso=true;if(i.showFront===undefined)i.showFront=false;
   if(!Array.isArray(i.shapesIso))i.shapesIso=Array.isArray(i.shapes)?i.shapes:[];
   if(!Array.isArray(i.shapesFront))i.shapesFront=[];
@@ -1588,12 +1591,20 @@ function drawTechIso(ctx,x,y,w,h,dims,scale,d){
     var offX=cx-projW*sc/2-pxMin*sc,offY=cy-projH*sc/2-pyMin*sc;
     function t2d(px,py,pz){var p=P3(px,py,pz);return {x:offX+p.x*sc,y:offY+p.y*sc};}
     pl.forEach(function(p){
-      var a=t2d(p.x1,p.y1,0),b=t2d(p.x2,p.y2,0),c=t2d(p.x2,p.y2,H),e=t2d(p.x1,p.y1,H);
-      var isD=p.role==='D';
-      ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.lineTo(c.x,c.y);ctx.lineTo(e.x,e.y);ctx.closePath();
-      ctx.fillStyle=isD?'rgba(201,90,30,0.14)':'rgba(61,134,200,0.10)';ctx.fill();
-      ctx.strokeStyle=isD?'#c95a1e':'#3d86c8';ctx.lineWidth=2;ctx.stroke();
-    });
+  var a=t2d(p.x1,p.y1,0),b=t2d(p.x2,p.y2,0),c=t2d(p.x2,p.y2,H),e=t2d(p.x1,p.y1,H);
+  var isD=p.role==='D';
+  ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.lineTo(c.x,c.y);ctx.lineTo(e.x,e.y);ctx.closePath();
+  ctx.fillStyle=isD?'rgba(201,90,30,0.14)':'rgba(61,134,200,0.10)';ctx.fill();
+  ctx.strokeStyle=isD?'#c95a1e':'#3d86c8';ctx.lineWidth=2;ctx.stroke();
+  if(isD){
+    var panel=d.showerPanels&&d.showerPanels[p.panelIndex];
+    var swing=(panel&&panel.swing)||'out';
+    var lbl=swing==='in'?'НА СЕБЯ':(swing==='out'?'ОТ СЕБЯ':'ОБЕ');
+    var midX=(a.x+b.x+c.x+e.x)/4,midY=(a.y+b.y+c.y+e.y)/4;
+    ctx.fillStyle='#c91e1e';ctx.font='700 12px "PT Sans Narrow",Arial';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(lbl,midX,midY);
+  }
+});
     if(d.showerHandle&&d.showerHandle.kind!=='none'){
       var info=handleInfo(d.showerHandle.kind),panel=pl[Number(d.showerHandle.panelIndex)||0];
       if(panel&&info.holes){
@@ -1748,13 +1759,29 @@ function drawTechFront(ctx,x,y,w,h,d){
       ctx.fillStyle=red;ctx.font='700 13px "PT Sans Narrow",Arial';ctx.textAlign='center';ctx.textBaseline='top';
       ctx.fillText(numFmt(showerGlassLength(p,d)),px+pw/2,startY+pxH+18);
       if(isD){
-        ctx.strokeStyle='#c95a1e';ctx.lineWidth=1.5;
-        ctx.beginPath();ctx.arc(px+pw/2,startY+pxH*0.5,pw*0.4,0,Math.PI*0.7);ctx.stroke();
-        ctx.beginPath();ctx.moveTo(px+pw/2+pw*0.4,startY+pxH*0.5);
-        ctx.lineTo(px+pw/2+pw*0.4-8,startY+pxH*0.5-6);
-        ctx.lineTo(px+pw/2+pw*0.4-2,startY+pxH*0.5+8);ctx.closePath();
-        ctx.fillStyle='#c95a1e';ctx.fill();
-      }
+  var panel=d.showerPanels&&d.showerPanels[i];
+  var swing=(panel&&panel.swing)||'out';
+  var cxx=px+pw/2,cyy=startY+pxH/2;
+  var rArc=pw*0.35;
+  ctx.strokeStyle='#c95a1e';ctx.lineWidth=1.5;
+  function arcArrow(dir){
+    ctx.beginPath();
+    if(dir>0)ctx.arc(cxx,cyy,rArc,0,Math.PI,false);
+    else ctx.arc(cxx,cyy,rArc,Math.PI,0,true);
+    ctx.stroke();
+    var ex=cxx+dir*rArc;
+    ctx.beginPath();ctx.moveTo(ex,cyy);
+    ctx.lineTo(ex-dir*8,cyy-6);
+    ctx.lineTo(ex-dir*8,cyy+6);ctx.closePath();
+    ctx.fillStyle='#c95a1e';ctx.fill();
+  }
+  if(swing==='in')arcArrow(-1);
+  else if(swing==='out')arcArrow(1);
+  else{arcArrow(-1);arcArrow(1);}
+  var labelTxt=swing==='in'?'НА СЕБЯ':(swing==='out'?'ОТ СЕБЯ':'ОБЕ');
+  ctx.fillStyle='#c95a1e';ctx.font='700 10px "PT Sans Narrow",Arial';ctx.textAlign='center';ctx.textBaseline='top';
+  ctx.fillText(labelTxt,px+pw/2,startY+pxH+30);
+}
       startX+=pw+gap*sc;
     });
     ctx.strokeStyle=red;ctx.lineWidth=1;ctx.setLineDash([3,3]);
@@ -1841,14 +1868,53 @@ function drawTechPlan(ctx,x,y,w,h,d){
     var projW=Math.max(1,maxX-minX),projH=Math.max(1,maxY-minY);
     var sc=Math.min((w-80)/projW,(h-60)/projH);
     var offX=cx-projW*sc/2-minX*sc,offY=cy-projH*sc/2-minY*sc;
-    pl.forEach(function(p){
-      var a={x:offX+p.x1*sc,y:offY+p.y1*sc},b={x:offX+p.x2*sc,y:offY+p.y2*sc};
-      var isD=p.role==='D';
-      ctx.strokeStyle=isD?'#c95a1e':accent;ctx.lineWidth=3;
-      ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
-      ctx.fillStyle=blue;ctx.font='700 12px "PT Sans Narrow",Arial';ctx.textAlign='center';ctx.textBaseline='middle';
-      ctx.fillText('№'+(p.panelIndex+1),a.x+(b.x-a.x)*0.5,a.y+(b.y-a.y)*0.5-8);
-    });
+pl.forEach(function(p){
+  var a={x:offX+p.x1*sc,y:offY+p.y1*sc},b={x:offX+p.x2*sc,y:offY+p.y2*sc};
+  var isD=p.role==='D';
+  ctx.strokeStyle=isD?'#c95a1e':accent;ctx.lineWidth=3;
+  ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
+  ctx.fillStyle=blue;ctx.font='700 12px "PT Sans Narrow",Arial';ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText('№'+(p.panelIndex+1),a.x+(b.x-a.x)*0.5,a.y+(b.y-a.y)*0.5-8);
+  if(isD){
+    var panel=d.showerPanels&&d.showerPanels[p.panelIndex];
+    var swing=(panel&&panel.swing)||'out';
+    var hingeAtLeft=(panel&&panel.hingeSide)!=='right';
+    var hingeC=hingeAtLeft?a:b;
+    var freeC=hingeAtLeft?b:a;
+    var dxF=freeC.x-hingeC.x,dyF=freeC.y-hingeC.y;
+    var lenPx=Math.hypot(dxF,dyF)||1;
+    var cxAll=0,cyAll=0;
+    pl.forEach(function(q){cxAll+=offX+((q.x1+q.x2)/2)*sc;cyAll+=offY+((q.y1+q.y2)/2)*sc;});
+    cxAll/=pl.length;cyAll/=pl.length;
+    var perpX=-dyF/lenPx,perpY=dxF/lenPx;
+    var midX=(hingeC.x+freeC.x)/2,midY=(hingeC.y+freeC.y)/2;
+    var dot=(cxAll-midX)*perpX+(cyAll-midY)*perpY;
+    var inside=dot>0?1:-1;
+    function drawDoorArc(dir){
+      var ang=Math.PI/2*dir;
+      var rotX=dxF*Math.cos(ang)-dyF*Math.sin(ang);
+      var rotY=dxF*Math.sin(ang)+dyF*Math.cos(ang);
+      var endX=hingeC.x+rotX,endY=hingeC.y+rotY;
+      var startAng=Math.atan2(freeC.y-hingeC.y,freeC.x-hingeC.x);
+      var endAng=Math.atan2(endY-hingeC.y,endX-hingeC.x);
+      var da=endAng-startAng;
+      while(da>Math.PI)da-=2*Math.PI;
+      while(da<-Math.PI)da+=2*Math.PI;
+      ctx.save();
+      ctx.strokeStyle='#c95a1e';ctx.lineWidth=1.2;
+      ctx.setLineDash([4,3]);
+      ctx.beginPath();
+      ctx.arc(hingeC.x,hingeC.y,lenPx,startAng,startAng+da,da<0);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.beginPath();ctx.moveTo(hingeC.x,hingeC.y);ctx.lineTo(endX,endY);ctx.stroke();
+      ctx.restore();
+    }
+    if(swing==='in')drawDoorArc(inside);
+    else if(swing==='out')drawDoorArc(-inside);
+    else{drawDoorArc(inside);drawDoorArc(-inside);}
+  }
+});
     for(var i=1;i<pl.length;i++){
       var pv=pl[i-1],cur=pl[i];
       var dx1=pv.x2-pv.x1,dy1=pv.y2-pv.y1,l1=Math.hypot(dx1,dy1)||1;dx1/=l1;dy1/=l1;
@@ -2622,17 +2688,32 @@ function renderShowerBuilder(){
   updateShowerTotals();
   if(!d.showerPanels.length)box.innerHTML='<div class="shower-empty">Нет панелей.</div>';
   else box.innerHTML=d.showerPanels.map(function(p,i){
-    var isDoor=p.type==='door',len=p.length||0,ang=p.angle||0,ap=[0,90,-90,180];
-    var ac=i===0?'':'<div class="shower-angle-chips">'+ap.map(function(a){return '<button type="button" class="'+(Math.abs(a-ang)<0.01?'active':'')+'" onclick="setShowerPanelAngle('+i+','+a+')">'+a+'°</button>';}).join('')+'</div>';
-    return '<div class="shower-item"><div class="shower-item-head"><span class="shower-item-num">'+(i+1)+'</span><span class="shower-item-type '+(isDoor?'door':'fixed')+'">'+(isDoor?'🚪 Дверь':'⬜ Добор')+'</span><button type="button" class="shower-item-del" onclick="removeShowerPanel('+i+')">✕</button></div>'+
-      '<div class="shower-item-fields">'+
-        '<div class="shower-item-field"><label>Проём, см</label><input id="shower_len_'+i+'" type="text" inputmode="decimal" value="'+numFmt(len)+'" oninput="setShowerPanelLength('+i+', this.value)"></div>'+
-        '<div class="shower-item-field"><label>Стекло, см</label><input id="shower_glass_'+i+'" type="text" value="'+numFmt(showerGlassLength(p,d))+'" disabled></div>'+
-      '</div>'+
-      '<div class="shower-item-fields"><div class="shower-item-field" style="grid-column:1/-1"><label>'+(i===0?'Направление':'Угол к пред.')+'</label><input id="shower_ang_'+i+'" type="text" inputmode="decimal" '+(i===0?'disabled':'')+' value="'+numFmt(i===0?0:ang)+'" oninput="setShowerPanelAngleInput('+i+', this.value)"></div></div>'+
-      ac+
-    '</div>';
-  }).join('');
+  var isDoor=p.type==='door',len=p.length||0,ang=p.angle||0,ap=[0,90,-90,180];
+  var ac=i===0?'':'<div class="shower-angle-chips">'+ap.map(function(a){return '<button type="button" class="'+(Math.abs(a-ang)<0.01?'active':'')+'" onclick="setShowerPanelAngle('+i+','+a+')">'+a+'°</button>';}).join('')+'</div>';
+  var swingHtml='';
+  if(isDoor){
+    var hinge=p.hingeSide==='right'?'right':'left';
+    var swing=(p.swing==='in')?'in':(p.swing==='both'?'both':'out');
+    swingHtml='<div class="shower-item-fields"><div class="shower-item-field" style="grid-column:1/-1"><label>Петли</label><div class="chips" style="margin-top:4px">'
+      +'<button type="button" class="chip '+(hinge==='left'?'active':'')+'" onclick="setShowerPanelHinge('+i+',\'left\')">← слева</button>'
+      +'<button type="button" class="chip '+(hinge==='right'?'active':'')+'" onclick="setShowerPanelHinge('+i+',\'right\')">справа →</button>'
+      +'</div></div></div>'
+      +'<div class="shower-item-fields"><div class="shower-item-field" style="grid-column:1/-1"><label>Открывание</label><div class="chips" style="margin-top:4px">'
+      +'<button type="button" class="chip '+(swing==='in'?'active':'')+'" onclick="setShowerPanelSwing('+i+',\'in\')">⬅ На себя</button>'
+      +'<button type="button" class="chip '+(swing==='out'?'active':'')+'" onclick="setShowerPanelSwing('+i+',\'out\')">➡ От себя</button>'
+      +'<button type="button" class="chip '+(swing==='both'?'active':'')+'" onclick="setShowerPanelSwing('+i+',\'both\')">↔ В обе</button>'
+      +'</div></div></div>';
+  }
+  return '<div class="shower-item"><div class="shower-item-head"><span class="shower-item-num">'+(i+1)+'</span><span class="shower-item-type '+(isDoor?'door':'fixed')+'">'+(isDoor?'🚪 Дверь':'⬜ Добор')+'</span><button type="button" class="shower-item-del" onclick="removeShowerPanel('+i+')">✕</button></div>'+
+    '<div class="shower-item-fields">'+
+      '<div class="shower-item-field"><label>Проём, см</label><input id="shower_len_'+i+'" type="text" inputmode="decimal" value="'+numFmt(len)+'" oninput="setShowerPanelLength('+i+', this.value)"></div>'+
+      '<div class="shower-item-field"><label>Стекло, см</label><input id="shower_glass_'+i+'" type="text" value="'+numFmt(showerGlassLength(p,d))+'" disabled></div>'+
+    '</div>'+
+    '<div class="shower-item-fields"><div class="shower-item-field" style="grid-column:1/-1"><label>'+(i===0?'Направление':'Угол к пред.')+'</label><input id="shower_ang_'+i+'" type="text" inputmode="decimal" '+(i===0?'disabled':'')+' value="'+numFmt(i===0?0:ang)+'" oninput="setShowerPanelAngleInput('+i+', this.value)"></div></div>'+
+    swingHtml+
+    ac+
+  '</div>';
+}).join('');
   var sillChips=document.getElementById('chips_sillType');
   if(sillChips)sillChips.innerHTML=SILL_TYPES.map(function(s){return chip(s.key,s.label,d.sillType||'none');}).join('');
   renderShowerProfiles();
@@ -2671,11 +2752,14 @@ function renderShowerProfiles(){
 function addShowerProfile(kind){var d=window._editDraft;if(!d)return;if(!Array.isArray(d.showerProfiles))d.showerProfiles=[];if(d.showerProfiles.length>=12){uiAlert('Максимум 12');return;}var pc=(d.showerPanels||[]).length;d.showerProfiles.push({kind:kind,mount:kind==='rod'?'right':(kind==='corner'?'inner':'left'),panelIndex:Math.min(1,pc),color:d.showerFitting||'chrome',note:'',offsetFromTop:kind==='rod'?4:null,wallLen:kind==='rod'?30:null});haptic(8);renderShowerProfiles();calcPreview(d);saveDraft();}
 function removeShowerProfile(idx){var d=window._editDraft;if(!d||!Array.isArray(d.showerProfiles))return;haptic(8);d.showerProfiles.splice(idx,1);renderShowerProfiles();calcPreview(d);saveDraft();}
 function setShowerProfileField(idx,key,val){var d=window._editDraft;if(!d||!d.showerProfiles||!d.showerProfiles[idx])return;d.showerProfiles[idx][key]=val;if(key==='mount'||key==='kind')renderShowerProfiles();calcPreview(d);saveDraft();}
-function addShowerPanel(type){var d=window._editDraft;if(!d)return;if(!Array.isArray(d.showerPanels))d.showerPanels=[];if(d.showerPanels.length>=8){uiAlert('Максимум 8');return;}d.showerPanels.push({type:type==='door'?'door':'fixed',length:type==='door'?70:40,angle:0,hingeSide:'left'});haptic(8);renderShowerBuilder();calcPreview(d);saveDraft();}
+function addShowerPanel(type){var d=window._editDraft;if(!d)return;if(!Array.isArray(d.showerPanels))d.showerPanels=[];if(d.showerPanels.length>=8){uiAlert('Максимум 8');return;}d.showerPanels.push({type:type==='door'?'door':'fixed',length:type==='door'?70:40,angle:0,hingeSide:'left',swing:'out'});haptic(8);renderShowerBuilder();calcPreview(d);saveDraft();}
+function addShowerPanel(type){var d=window._editDraft;if(!d)return;if(!Array.isArray(d.showerPanels))d.showerPanels=[];if(d.showerPanels.length>=8){uiAlert('Максимум 8');return;}d.showerPanels.push({type:type==='door'?'door':'fixed',length:type==='door'?70:40,angle:0,hingeSide:'left',swing:'out'});haptic(8);renderShowerBuilder();calcPreview(d);saveDraft();}
 function removeShowerPanel(i){var d=window._editDraft;if(!d||!Array.isArray(d.showerPanels))return;haptic(8);d.showerPanels.splice(i,1);renderShowerBuilder();calcPreview(d);saveDraft();}
 function setShowerPanelLength(i,v){var d=window._editDraft;if(!d||!d.showerPanels||!d.showerPanels[i])return;d.showerPanels[i].length=parseFloat(String(v).replace(',','.'))||0;var gEl=document.getElementById('shower_glass_'+i);if(gEl)gEl.value=numFmt(showerGlassLength(d.showerPanels[i],d));updateShowerTotals();calcPreview(d);saveDraft();}
 function setShowerPanelAngle(i,a){var d=window._editDraft;if(!d||!d.showerPanels||!d.showerPanels[i])return;d.showerPanels[i].angle=a;var iEl=document.getElementById('shower_ang_'+i);if(iEl)iEl.value=numFmt(a);var box=iEl&&iEl.closest('.shower-item');if(box){box.querySelectorAll('.shower-angle-chips button').forEach(function(c){c.classList.toggle('active',Math.abs(parseFloat(c.textContent)-a)<0.01);});}calcPreview(d);saveDraft();}
 function setShowerPanelAngleInput(i,v){var d=window._editDraft;if(!d||!d.showerPanels||!d.showerPanels[i])return;d.showerPanels[i].angle=parseFloat(String(v).replace(',','.'))||0;calcPreview(d);saveDraft();}
+function setShowerPanelHinge(i,v){var d=window._editDraft;if(!d||!d.showerPanels||!d.showerPanels[i])return;d.showerPanels[i].hingeSide=(v==='right'?'right':'left');renderShowerBuilder();calcPreview(d);saveDraft();}
+function setShowerPanelSwing(i,v){var d=window._editDraft;if(!d||!d.showerPanels||!d.showerPanels[i])return;d.showerPanels[i].swing=(v==='in'||v==='both')?v:'out';renderShowerBuilder();calcPreview(d);saveDraft();}
 
 /* ============ СБОР И СОХРАНЕНИЕ ============ */
 function collectDraft(d){
@@ -3790,6 +3874,7 @@ function createRouteWithOrder(orderId){
   db.routes.push(r);save();
   uiAlert('Маршрут создан');
 }
+
 /* ============ ЭТАП 3: КЛИЕНТЫ (UI) ============ */
 function onClientsSearchInput(v){clientsSearchQ=v;var el=document.getElementById('clientsList');if(el)el.innerHTML=renderClientsList();}
 function setClientsSort(m){clientsSortMode=m;var el=document.getElementById('clientsList');if(el)el.innerHTML=renderClientsList();renderTabs();}
