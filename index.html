@@ -27,7 +27,7 @@ html[data-theme="dark"] header{background:rgba(20,26,36,0.92);border-bottom-colo
 header button{width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:var(--accent-soft);color:var(--accent-deep);border:none;border-radius:14px;font-size:20px;font-weight:600;cursor:pointer;flex-shrink:0;transition:background var(--t-fast),transform var(--t-fast);position:relative}
 header button:active{transform:scale(0.94);background:var(--accent-line)}
 .header-logo{flex:1;display:flex;align-items:center;min-width:0;padding-left:2px}
-.header-logo svg{height:40px;max-width:100%}
+.header-logo svg{height:40px;width:40px;max-width:40px;flex-shrink:0}
 .header-user{display:none;flex-direction:column;align-items:flex-end;justify-content:center;font-size:11px;line-height:1.25;max-width:120px;min-width:0;padding:4px 10px;background:var(--accent-soft);border-radius:12px;cursor:pointer;transition:background var(--t-fast)}
 .header-user:active{background:var(--accent-line)}
 .header-user.visible{display:flex}
@@ -3475,7 +3475,7 @@ function initOnlineWatcher(){
 function render(){
   var app=document.getElementById('app'),backBtn=document.getElementById('backBtn'),shareBtn=document.getElementById('shareBtn'),settingsBtn=document.getElementById('settingsBtn'),logoutBtn=document.getElementById('logoutBtn'),hl=document.getElementById('headerLogo'),hu=document.getElementById('headerUser'),notifBtn=document.getElementById('notifBtn'),syncBtn=document.getElementById('syncBtn');
   var u=currentUser();
-  hl.innerHTML=LOGO_FULL(40);
+  hl.innerHTML=LOGO_MARK(40);
   hu.innerHTML=u?'<span class="hu-name">'+esc(u.name)+'</span><span class="hu-role">'+(ROLE_META[u.role]?ROLE_META[u.role].label:u.role)+'</span>':'';
   hu.classList.toggle('visible',!!u);
   backBtn.style.display='none';shareBtn.style.display='none';settingsBtn.style.display='none';logoutBtn.style.display='none';
@@ -6669,8 +6669,8 @@ function renderAuth(){
 (function(){if(!('serviceWorker' in navigator))return;if(location.protocol==='file:'||location.protocol==='content:')return;var swCode=["const CACHE='zerzalo-v3';","const SHELL=['./','./index.html'];","self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(SHELL)).then(()=>self.skipWaiting()).catch(()=>{}));});","self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()).catch(()=>{}));});","self.addEventListener('fetch',e=>{if(e.request.method!=='GET')return;const u=new URL(e.request.url);if(u.origin!==location.origin)return;e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request).then(resp=>{if(!resp||resp.status!==200||resp.type==='opaque')return resp;const cl=resp.clone();caches.open(CACHE).then(c=>c.put(e.request,cl)).catch(()=>{});return resp;}).catch(()=>caches.match('./index.html'))));});"].join('\n');window.addEventListener('load',function(){var urlsToTry=[];try{urlsToTry.push('./sw.js');}catch(e){}if(window.Blob&&window.URL&&URL.createObjectURL){try{var b=new Blob([swCode],{type:'application/javascript'}),blobUrl=URL.createObjectURL(b);urlsToTry.push(blobUrl);}catch(e){}}var tried=0;function tryNext(){if(tried>=urlsToTry.length)return;var u=urlsToTry[tried++];navigator.serviceWorker.register(u).then(function(reg){console.log('SW registered',reg.scope);}).catch(function(e){tryNext();});}tryNext();});})();
 
 /* ============ ВЕРСИЯ / BOOT ============ */
-var APP_VERSION='2.1.8';
-var SCHEMA_BUILD='17/notifications/roles/sync/auto-token/rounded/backlight-facet/manual-num/measure-date/event-types/fab-top/cta/back-guard/inline-actions/cad-mirror/cutout-sockets';
+var APP_VERSION='2.1.9';
+var SCHEMA_BUILD='17/notifications/roles/sync/auto-token/rounded/backlight-facet/manual-num/measure-date/event-types/fab-top/cta/back-guard/inline-actions/cad-mirror/cutout-sockets/header-mark';
 
 function boot(){
   applyTheme(getSavedTheme());
