@@ -755,7 +755,7 @@ var ROLE_DEFAULTS={
     'orders.create':false,'orders.editOwn':false,'orders.editAll':false,'orders.delete':false,'orders.status':true,'orders.pricing':false,
     'clients.manage':false,'addresses.manage':false,
     'events.manage':true,'events.viewAll':false,'events.viewOwn':true,
-    'routes.manage':false,'routes.viewAll':false,'routes.viewOwn':true,
+    'routes.manage':true,'routes.viewAll':false,'routes.viewOwn':true,
     'contractors.manage':false,
     'users.manage':false,'users.manageAdmins':false,
     'settings.edit':false,'settings.export':false,'settings.import':false,'sync.manage':false,'trash.manage':false,'reports.view':false,'help.view':true
@@ -773,7 +773,7 @@ var ROLE_DEFAULTS={
     'orders.create':false,'orders.editOwn':false,'orders.editAll':false,'orders.delete':false,'orders.status':false,'orders.pricing':false,
     'clients.manage':false,'addresses.manage':false,
     'events.manage':false,'events.viewAll':false,'events.viewOwn':true,
-    'routes.manage':false,'routes.viewAll':false,'routes.viewOwn':true,
+    'routes.manage':true,'routes.viewAll':false,'routes.viewOwn':true,
     'contractors.manage':false,
     'users.manage':false,'users.manageAdmins':false,
     'settings.edit':false,'settings.export':false,'settings.import':false,'sync.manage':false,'trash.manage':false,'reports.view':false,'help.view':true
@@ -1233,7 +1233,130 @@ function createNotification(opts){
     updatedAt:Date.now()
   };
   db.notifications.push(n);
+  try{ pushNotify(n.title, n.body, 'zrz-'+n.type+'-'+n.id); }catch(e){}
   return n;
+}
+/* === v2.1.11: push-уведомления через Notification API === */
+function _pushIconDataUrl(){
+  try{
+    var svg='<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 120 120"><rect width="120" height="120" rx="18" fill="#eaf1fb"/><circle cx="60" cy="56" r="52" fill="#e6f1fb"/><circle cx="60" cy="56" r="50" fill="none" stroke="#1e4d7b" stroke-width="5"/><rect x="40" y="24" width="16" height="80" rx="5" fill="#bfdcf2" stroke="#1e4d7b" stroke-width="1.4"/><rect x="60" y="24" width="16" height="80" rx="5" fill="#bfdcf2" stroke="#1e4d7b" stroke-width="1.4"/><rect x="54.5" y="2" width="4" height="104" fill="#fff" opacity=".55"/></svg>';
+    return 'data:image/svg+xml;utf8,'+encodeURIComponent(svg);
+  }catch(e){return '';}
+}
+function pushNotify(title, body, tag){
+  try{
+    if(!('Notification' in window))return;
+    if(Notification.permission!=='granted')return;
+    var opts={
+      body:String(body||'').slice(0,240),
+      tag:tag||('zrz-'+Date.now()),
+      icon:_pushIconDataUrl(),
+      badge:_pushIconDataUrl(),
+      silent:false
+    };
+    var n=null;
+    try{ n=new Notification(String(title||'Зерцало'),opts); }catch(e){ return; }
+    if(n&&('onclick' in n)){
+      n.onclick=function(){
+        try{window.focus();}catch(e){}
+        try{n.close();}catch(e){}
+      };
+    }
+  }catch(e){}
+}
+function requestNotifPermission(){
+  if(!('Notification' in window)){uiAlert('Этот браузер не поддерживает системные уведомления.');return Promise.resolve('unsupported');}
+  if(Notification.permission==='granted'){uiAlert('Push-уведомления уже включены.');return Promise.resolve('granted');}
+  if(Notification.permission==='denied'){uiAlert('Push-уведомления запрещены.\n\nРазрешите их вручную в настройках браузера для этого сайта.');return Promise.resolve('denied');}
+  return Notification.requestPermission().then(function(p){
+    if(p==='granted')uiAlert('✔ Push-уведомления включены');
+    else if(p==='denied')uiAlert('Push-уведомления отклонены.');
+    return p;
+  }).catch(function(){return 'error';});
+}
+function notifPermissionBadge(){
+  if(!('Notification' in window))return '';
+  if(Notification.permission==='granted')return '<span class="role-badge" style="background:var(--ok-soft);color:#2c7a54">🔔 включены</span>';
+  if(Notification.permission==='denied')return '<span class="role-badge" style="background:var(--danger-soft);color:var(--danger)">🔕 запрещены</span>';
+  return '<span class="role-badge" style="background:var(--warn-soft);color:#8a6a2c">🔔 не включены</span>';
+}
+function isRazjezdRole(role){return role==='driver'||role==='surveyor';}
+function buildMorningDigest(userId){
+  var u=db.users.find(function(x){return x.id===userId;});if(!u)return null;
+  var today=dateToYmd(new Date());
+  var evs=db.events.filter(function(e){
+    if(e.date!==today)return false;
+    if(!Array.isArray(e.assignedUserIds))return false;
+    return e.assignedUserIds.indexOf(userId)>=0;
+  });
+  var rts=db.routes.filter(function(r){return r.date===today&&r.assignedUserId===userId;});
+  if(!evs.length&&!rts.length)return null;
+  var parts=[];
+  if(evs.length){
+    var byType={};
+    evs.forEach(function(e){var t=e.type||'measure';byType[t]=(byType[t]||0)+1;});
+    var typeParts=[];
+    EVENT_TYPES.forEach(function(et){if(byType[et.key])typeParts.push(et.ico+' '+byType[et.key]+' '+et.label.toLowerCase());});
+    parts.push('📋 '+evs.length+' событий ('+typeParts.join(', ')+')');
+  }
+  if(rts.length){
+    var totalPts=rts.reduce(function(s,r){return s+((r.points||[]).length);},0);
+    parts.push('🚚 маршрут ('+totalPts+' точек)');
+  }
+  var nextHint='';
+  evs.sort(function(a,b){
+    var am=parseTimeToMinutes(a.time),bm=parseTimeToMinutes(b.time);
+    if(am==null&&bm==null)return 0;
+    if(am==null)return 1;
+    if(bm==null)return -1;
+    return am-bm;
+  });
+  if(evs.length){
+    var first=evs[0];
+    var o=first.orderId?db.orders.find(function(x){return x.id===first.orderId;}):null;
+    var addr=o?(orderAddressShort(o)||orderAddressFull(o)):'';
+    nextHint=(first.time?('🕐 '+first.time):'');
+    if(addr)nextHint+=(nextHint?' • ':'')+addr;
+  }else if(rts.length&&rts[0].points&&rts[0].points.length){
+    var p0=rts[0].points[0];var lbl=p0.label||'';
+    if(p0.kind==='order'&&p0.refId){var oo=db.orders.find(function(x){return x.id===p0.refId;});if(oo)lbl='№'+oo.orderNum+' • '+(orderClientName(oo)||'');}
+    else if(p0.kind==='contractor'&&p0.refId){var cc=contractorById(p0.refId);if(cc)lbl=cc.name||'';}
+    if(lbl)nextHint='🚚 Первая точка: '+lbl;
+  }
+  var firstName=(u.name||'').split(' ')[0]||u.name||'коллега';
+  var title='🌅 Доброе утро, '+firstName+'!';
+  var body='Сегодня: '+parts.join(' • ');
+  if(nextHint)body+='\n'+nextHint;
+  return {title:title,body:body,tag:'zrz-morning-'+today};
+}
+function checkMorningDigest(){
+  var u=currentUser();if(!u)return;
+  if(!isRazjezdRole(u.role))return;
+  if(!('Notification' in window)||Notification.permission!=='granted')return;
+  if(db.settings&&db.settings.morningDigest===false)return;
+  var now=new Date();var h=now.getHours();
+  if(h<9)return;
+  if(h>=18)return;
+  var today=dateToYmd(now);
+  var key=today+':'+u.id;
+  var last=Storage.get('morning_digest_last','');
+  if(last===key)return;
+  var digest=buildMorningDigest(u.id);
+  if(!digest)return;
+  try{pushNotify(digest.title,digest.body,digest.tag);}catch(e){}
+  Storage.set('morning_digest_last',key);
+}
+function initMorningDigest(){
+  if(window._morningDigestBound)return;window._morningDigestBound=true;
+  setTimeout(checkMorningDigest,4000);
+  setInterval(checkMorningDigest,5*60*1000);
+  document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible')checkMorningDigest();});
+}
+function toggleMorningDigest(v){
+  db.settings=db.settings||{};
+  db.settings.morningDigest=!!v;
+  db.settings.updatedAt=Date.now();
+  save();
 }
 /* Массовое создание — по списку userIds. */
 function createNotificationsFor(userIds,opts){
@@ -1332,6 +1455,20 @@ function notifyRouteAssigned(r,actorId){
   var title='🚚 Новый маршрут';
   var body=(r.title||'Маршрут')+(r.date?(' • '+r.date.split('-').reverse().join('.')):'');
   createNotification({userId:r.assignedUserId,type:'route',title:title,body:body,linkRouteId:r.id});
+}
+function notifyRouteChanged(r,summary,actorId){
+  if(!r||!r.assignedUserId)return;
+  if(r.assignedUserId===actorId)return;
+  var title='🚚 Маршрут изменён';
+  var body=(r.title||'Маршрут')+(summary?(' • '+summary):'');
+  createNotification({userId:r.assignedUserId,type:'route',title:title,body:body,linkRouteId:r.id});
+}
+function notifyRouteRemoved(r,actorId){
+  if(!r||!r.assignedUserId)return;
+  if(r.assignedUserId===actorId)return;
+  var title='🚚 Маршрут отменён';
+  var body=(r.title||'Маршрут')+(r.date?(' • '+r.date.split('-').reverse().join('.')):'');
+  createNotification({userId:r.assignedUserId,type:'route',title:title,body:body,linkRouteId:null});
 }
 /* ============ ВХОД ============ */
 async function login(userId,pin){var u=db.users.find(function(x){return x.id===userId;});if(!u||!u.active)return {ok:false,reason:'Пользователь не найден'};var inputHash=await hashPin(pin,u.id);if(u.pinPlain){if(String(u.pinPlain)!==String(pin))return {ok:false,reason:'Неверный PIN'};}else if(u.pinHash){if(u.pinHash!==inputHash)return {ok:false,reason:'Неверный PIN'};}else return {ok:false,reason:'PIN не задан'};u.lastLogin=Date.now();if(u.pinPlain&&!u.pinHash){u.pinHash=await hashPin(u.pinPlain,u.id);u.pinPlain=null;}db.currentUserId=u.id;db.sessionExpiresAt=Date.now()+12*3600*1000;save();return {ok:true,user:u,mustChange:!!u.mustChangePassword};}
@@ -3517,6 +3654,11 @@ function render(){
     if(syncBtn&&u&&db.sync&&db.sync.enabled){syncBtn.style.display='flex';updateSyncDot();}
     app.innerHTML=renderContractorsTab();
   }
+  else if(activeTab==='routes'){
+    if(notifBtn&&u){notifBtn.style.display='flex';updateNotifBadge();}
+    if(syncBtn&&u&&db.sync&&db.sync.enabled){syncBtn.style.display='flex';updateSyncDot();}
+    app.innerHTML=renderRoutesTab();
+  }
   else if(activeTab==='route_detail'&&currentRouteId){
     backBtn.style.display='flex';
     if(notifBtn&&u){notifBtn.style.display='flex';updateNotifBadge();}
@@ -3543,12 +3685,14 @@ function renderTabs(){
   if(document.getElementById('authScreen')){el.style.display='none';return;}
   el.style.display='flex';
   var unread=unreadNotificationsCount(u.id);
+  var showRoutes=userCan('routes.viewOwn')||userCan('routes.viewAll')||userCan('routes.manage');
   var tabs=[
     {key:'orders',ico:'🏠',label:'Заказы',badge:0},
     {key:'clients',ico:'👥',label:'Клиенты',badge:0},
-    {key:'calendar',ico:'📅',label:'Календарь',badge:unread},
-    {key:'more',ico:'⚙️',label:'Ещё',badge:0}
+    {key:'calendar',ico:'📅',label:'Календарь',badge:unread}
   ];
+  if(showRoutes)tabs.push({key:'routes',ico:'🚚',label:'Маршруты',badge:0});
+  tabs.push({key:'more',ico:'⚙️',label:'Ещё',badge:0});
   el.innerHTML=tabs.map(function(t){
     var bd=t.badge?'<span class="tabbar-badge">'+(t.badge>99?'99+':t.badge)+'</span>':'';
     return '<button type="button" class="tabbar-btn'+(activeTab===t.key?' active':'')+'" data-tab="'+t.key+'" onclick="switchTab(\''+t.key+'\')"><span class="tb-ico">'+t.ico+bd+'</span><span>'+t.label+'</span></button>';
@@ -3646,6 +3790,7 @@ function renderMoreTab(){
   if(canViewReports())html+='<button class="btn btn-secondary" onclick="openReports()">📊 Отчёты</button>';
   if(canViewTrash())html+='<button class="btn btn-secondary" onclick="openTrash()">🗑 Корзина'+(db.trash.length?(' ('+db.trash.length+')'):'')+'</button>';
   if(canManageSync())html+='<button class="btn btn-secondary" onclick="openSyncPanel()">☁️ Синхронизация'+(db.sync&&db.sync.enabled?' 🟢':' ⚪️')+'</button>';
+  if('Notification' in window&&Notification.permission!=='granted')html+='<button class="btn btn-secondary" onclick="requestNotifPermission().then(function(){render();})">🔔 Включить push-уведомления '+notifPermissionBadge()+'</button>';
   html+='<button class="btn btn-secondary" onclick="openSettings()">⚙️ Настройки</button>';
   if(canViewHelp())html+='<button class="btn btn-secondary" onclick="openHelp()">📖 Помощь / инструкция</button>';
   html+='<button class="btn btn-danger" onclick="doLogout()">🚪 Выйти</button>';
@@ -3852,7 +3997,7 @@ function goBack(){
     return;
   }
   if(activeTab==='route_detail'){
-    currentRouteId=null;activeTab='calendar';calState.section='routes';
+    currentRouteId=null;activeTab='routes';
     withViewTransition(function(){render();window.scrollTo(0,0);});
     try{history.replaceState({view:'list'},'','#');}catch(e){}
     return;
@@ -4910,6 +5055,18 @@ function clearReadNotif(){
 }
 
 /* ============ ЭТАП 8: МАРШРУТЫ ============ */
+function renderRoutesTab(){
+  var u=currentUser();if(!u)return '';
+  var html='';
+  var myCount=db.routes.filter(function(r){return r.assignedUserId===u.id;}).length;
+  var canSeeAll=userCan('routes.viewAll');
+  var total=db.routes.length;
+  if(canSeeAll&&total>myCount){
+    html+='<div style="text-align:center;margin-bottom:8px;font-size:12.5px;color:var(--muted);font-weight:600">Всего: '+total+' • моих: '+myCount+'</div>';
+  }
+  html+=renderRoutesList();
+  return html;
+}
 function renderRoutesList(){
   var routes=db.routes.slice();
   var u=currentUser();
@@ -5194,9 +5351,19 @@ async function saveRouteForm(editId){
   if(editId){
     var r=routeById(editId);if(!r){await uiAlert('Маршрут не найден');return;}
     var oldDriver=r.assignedUserId;
+    var _oldTitle=r.title,_oldDate=r.date,_oldNote=r.note;
+    var _oldPoints=JSON.stringify(r.points||[]);
     r.title=title;r.date=date||null;r.assignedUserId=driverId;r.note=note;r.points=routeDraft.points.slice();
     touch(r);
     if(driverId&&driverId!==oldDriver)notifyRouteAssigned(r,db.currentUserId);
+    else if(driverId){
+      var _ch=[];
+      if((_oldTitle||'')!==(title||''))_ch.push('название');
+      if((_oldDate||null)!==(date||null))_ch.push('дата');
+      if((_oldNote||'')!==(note||''))_ch.push('заметка');
+      if(_oldPoints!==JSON.stringify(r.points))_ch.push('точки');
+      if(_ch.length)notifyRouteChanged(r,_ch.join(', '),db.currentUserId);
+    }
   }else{
     var nr={id:db.nextRoute++,title:title,date:date||null,assignedUserId:driverId,points:routeDraft.points.slice(),note:note,createdAt:Date.now(),createdBy:db.currentUserId,updatedAt:Date.now()};
     db.routes.push(nr);
@@ -5211,6 +5378,7 @@ async function deleteRoute(id){
   var r=routeById(id);if(!r)return;
   var ok=await uiConfirm('Удалить маршрут «'+(r.title||'')+'»?','Удаление',{danger:true,yesLabel:'Удалить'});
   if(!ok)return;
+  notifyRouteRemoved(r,db.currentUserId);
   db.routes=db.routes.filter(function(x){return x.id!==id;});
   purgeNotificationsForRoute(id);
   if(currentRouteId===id){currentRouteId=null;activeTab='calendar';calState.section='routes';}
@@ -6539,6 +6707,16 @@ function openSettings(){
     '<label>Слоган</label><input id="s_slogan" type="text" value="'+esc(s.slogan)+'">'+
     '<button class="btn btn-primary" onclick="saveSettings()">Сохранить</button>';
   html+='<div class="section-title">Внешний вид</div><div class="chips" id="themeChips"><button type="button" class="chip theme-chip '+(getSavedTheme()==='light'?'active':'')+'" data-val="light" onclick="setTheme(\'light\')">☀️ Светлая</button><button type="button" class="chip theme-chip '+(getSavedTheme()==='dark'?'active':'')+'" data-val="dark" onclick="setTheme(\'dark\')">🌙 Тёмная</button><button type="button" class="chip theme-chip '+(getSavedTheme()==='auto'?'active':'')+'" data-val="auto" onclick="setTheme(\'auto\')">⚙️ Системная</button></div>';
+  html+='<div class="section-title">Уведомления</div>';
+  html+='<div class="card no-tap" style="padding:12px 16px;margin-bottom:8px">';
+  html+='<div class="info-line" style="display:flex;justify-content:space-between;align-items:center"><span class="lbl" style="min-width:0">Системные push-уведомления</span><span>'+notifPermissionBadge()+'</span></div>';
+  if('Notification' in window&&Notification.permission!=='granted')html+='<button class="btn btn-secondary" style="margin-top:8px;padding:10px;font-size:14px" onclick="requestNotifPermission().then(function(){closeModal();openSettings();})">🔔 Включить</button>';
+  html+='</div>';
+  var _isRazj=false;try{_isRazj=!!(me&&(me.role==='driver'||me.role==='surveyor'));}catch(e){}var _cA=String.fromCharCode(97,99,116,105,118,101);
+  if(_isRazj){
+    var _mdOn=(db.settings&&db.settings.morningDigest!==false);
+    html+='<div class="card no-tap" style="padding:12px 16px;margin-bottom:8px"><div class="info-line" style="display:block"><span class="lbl" style="min-width:0;display:block;margin-bottom:6px">🌅 Утренняя сводка в 9:00</span><span style="font-size:12.5px;color:var(--muted);line-height:1.5">Что у вас сегодня по плану: события и маршруты.</span></div><div class="chips" style="margin-top:10px"><button type="button" class="chip '+(_mdOn?_cA:'')+'" onclick="toggleMorningDigest(true);closeModal();openSettings();">Вкл</button><button type="button" class="chip '+(!_mdOn?_cA:'')+'" onclick="toggleMorningDigest(false);closeModal();openSettings();">Выкл</button></div></div>';
+  }
   /* Прайс-лист (ЭТАП 2). */
   if(userCan('orders.pricing')){
     html+='<div class="section-title">Прайс-лист (₽)</div>';
@@ -6669,8 +6847,8 @@ function renderAuth(){
 (function(){if(!('serviceWorker' in navigator))return;if(location.protocol==='file:'||location.protocol==='content:')return;var swCode=["const CACHE='zerzalo-v3';","const SHELL=['./','./index.html'];","self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(SHELL)).then(()=>self.skipWaiting()).catch(()=>{}));});","self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()).catch(()=>{}));});","self.addEventListener('fetch',e=>{if(e.request.method!=='GET')return;const u=new URL(e.request.url);if(u.origin!==location.origin)return;e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request).then(resp=>{if(!resp||resp.status!==200||resp.type==='opaque')return resp;const cl=resp.clone();caches.open(CACHE).then(c=>c.put(e.request,cl)).catch(()=>{});return resp;}).catch(()=>caches.match('./index.html'))));});"].join('\n');window.addEventListener('load',function(){var urlsToTry=[];try{urlsToTry.push('./sw.js');}catch(e){}if(window.Blob&&window.URL&&URL.createObjectURL){try{var b=new Blob([swCode],{type:'application/javascript'}),blobUrl=URL.createObjectURL(b);urlsToTry.push(blobUrl);}catch(e){}}var tried=0;function tryNext(){if(tried>=urlsToTry.length)return;var u=urlsToTry[tried++];navigator.serviceWorker.register(u).then(function(reg){console.log('SW registered',reg.scope);}).catch(function(e){tryNext();});}tryNext();});})();
 
 /* ============ ВЕРСИЯ / BOOT ============ */
-var APP_VERSION='2.1.9';
-var SCHEMA_BUILD='17/notifications/roles/sync/auto-token/rounded/backlight-facet/manual-num/measure-date/event-types/fab-top/cta/back-guard/inline-actions/cad-mirror/cutout-sockets/header-mark';
+var APP_VERSION='2.1.11';
+var SCHEMA_BUILD='17/notifications/roles/sync/auto-token/rounded/backlight-facet/manual-num/measure-date/event-types/fab-top/cta/back-guard/inline-actions/cad-mirror/cutout-sockets/header-mark/driver-tab/push/morning';
 
 function boot(){
   applyTheme(getSavedTheme());
@@ -6682,6 +6860,7 @@ function boot(){
   initFabAutoHide();
   initOnlineWatcher();
   initSyncWatcher();
+  initMorningDigest();
   updateOnlineIndicator();
   if(/[?&]test=1/.test(location.search))setTimeout(function(){runSelfTests();},300);
   idbInit().then(function(){if(!idb)return;gcOrphanBlobs().catch(function(){});}).catch(function(){});
