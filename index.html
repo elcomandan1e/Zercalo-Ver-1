@@ -149,6 +149,15 @@ html[data-theme="dark"] .checkbox-row input[type="checkbox"]::before{background:
 .corner-badge{position:absolute;top:10px;right:10px;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;line-height:1}
 .corner-badge.paid{background:var(--ok-soft);color:#2c7a54}
 .corner-badge.unpaid{background:var(--danger-soft);color:var(--danger)}
+.payment-chip{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:var(--r-pill);font-size:11px;font-weight:700;background:linear-gradient(135deg,rgba(255,215,0,0.28),rgba(255,200,0,0.14));color:#7a5a0c;border:1px solid rgba(230,190,40,0.5);margin-left:6px;vertical-align:middle;line-height:1.4}
+.payment-chip.paid{background:var(--ok-soft);color:#2c7a54;border-color:rgba(76,175,125,0.4)}
+.payment-block{margin-top:14px;padding:14px 16px;background:linear-gradient(180deg,rgba(255,215,0,0.12),rgba(255,200,0,0.04));border:1.5px solid rgba(230,190,40,0.4);border-radius:14px}
+.payment-block .pb-row{display:flex;justify-content:space-between;padding:4px 0;font-size:14px}
+.payment-block .pb-lbl{color:var(--text-soft);font-weight:500}
+.payment-block .pb-val{font-weight:700;color:var(--text);font-family:var(--font-mono)}
+.payment-block .pb-due{margin-top:8px;padding:10px 12px;background:linear-gradient(135deg,rgba(255,215,0,0.4),rgba(255,200,0,0.2));border-radius:10px;font-size:15px;font-weight:800;color:#7a5a0c;display:flex;justify-content:space-between;align-items:center;border:1.5px solid rgba(230,190,40,0.6)}
+.payment-block.paid-full{background:linear-gradient(180deg,rgba(76,175,125,0.1),rgba(76,175,125,0.03));border-color:rgba(76,175,125,0.35)}
+.payment-block.paid-full .pb-due{background:var(--ok-soft);color:#2c7a54;border-color:rgba(76,175,125,0.4)}
 .draw-section{margin-top:20px;border-top:1px solid var(--line);padding-top:16px}
 .draw-section h3{font-size:15px;margin:0 0 6px;color:var(--accent-deep);font-weight:700}
 .tech-draw-wrap{background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden;margin-top:8px}
@@ -381,6 +390,9 @@ html[data-theme="dark"] .tabbar{background:rgba(20,26,36,0.94);border-top-color:
    галерея, фильтры, планирование, поиск, справка, синхронизация)
    ============================================================ */
 .sync-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;background:var(--muted-2);box-shadow:0 0 0 2px rgba(255,255,255,0.6);transition:background .2s}
+#syncBtn{width:36px;height:36px;background:transparent;padding:0;box-shadow:none}
+#syncBtn:active{background:var(--accent-soft);transform:scale(0.94)}
+#syncBtn .sync-dot{width:14px;height:14px;box-shadow:0 0 0 2px rgba(91,127,184,0.22)}
 .sync-dot.on{background:var(--ok)}
 .sync-dot.busy{background:var(--warn);animation:pulseDot 1s infinite}
 .sync-dot.err{background:var(--danger)}
@@ -690,7 +702,7 @@ function layoutPreviewSVG(k){var l=PANNO_LAYOUTS.find(function(x){return x.key==
 
 /* Группы разрешений для UI. */
 var PERM_GROUPS=[
-  {key:'orders',label:'Заказы',perms:['orders.create','orders.editOwn','orders.editAll','orders.delete','orders.status','orders.pricing']},
+  {key:'orders',label:'Заказы',perms:['orders.create','orders.editOwn','orders.editAll','orders.delete','orders.status','orders.pricing','orders.payment']},
   {key:'clients',label:'Клиенты и адреса',perms:['clients.manage','addresses.manage']},
   {key:'events',label:'События',perms:['events.manage','events.viewAll','events.viewOwn']},
   {key:'routes',label:'Маршруты',perms:['routes.manage','routes.viewAll','routes.viewOwn']},
@@ -707,6 +719,7 @@ var PERMISSIONS={
   'orders.delete':{group:'orders',label:'Удалять заказы',desc:'Удаление заказов (с возможностью восстановления)'},
   'orders.status':{group:'orders',label:'Менять статус',desc:'Изменение статуса заказа и комментария мастера'},
   'orders.pricing':{group:'orders',label:'Видеть и менять цены',desc:'Прайс-лист и расчёт стоимости в заказе'},
+  'orders.payment':{group:'orders',label:'Отмечать оплату',desc:'Внесение оплаты по заказу, «к доплате»'},
   'clients.manage':{group:'clients',label:'Управлять клиентами',desc:'Создание/редактирование/архив клиентов'},
   'addresses.manage':{group:'clients',label:'Управлять адресами',desc:'Добавление/изменение/удаление адресов'},
   'events.manage':{group:'events',label:'Управлять событиями',desc:'Создание/редактирование/удаление замеров и монтажей'},
@@ -736,7 +749,7 @@ var PERMISSIONS={
    - driver   — водитель: видит свои маршруты и события по ним, заказы — только чтение. */
 var ROLE_DEFAULTS={
   admin:{
-    'orders.create':true,'orders.editOwn':true,'orders.editAll':true,'orders.delete':true,'orders.status':true,'orders.pricing':true,
+    'orders.create':true,'orders.editOwn':true,'orders.editAll':true,'orders.delete':true,'orders.status':true,'orders.pricing':true,'orders.payment':true,
     'clients.manage':true,'addresses.manage':true,
     'events.manage':true,'events.viewAll':true,'events.viewOwn':true,
     'routes.manage':true,'routes.viewAll':true,'routes.viewOwn':true,
@@ -745,7 +758,7 @@ var ROLE_DEFAULTS={
     'settings.edit':true,'settings.export':true,'settings.import':true,'sync.manage':true,'trash.manage':true,'reports.view':true,'help.view':true
   },
   manager:{
-    'orders.create':true,'orders.editOwn':true,'orders.editAll':true,'orders.delete':true,'orders.status':true,'orders.pricing':true,
+    'orders.create':true,'orders.editOwn':true,'orders.editAll':true,'orders.delete':true,'orders.status':true,'orders.pricing':true,'orders.payment':true,
     'clients.manage':true,'addresses.manage':true,
     'events.manage':true,'events.viewAll':true,'events.viewOwn':true,
     'routes.manage':true,'routes.viewAll':true,'routes.viewOwn':true,
@@ -754,7 +767,7 @@ var ROLE_DEFAULTS={
     'settings.edit':true,'settings.export':true,'settings.import':false,'sync.manage':false,'trash.manage':true,'reports.view':true,'help.view':true
   },
   master:{
-    'orders.create':false,'orders.editOwn':false,'orders.editAll':false,'orders.delete':false,'orders.status':true,'orders.pricing':false,
+    'orders.create':false,'orders.editOwn':false,'orders.editAll':false,'orders.delete':false,'orders.status':true,'orders.pricing':false,'orders.payment':true,
     'clients.manage':false,'addresses.manage':false,
     'events.manage':true,'events.viewAll':false,'events.viewOwn':true,
     'routes.manage':true,'routes.viewAll':false,'routes.viewOwn':true,
@@ -763,7 +776,7 @@ var ROLE_DEFAULTS={
     'settings.edit':false,'settings.export':false,'settings.import':false,'sync.manage':false,'trash.manage':false,'reports.view':false,'help.view':true
   },
   surveyor:{
-    'orders.create':true,'orders.editOwn':true,'orders.editAll':false,'orders.delete':false,'orders.status':true,'orders.pricing':true,
+    'orders.create':true,'orders.editOwn':true,'orders.editAll':false,'orders.delete':false,'orders.status':true,'orders.pricing':true,'orders.payment':true,
     'clients.manage':true,'addresses.manage':true,
     'events.manage':true,'events.viewAll':false,'events.viewOwn':true,
     'routes.manage':false,'routes.viewAll':false,'routes.viewOwn':true,
@@ -772,7 +785,7 @@ var ROLE_DEFAULTS={
     'settings.edit':false,'settings.export':false,'settings.import':false,'sync.manage':false,'trash.manage':false,'reports.view':false,'help.view':true
   },
   driver:{
-    'orders.create':false,'orders.editOwn':false,'orders.editAll':false,'orders.delete':false,'orders.status':false,'orders.pricing':false,
+    'orders.create':false,'orders.editOwn':false,'orders.editAll':false,'orders.delete':false,'orders.status':false,'orders.pricing':false,'orders.payment':false,
     'clients.manage':false,'addresses.manage':false,
     'events.manage':false,'events.viewAll':false,'events.viewOwn':true,
     'routes.manage':true,'routes.viewAll':false,'routes.viewOwn':true,
@@ -920,7 +933,7 @@ function migrateItem(i){
   return i;
 }
 
-function migrateOrder(o){if(!o)return o;if(o.liftNeeded==null)o.liftNeeded=false;if(o.liftFloor==null)o.liftFloor=0;if(o.parkingCarry==null)o.parkingCarry=false;if(o.needPass==null)o.needPass=false;if(o.paid==null)o.paid=false;if(o.paidAmount==null)o.paidAmount=0;if(o.manualNum==null)o.manualNum=false;if(o.clientNote==null)o.clientNote='';if(o.orderNote==null)o.orderNote='';if(o.masterComment==null)o.masterComment='';if(o.status==null)o.status='new';if(o.createdBy==null)o.createdBy=null;if(!Array.isArray(o.assignedUserIds))o.assignedUserIds=null;if(o.measureDate==null)o.measureDate=null;
+function migrateOrder(o){if(!o)return o;if(o.liftNeeded==null)o.liftNeeded=false;if(o.liftFloor==null)o.liftFloor=0;if(o.parkingCarry==null)o.parkingCarry=false;if(o.needPass==null)o.needPass=false;if(o.paid==null)o.paid=false;if(o.paidAmount==null)o.paidAmount=0;if(o.orderTotal==null)o.orderTotal=0;if(o.orderPaid==null)o.orderPaid=0;if(o.manualNum==null)o.manualNum=false;if(o.clientNote==null)o.clientNote='';if(o.orderNote==null)o.orderNote='';if(o.masterComment==null)o.masterComment='';if(o.status==null)o.status='new';if(o.createdBy==null)o.createdBy=null;if(!Array.isArray(o.assignedUserIds))o.assignedUserIds=null;if(o.measureDate==null)o.measureDate=null;
   if(o.clientId==null)o.clientId=null;
   if(o.addressId==null)o.addressId=null;
   if(o.snapshot==null)o.snapshot=null;
@@ -970,6 +983,7 @@ function migrateAddress(a){
 
 function migrateEvent(e){
   if(!e)return e;
+  if(e.legFromPrev==null)e.legFromPrev=null;
   if(e.type==null)e.type='measure';
   if(e.orderId==null)e.orderId=null;
   if(e.date==null)e.date=null;
@@ -1013,6 +1027,7 @@ function migrateRoute(r){
     if(p.label==null)p.label='';
     if(p.note==null)p.note='';
     if(p.time==null)p.time='';
+    if(p.legFromPrev==null)p.legFromPrev=null;
   });
   if(r.note==null)r.note='';
   if(r.createdAt==null)r.createdAt=Date.now();
@@ -1049,7 +1064,208 @@ function ensureRoleDefaults(){
   });
 }
 
-/* === ЛЕГАСИ-МИГРАЦИЯ: разложить старые заказы на клиентов и адреса (ЭТАП 1) === */
+/* ============ v2.1.18: ГЕОКОДЕР + OSRM + РАСЧЁТ ДЛИТЕЛЬНОСТИ СОБЫТИЙ ============ */
+function ensureGeoCache(){if(!db.geoCache)db.geoCache={geocode:{},osrm:{}};}
+function geoCacheGet(kind,key){ensureGeoCache();var bag=db.geoCache[kind]||{};return bag[key]||null;}
+function geoCachePut(kind,key,val){ensureGeoCache();if(!db.geoCache[kind])db.geoCache[kind]={};db.geoCache[kind][key]=val;}
+
+function normalizeAddrForGeo(s){return String(s||'').trim().toLowerCase().replace(/\s+/g,' ');}
+
+async function geocodeAddress(addr){
+  var key=normalizeAddrForGeo(addr);
+  if(!key)return null;
+  var cached=geoCacheGet('geocode',key);
+  if(cached)return cached;
+  try{
+    var url='https://nominatim.openstreetmap.org/search?format=json&limit=1&accept-language=ru&q='+encodeURIComponent(addr);
+    var resp=await fetch(url,{headers:{'Accept':'application/json'}});
+    if(!resp.ok)return null;
+    var data=await resp.json();
+    if(!data||!data.length)return null;
+    var res={lat:parseFloat(data[0].lat),lon:parseFloat(data[0].lon),display:data[0].display_name||''};
+    geoCachePut('geocode',key,res);
+    return res;
+  }catch(e){return null;}
+}
+
+async function osrmRoute(fromCoord,toCoord){
+  var key=fromCoord.lat.toFixed(4)+','+fromCoord.lon.toFixed(4)+'>'+toCoord.lat.toFixed(4)+','+toCoord.lon.toFixed(4);
+  var cached=geoCacheGet('osrm',key);
+  if(cached)return cached;
+  try{
+    var url='https://router.project-osrm.org/route/v1/driving/'+fromCoord.lon+','+fromCoord.lat+';'+toCoord.lon+','+toCoord.lat+'?overview=false';
+    var resp=await fetch(url);
+    if(!resp.ok)return null;
+    var data=await resp.json();
+    if(!data||!data.routes||!data.routes.length)return null;
+    var r=data.routes[0];
+    var res={km:Math.round(r.distance/100)/10,minutes:Math.round(r.duration/60)};
+    geoCachePut('osrm',key,res);
+    return res;
+  }catch(e){return null;}
+}
+
+async function calcRouteDistance(fromAddr,toAddr){
+  if(!fromAddr||!toAddr)return null;
+  var a=await geocodeAddress(fromAddr);
+  if(!a)return {error:'from'};
+  var b=await geocodeAddress(toAddr);
+  if(!b)return {error:'to'};
+  var r=await osrmRoute(a,b);
+  if(!r)return {error:'osrm'};
+  return r;
+}
+
+/* Адрес из заказа (для расчёта) */
+function orderAddrString(o){
+  if(!o)return '';
+  if(o.addressId){var a=addressById(o.addressId);if(a){var s=addressFull(a);if(s)return s;}}
+  return orderAddressFull(o)||'';
+}
+/* Адрес контрагента */
+function contractorAddrString(c){
+  if(!c)return '';
+  if(c.addressId){var a=addressById(c.addressId);if(a){var s=addressFull(a);if(s)return s;}}
+  return '';
+}
+/* Адрес точки маршрута */
+function routePointAddrString(p){
+  if(!p)return '';
+  if(p.kind==='order'){var o=db.orders.find(function(x){return x.id===p.refId;});return o?orderAddrString(o):'';}
+  if(p.kind==='contractor'){var co=contractorById(p.refId);return co?contractorAddrString(co):'';}
+  if(p.addressId){var a=addressById(p.addressId);if(a){var s=addressFull(a);if(s)return s;}}
+  return p.label||'';
+}
+
+/* === v2.1.18: ОЦЕНКА ДЛИТЕЛЬНОСТИ СОБЫТИЯ === */
+function estimateInstallDuration(order){
+  if(!order)return 60;
+  var items=itemsOf(order.id);
+  if(!items.length)return 60;
+  var totalMin=0;
+  items.forEach(function(i){
+    var perItem=0;
+    var qty=Number(i.qty)||1;
+    if(i.type==='MIRROR'){
+      var gd=null;try{gd=glassDimensions(i);}catch(e){}
+      var h=gd?(gd.h||0):0;
+      perItem=(h>=200?60:30);
+    } else if(i.type==='SHOWER'){
+      perItem=150;
+    } else if(i.type==='APRON'){
+      perItem=60;
+    } else if(i.type==='PANNO'){
+      var a=calcArea(i);
+      perItem=30+15*Math.max(1,Math.round(a));
+    } else if(i.type==='SHELF'){
+      perItem=25;
+    } else {
+      perItem=30;
+    }
+    /* Доплаты на изделие — считаем один раз на весь заказ, а не на каждое */
+    totalMin+=perItem*qty;
+  });
+  /* Подсветка зеркала: +15 мин за каждое зеркало с electric */
+  var electricMirrors=items.filter(function(i){return i.type==='MIRROR'&&hasElectric(i);}).reduce(function(s,i){return s+(Number(i.qty)||1);},0);
+  totalMin+=electricMirrors*15;
+  /* Розетки: +15 мин за каждую */
+  var socketsCount=items.reduce(function(s,i){
+    if(!i.socketsMount||!Array.isArray(i.socketsList))return s;
+    return s+i.socketsList.reduce(function(ss,sl){return ss+(Number(sl.count)||0);},0);
+  },0);
+  totalMin+=socketsCount*15;
+  /* Светильники (поле появится в 2.1.19) — на всякий случай уже учитываем */
+  var lightsCount=items.reduce(function(s,i){
+    if(!i.lightsMount)return s;
+    return s+(Number(i.lightsCount)||0)*(Number(i.qty)||1);
+  },0);
+  totalMin+=lightsCount*15;
+  return Math.max(30,totalMin);
+}
+
+function estimateEventDuration(e){
+  if(!e)return 0;
+  /* Если пользователь явно задал duration — уважаем */
+  if(Number(e.duration)>0)return Number(e.duration);
+  var t=e.type||'measure';
+  var meta=EVENT_TYPES.find(function(x){return x.key===t;});
+  /* Монтаж — по заказу */
+  if(t==='install'&&e.orderId){
+    var o=db.orders.find(function(x){return x.id===e.orderId;});
+    if(o)return estimateInstallDuration(o);
+  }
+  /* Доставка / логистические — duration + legFromPrev.minutes */
+  if(t==='delivery'||t==='return'||t==='purchase'||t==='tempering_out'||t==='tempering_in'){
+    var base=(meta&&meta.defaultMin)||0;
+    var leg=e.legFromPrev&&Number(e.legFromPrev.minutes)||0;
+    return base+leg;
+  }
+  return (meta&&meta.defaultMin)||30;
+}
+
+function formatDurationMin(min){
+  min=Number(min)||0;
+  if(min<=0)return '—';
+  var h=Math.floor(min/60),m=Math.round(min%60);
+  if(h&&m)return h+' ч '+m+' мин';
+  if(h)return h+' ч';
+  return m+' мин';
+}
+
+/* === Загрузка дня по людям (события + маршруты с дорогой) === */
+function dayWorkload(dateStr){
+  var result={};
+  if(!dateStr)return result;
+  /* События */
+  db.events.forEach(function(e){
+    if(e.date!==dateStr)return;
+    if(!Array.isArray(e.assignedUserIds))return;
+    var min=estimateEventDuration(e);
+    e.assignedUserIds.forEach(function(uid){
+      if(!uid)return;
+      result[uid]=result[uid]||{events:0,routes:0,total:0,eventIds:[],routeIds:[]};
+      result[uid].events+=min;
+      result[uid].total+=min;
+      result[uid].eventIds.push(e.id);
+    });
+  });
+  /* Маршруты (только дорога + время на точке = 15 мин по умолчанию) */
+  db.routes.forEach(function(r){
+    if(r.date!==dateStr)return;
+    if(!r.assignedUserId)return;
+    var uid=r.assignedUserId;
+    result[uid]=result[uid]||{events:0,routes:0,total:0,eventIds:[],routeIds:[]};
+    var routeMin=0;
+    (r.points||[]).forEach(function(p){
+      if(p.legFromPrev&&Number(p.legFromPrev.minutes))routeMin+=Number(p.legFromPrev.minutes);
+    });
+    /* +15 мин на каждую точку (погрузка/разгрузка/подпись) */
+    routeMin+=(r.points||[]).length*15;
+    result[uid].routes+=routeMin;
+    result[uid].total+=routeMin;
+    result[uid].routeIds.push(r.id);
+  });
+  return result;
+}
+
+/* === Открыть Яндекс.Карты с маршрутом от базы === */
+function openYandexRoute(toAddr){
+  var base=(db.settings&&db.settings.baseAddress)||'';
+  var ua=navigator.userAgent||'';
+  var url;
+  if(base){
+    url=/iphone|ipad|ipod/i.test(ua)
+      ?('https://maps.apple.com/?saddr='+encodeURIComponent(base)+'&daddr='+encodeURIComponent(toAddr))
+      :('https://yandex.ru/maps/?rtext='+encodeURIComponent(base)+'~'+encodeURIComponent(toAddr)+'&rtt=auto');
+  }else{
+    url=/iphone|ipad|ipod/i.test(ua)
+      ?('https://maps.apple.com/?q='+encodeURIComponent(toAddr))
+      :('https://yandex.ru/maps/?text='+encodeURIComponent(toAddr));
+  }
+  window.open(url,'_blank');
+}
+
+/* ============ ЛЕГАСИ-МИГРАЦИЯ: разложить старые заказы на клиентов и адреса (ЭТАП 1) ============ */
 function migrateLegacyOrders(){
   /* Для каждого заказа без clientId/addressId — создаём клиента и адрес из его полей */
   var anyMigrated=false;
@@ -1305,6 +1521,11 @@ function buildMorningDigest(userId){
     var totalPts=rts.reduce(function(s,r){return s+((r.points||[]).length);},0);
     parts.push('🚚 маршрут ('+totalPts+' точек)');
   }
+  var wl=dayWorkload(today);
+  var myWl=wl[userId];
+  if(myWl&&myWl.total>0){
+    parts.push('⏱ Загрузка ~'+formatDurationMin(myWl.total));
+  }
   var nextHint='';
   evs.sort(function(a,b){
     var am=parseTimeToMinutes(a.time),bm=parseTimeToMinutes(b.time);
@@ -1527,11 +1748,16 @@ function dayAgenda(dateStr){
   return {events:evs,routes:rts,all:all};
 }
 var EVENT_TYPES=[
-  {key:'measure',label:'Замер',ico:'📏',color:'#3b5c8f'},
-  {key:'remeasure',label:'Дозамер',ico:'📐',color:'#5b7fb8'},
-  {key:'install',label:'Монтаж',ico:'🔧',color:'#3a7a5a'},
-  {key:'delivery',label:'Доставка',ico:'🚚',color:'#a05c26'},
-  {key:'purchase',label:'Закупка',ico:'🛒',color:'#9d3668'}
+  {key:'measure',label:'Замер',ico:'📏',color:'#3b5c8f',defaultMin:60},
+  {key:'remeasure',label:'Дозамер',ico:'📐',color:'#5b7fb8',defaultMin:30},
+  {key:'install',label:'Монтаж',ico:'🔧',color:'#3a7a5a',defaultMin:60},
+  {key:'demontage',label:'Демонтаж',ico:'🔨',color:'#c14d4d',defaultMin:120},
+  {key:'delivery',label:'Доставка',ico:'🚚',color:'#a05c26',defaultMin:15},
+  {key:'purchase',label:'Закупка',ico:'🛒',color:'#9d3668',defaultMin:0},
+  {key:'return',label:'Возврат',ico:'↩️',color:'#7a4b9d',defaultMin:0},
+  {key:'tempering_out',label:'Отвезти в закалку',ico:'🔥',color:'#b54708',defaultMin:30},
+  {key:'tempering_in',label:'Забрать из закалки',ico:'🔥',color:'#b54708',defaultMin:30},
+  {key:'meeting',label:'Встреча',ico:'☕️',color:'#475467',defaultMin:30}
 ];
 function eventTypeInfo(t){return EVENT_TYPES.find(function(x){return x.key===t;})||EVENT_TYPES[0];}
 function eventTypeLabel(t){return eventTypeInfo(t).label;}
@@ -3622,11 +3848,9 @@ function render(){
   if(syncBtn)syncBtn.style.display='none';
   if(activeTab==='orders'){
     if(view==='list'){
-      settingsBtn.style.display=u?'flex':'none';
-      logoutBtn.style.display=u?'flex':'none';
       if(notifBtn&&u){notifBtn.style.display='flex';updateNotifBadge();}
       if(syncBtn&&u&&db.sync&&db.sync.enabled){syncBtn.style.display='flex';updateSyncDot();}
-      app.innerHTML=renderList();
+      app.innerHTML=renderHome();
     }
     else{
       backBtn.style.display='flex';shareBtn.style.display='flex';
@@ -3667,7 +3891,7 @@ function render(){
     if(syncBtn&&u&&db.sync&&db.sync.enabled){syncBtn.style.display='flex';updateSyncDot();}
     app.innerHTML=openRoute(currentRouteId);
   }
-  else{app.innerHTML=renderList();}
+  else{app.innerHTML=renderHome();}
   app.classList.remove('page-enter');void app.offsetWidth;app.classList.add('page-enter');
   app.querySelectorAll('.fab-always').forEach(function(f){f.classList.remove('fab-hidden');});
   var cards=app.querySelectorAll('.card');
@@ -3687,14 +3911,12 @@ function renderTabs(){
   if(document.getElementById('authScreen')){el.style.display='none';return;}
   el.style.display='flex';
   var unread=unreadNotificationsCount(u.id);
-  var showRoutes=userCan('routes.viewOwn')||userCan('routes.viewAll')||userCan('routes.manage');
   var tabs=[
-    {key:'orders',ico:'🏠',label:'Заказы',badge:0},
+    {key:'orders',ico:'🏠',label:'Сегодня',badge:0},
     {key:'clients',ico:'👥',label:'Клиенты',badge:0},
-    {key:'calendar',ico:'📅',label:'Календарь',badge:unread}
+    {key:'calendar',ico:'📅',label:'Календарь',badge:unread},
+    {key:'more',ico:'☰',label:'Ещё',badge:0}
   ];
-  if(showRoutes)tabs.push({key:'routes',ico:'🚚',label:'Маршруты',badge:0});
-  tabs.push({key:'more',ico:'⚙️',label:'Ещё',badge:0});
   el.innerHTML=tabs.map(function(t){
     var bd=t.badge?'<span class="tabbar-badge">'+(t.badge>99?'99+':t.badge)+'</span>':'';
     return '<button type="button" class="tabbar-btn'+(activeTab===t.key?' active':'')+'" data-tab="'+t.key+'" onclick="switchTab(\''+t.key+'\')"><span class="tb-ico">'+t.ico+bd+'</span><span>'+t.label+'</span></button>';
@@ -3778,32 +4000,135 @@ function renderMoreTab(){
   html+='<div><div style="font-size:22px;font-weight:800;color:var(--accent-deep)">'+db.clients.filter(function(c){return !c.archived;}).length+'</div><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px">клиентов</div></div>';
   html+='<div><div style="font-size:22px;font-weight:800;color:var(--accent-deep)">'+db.routes.length+'</div><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px">маршрутов</div></div>';
   html+='</div>';
-  html+='<div class="section-title" style="margin-top:8px">Аккаунт</div>';
+  var workBtns='';
+  if(userCan('routes.viewOwn')||userCan('routes.viewAll')||userCan('routes.manage'))
+    workBtns+='<button class="btn btn-secondary" onclick="activeTab=\'calendar\';calState.section=\'routes\';render();window.scrollTo(0,0)">🚚 Маршруты</button>';
+  if(canManageContractors())
+    workBtns+='<button class="btn btn-secondary" onclick="activeTab=\'contractors\';render();window.scrollTo(0,0)">🏢 Контрагенты ('+db.contractors.filter(function(c){return !c.archived;}).length+')</button>';
+  if(canViewReports())
+    workBtns+='<button class="btn btn-secondary" onclick="openReports()">📊 Отчёты</button>';
+  if(canViewTrash())
+    workBtns+='<button class="btn btn-secondary" onclick="openTrash()">🗑 Корзина'+(db.trash.length?(' ('+db.trash.length+')'):'')+'</button>';
+  if(workBtns)html+='<div class="section-title" style="margin-top:8px">Работа</div>'+workBtns;
+  var teamBtns='';
+  if(canManageUsers())
+    teamBtns+='<button class="btn btn-secondary" onclick="openUsers()">👥 Пользователи ('+db.users.filter(function(x){return x.active;}).length+')</button>';
+  if(canManageUsers())
+    teamBtns+='<button class="btn btn-secondary" onclick="openRolesSettings()">⚙️ Роли и права</button>';
+  if(teamBtns)html+='<div class="section-title">Команда</div>'+teamBtns;
+  var sysBtns='';
+  if(canManageSync())
+    sysBtns+='<button class="btn btn-secondary" onclick="openSyncPanel()">☁️ Синхронизация'+(db.sync&&db.sync.enabled?' 🟢':' ⚪️')+'</button>';
+  if(canManageSync())
+    sysBtns+='<button class="btn btn-secondary" onclick="openFirebaseSecurity()">🔐 Безопасность Firebase'+(db.sync&&db.sync.authStatus==='signed'?' 🔒':' ⚠️')+'</button>';
+  if('Notification' in window&&Notification.permission!=='granted')
+    sysBtns+='<button class="btn btn-secondary" onclick="requestNotifPermission().then(function(){render();})">🔔 Включить push '+notifPermissionBadge()+'</button>';
+  if(DEBUG_MODE||(u&&u.role==='admin'))
+    sysBtns+='<button class="btn btn-secondary" onclick="openTestStand()">🧪 Тестовый стенд</button>';
+  if(sysBtns)html+='<div class="section-title">Система</div>'+sysBtns;
+  var helpBtns='';
+  if(canViewHelp())
+    helpBtns+='<button class="btn btn-secondary" onclick="openHelp()">📖 Помощь / инструкция</button>';
+  if(canViewHelp())
+    helpBtns+='<button class="btn btn-secondary" onclick="openDocs()">📚 Документация</button>';
+  if(helpBtns)html+='<div class="section-title">Справка</div>'+helpBtns;
+  html+='<div class="section-title">Аккаунт</div>';
   html+='<div class="card no-tap" style="padding-left:20px">';
   html+='<div class="info-line"><span class="lbl">ФИО</span><span class="val">'+esc(u.name)+'</span></div>';
   if(u.phone)html+='<div class="info-line"><span class="lbl">Телефон</span><span class="val"><a class="tap-link" href="'+phoneHref(u.phone)+'">'+esc(formatPhone(u.phone))+'</a></span></div>';
   html+='<div class="info-line"><span class="lbl">Роль</span><span class="val"><span class="role-badge role-'+u.role+'">'+(ROLE_META[u.role]?ROLE_META[u.role].label:u.role)+'</span></span></div>';
-  html+='<div class="info-line"><span class="lbl">Заказов</span><span class="val">'+visibleOrders().length+'</span></div>';
   html+='</div>';
   html+='<button class="btn btn-secondary" onclick="openProfile()">👤 Профиль</button>';
-  if(canManageUsers())html+='<button class="btn btn-secondary" onclick="openUsers()">👥 Пользователи ('+db.users.filter(function(x){return x.active;}).length+')</button>';
-  if(canManageUsers())html+='<button class="btn btn-secondary" onclick="openRolesSettings()">⚙️ Роли и права</button>';
-  if(canManageContractors())html+='<button class="btn btn-secondary" onclick="activeTab=\'contractors\';render();window.scrollTo(0,0)">🏢 Контрагенты ('+db.contractors.filter(function(c){return !c.archived;}).length+')</button>';
-  if(canViewReports())html+='<button class="btn btn-secondary" onclick="openReports()">📊 Отчёты</button>';
-  if(canViewTrash())html+='<button class="btn btn-secondary" onclick="openTrash()">🗑 Корзина'+(db.trash.length?(' ('+db.trash.length+')'):'')+'</button>';
-  if(canManageSync())html+='<button class="btn btn-secondary" onclick="openSyncPanel()">☁️ Синхронизация'+(db.sync&&db.sync.enabled?' 🟢':' ⚪️')+'</button>';
-  if('Notification' in window&&Notification.permission!=='granted')html+='<button class="btn btn-secondary" onclick="requestNotifPermission().then(function(){render();})">🔔 Включить push-уведомления '+notifPermissionBadge()+'</button>';
   html+='<button class="btn btn-secondary" onclick="openSettings()">⚙️ Настройки</button>';
-  if(canViewHelp())html+='<button class="btn btn-secondary" onclick="openHelp()">📖 Помощь / инструкция</button>';
-  if(canViewHelp())html+='<button class="btn btn-secondary" onclick="openDocs()">📚 Документация</button>';
-  if(DEBUG_MODE||(u&&u.role==='admin'))html+='<button class="btn btn-secondary" onclick="openTestStand()">🧪 Тестовый стенд</button>';
   html+='<button class="btn btn-danger" onclick="doLogout()">🚪 Выйти</button>';
   html+='<div class="footer-brand" style="margin-top:20px">'+LOGO_MARK(20)+'<span>Зерцало</span></div>';
   return html;
 }
-function renderList(){
+function renderHome(){
+  return renderHomeDashboard()+renderListBody();
+}
+function renderHomeDashboard(){
+  var u=currentUser();
+  if(!u)return '';
+  var today=dateToYmd(new Date());
+  var now=new Date();
+  var h=now.getHours();
+  var greet=h<6?'Доброй ночи':(h<12?'Доброе утро':(h<18?'Добрый день':'Добрый вечер'));
+  var firstName=(u.name||'').split(' ')[0]||u.name||'коллега';
+  var dateLabel=pad2(now.getDate())+' '+monthNameRuGen(now.getMonth());
+  var html='<div class="card no-tap" style="padding:18px 20px 16px;background:linear-gradient(135deg,rgba(123,157,209,0.14),rgba(91,127,184,0.06));border:1.5px solid var(--accent-line)">';
+  html+='<div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;font-weight:700">'+esc(dateLabel)+'</div>';
+  html+='<div style="font-size:20px;font-weight:800;color:var(--text);margin-top:2px">'+esc(greet)+', '+esc(firstName)+'!</div>';
+  html+='</div>';
+  var isRazj=(u.role==='driver'||u.role==='surveyor');
+  var isMaster=(u.role==='master');
+  if(isRazj){
+    var myRoutes=db.routes.filter(function(r){return r.date===today&&r.assignedUserId===u.id;});
+    var myEvs=db.events.filter(function(e){return e.date===today&&Array.isArray(e.assignedUserIds)&&e.assignedUserIds.indexOf(u.id)>=0;});
+    myEvs.sort(function(a,b){var am=parseTimeToMinutes(a.time),bm=parseTimeToMinutes(b.time);if(am==null&&bm==null)return 0;if(am==null)return 1;if(bm==null)return -1;return am-bm;});
+    if(myRoutes.length){
+      var r0=myRoutes[0];var pts=r0.points||[];var firstP=pts[0];var firstLbl='';
+      if(firstP){
+        if(firstP.kind==='order'&&firstP.refId){var oo=db.orders.find(function(x){return x.id===firstP.refId;});if(oo)firstLbl='№'+(oo.orderNum||'')+' • '+(orderClientName(oo)||'');}
+        else if(firstP.kind==='contractor'&&firstP.refId){var cc=contractorById(firstP.refId);if(cc)firstLbl=cc.name||'';}
+        else firstLbl=firstP.label||'';
+      }
+      html+='<div class="card no-tap" style="padding:16px 20px;background:linear-gradient(135deg,#7b9dd1,#5b7fb8);color:#fff;margin-top:12px" onclick="openRoute('+r0.id+')">';
+      html+='<div style="font-size:12px;opacity:0.85;text-transform:uppercase;letter-spacing:0.5px;font-weight:700">🚚 Мой маршрут на сегодня</div>';
+      html+='<div style="font-size:17px;font-weight:800;margin-top:4px">'+esc(r0.title||'Маршрут')+'</div>';
+      var routeMin=0;
+      pts.forEach(function(p){if(p.legFromPrev&&Number(p.legFromPrev.minutes))routeMin+=Number(p.legFromPrev.minutes);});
+      routeMin+=pts.length*15;
+      var evsForDay=dayWorkload(today);
+      var myEvMin=evsForDay[u.id]?evsForDay[u.id].events:0;
+      var totalMin=routeMin+myEvMin;
+      html+='<div style="font-size:13px;opacity:0.9;margin-top:6px">Точек: '+pts.length+(firstLbl?' • Первая: '+esc(firstLbl):'')+'</div>';
+      if(totalMin>0)html+='<div style="font-size:13px;font-weight:700;margin-top:6px">⏱ Загрузка ~'+formatDurationMin(totalMin)+'</div>';
+      html+='<div style="font-size:12px;opacity:0.85;margin-top:8px">Тапни, чтобы открыть →</div>';
+      html+='</div>';
+    }
+    if(myEvs.length){
+      html+='<div class="section-title" style="margin-top:16px">📅 Мои события сегодня</div>';
+      myEvs.slice(0,5).forEach(function(e){html+=renderEventCard(e);});
+    }
+    if(!myRoutes.length&&!myEvs.length){
+      html+='<div class="empty-cta" style="margin-top:12px"><span class="ec-ico">☕️</span><div class="ec-title">На сегодня ничего не назначено</div><div class="ec-sub">Хорошего дня!</div></div>';
+    }
+  } else if(isMaster){
+    var workOrders=visibleOrders().filter(function(o){return o.status==='work';});
+    var myEvs2=db.events.filter(function(e){return e.date===today&&Array.isArray(e.assignedUserIds)&&e.assignedUserIds.indexOf(u.id)>=0;});
+    html+='<div class="section-title" style="margin-top:16px">🔧 В работе ('+workOrders.length+')</div>';
+    if(workOrders.length){
+      workOrders.slice(0,5).forEach(function(o){
+        var items=itemsOf(o.id);
+        html+='<div class="card" onclick="openOrder('+o.id+')" style="padding:12px 16px"><div class="card-title" style="font-size:15px">'+(o.orderNum?'<span class="order-num">'+esc(o.orderNum)+'</span>':'')+esc(orderClientName(o)||'Без имени')+'</div><div class="card-sub">Позиций: '+items.length+'</div></div>';
+      });
+    } else html+='<div class="empty" style="padding:20px;font-size:13px">Пока пусто</div>';
+    if(myEvs2.length){
+      html+='<div class="section-title" style="margin-top:16px">📅 Мои события сегодня</div>';
+      myEvs2.slice(0,5).forEach(function(e){html+=renderEventCard(e);});
+    }
+  } else {
+    var newOrders=visibleOrders().filter(function(o){return (Date.now()-(o.createdAt||0))<24*3600*1000;});
+    var unpaidOrders=visibleOrders().filter(function(o){return !o.paid&&o.status!=='cancelled';});
+    var todayEvs=db.events.filter(function(e){return e.date===today;});
+    html+='<div class="report-kpi" style="margin-top:12px">';
+    html+='<div class="report-kpi-cell"><div class="num">'+newOrders.length+'</div><div class="lbl">Новых за 24ч</div></div>';
+    html+='<div class="report-kpi-cell"><div class="num">'+todayEvs.length+'</div><div class="lbl">Событий сегодня</div></div>';
+    html+='<div class="report-kpi-cell" style="grid-column:1/-1"><div class="num">'+unpaidOrders.length+'</div><div class="lbl">Не оплачено</div></div>';
+    html+='</div>';
+    if(todayEvs.length){
+      html+='<div class="section-title" style="margin-top:8px">📅 События сегодня</div>';
+      todayEvs.slice(0,5).forEach(function(e){html+=renderEventCard(e);});
+    }
+  }
+  if(canCreateOrder())html+='<button type="button" class="btn-row-action" onclick="openNewOrder()" style="margin-top:16px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg><span>Новый заказ</span></button>';
+  return html;
+}
+function renderListBody(){
   var orders=visibleOrders();
-  if(!orders.length&&!orderFiltersActive()&&!searchQ)return '<div class="empty-cta"><span class="ec-ico">🏠</span><div class="ec-title">Заказов пока нет</div><div class="ec-sub">Создайте первый заказ — выберите клиента, адрес и добавьте позиции.</div>'+(canCreateOrder()?'<button class="btn btn-primary" onclick="openNewOrder()">+ Новый заказ</button>':'')+'</div>';
+  if(!orders.length&&!orderFiltersActive()&&!searchQ)return '';
+  var html='<div class="section-title" style="margin-top:16px">📋 Все заказы</div>';
   var html='<div class="search-bar"><input type="search" id="searchInput" placeholder="🔍 Поиск" value="'+esc(searchQ)+'" oninput="onSearchInput(this.value)"></div>';
   html+='<div class="chips sort-chips" style="align-items:center">';
   html+='<button type="button" class="chip sort-chip'+(sortMode==='date-desc'?' active':'')+'" data-val="date-desc" onclick="setSortMode(\'date-desc\')">↓ Свежие</button>';
@@ -3818,7 +4143,6 @@ function renderList(){
   if(orderFiltersCount())html+='<button type="button" class="chip sort-chip" onclick="clearOrderFilters()">✕ Сбросить</button>';
   html+='</div>';
   html+='<div class="filter-panel" id="orderFiltersPanel" hidden>'+renderOrderFiltersPanel()+'</div>';
-  if(canCreateOrder())html+='<button type="button" class="btn-row-action" onclick="openNewOrder()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg><span>Новый заказ</span></button>';
   html+='<div id="orderList">'+renderOrderList()+'</div>';
   html+='<div class="footer-brand">'+LOGO_MARK(20)+'<span>Зерцало • замеры</span></div>';
   return html;
@@ -3872,13 +4196,13 @@ function renderOrderCard(o){
   var photoCount=items.reduce(function(s,i){return s+((i.photos&&i.photos.length)||0);},0);
   var photoBadge=photoCount?'<span class="photo-badge">📷 '+photoCount+'</span>':'';
   var sm=STATUS_META[o.status]||STATUS_META.new;
-  var cornerBadge=o.paid?'<span class="corner-badge paid">✓</span>':'<span class="corner-badge unpaid">!</span>';
+  var payChip=paymentChipHtml(o);
   var canDel=canDeleteOrder(o);
-  var cardHtml='<div class="card t-'+firstType+'" onclick="openOrder('+o.id+')">'+cornerBadge+
+  var cardHtml='<div class="card t-'+firstType+'" onclick="openOrder('+o.id+')">'+
     '<div style="display:flex;gap:12px;align-items:flex-start">'+schem+
       '<div style="flex:1;min-width:0">'+
         '<div class="card-title">'+numBadge+esc(nm)+photoBadge+'</div>'+
-        '<div class="card-sub" style="margin-top:4px"><span class="role-badge" style="background:'+sm.bg+';color:'+sm.color+'">'+sm.label+'</span></div>'+
+        '<div class="card-sub" style="margin-top:4px"><span class="role-badge" style="background:'+sm.bg+';color:'+sm.color+'">'+sm.label+'</span>'+payChip+'</div>'+
         phoneHtml+addrHtml+
         '<div class="card-sub" style="margin-top:6px">'+date+' • позиций: '+items.length+'</div>'+
         (bd?'<div class="card-sub" style="margin-top:2px;color:#3b5c8f">'+esc(bd)+'</div>':'')+
@@ -3934,8 +4258,6 @@ function renderDetail(){
   if(o.clientNote)cb+='<div class="info-line"><span class="lbl">📝 Клиенту</span><span class="val">'+esc(o.clientNote)+'</span></div>';
   if(o.orderNote)cb+='<div class="info-line"><span class="lbl">🔒 Внутр.</span><span class="val" style="color:#a05c26">'+esc(o.orderNote)+'</span></div>';
   if(o.masterComment)cb+='<div class="info-line"><span class="lbl">🔧 Мастер</span><span class="val" style="color:#3a7a5a">'+esc(o.masterComment)+'</span></div>';
-  if(o.paid)cb+='<div class="info-line"><span class="lbl">Оплата</span><span class="val">Оплачен'+(o.paidAmount?(' — '+numFmt(o.paidAmount)+' ₽'):'')+'<span class="paid-badge">✓</span></span></div>';
-  else cb+='<div class="info-line"><span class="lbl">Оплата</span><span class="val">Не оплачен<span class="unpaid-badge">ожидает</span></span></div>';
   if(o.clientId&&clientById(o.clientId))cb+='<div class="info-line"><span class="lbl">Клиент</span><span class="val"><a class="tap-link" href="#" onclick="event.preventDefault();openClientFromOrder('+o.clientId+')">👤 '+esc(clientFullName(clientById(o.clientId))||'Без имени')+'</a>'+(canEditOrder(o)?' <a class="tap-link" href="#" style="font-size:12px;font-weight:500;margin-left:8px;color:var(--muted)" onclick="event.preventDefault();openChangeOrderClient('+o.id+')">сменить</a>':'')+'</span></div>';
   if(o.addressId&&addressById(o.addressId))cb+='<div class="info-line"><span class="lbl">Адрес объекта</span><span class="val"><a class="tap-link" href="#" onclick="event.preventDefault();openMap(\''+esc((addressShort(addressById(o.addressId))||'').replace(/'/g,'&#39;'))+'\')">📍 '+esc(addressShort(addressById(o.addressId))||addressFull(addressById(o.addressId)))+'</a>'+(canEditOrder(o)?' <a class="tap-link" href="#" style="font-size:12px;font-weight:500;margin-left:8px;color:var(--muted)" onclick="event.preventDefault();openChangeOrderAddress('+o.id+')">сменить</a>':'')+'</span></div>';
   var team=Array.isArray(o.assignedUserIds)?o.assignedUserIds:(db.users.filter(function(u){return u.active;}).map(function(u){return u.id;}));
@@ -3946,6 +4268,7 @@ function renderDetail(){
   if(canChangeStatus())html+='<div class="section-title" style="margin-top:14px">Статус</div><div class="chips">'+Object.keys(STATUS_META).map(function(k){return '<button type="button" class="chip '+(o.status===k?'active':'')+'" onclick="setOrderStatus('+o.id+',\''+k+'\')">'+STATUS_META[k].label+'</button>';}).join('')+'</div>';
   if(hasRole(['admin','manager','master']))html+='<div style="margin-top:12px"><label>Комментарий мастера</label><textarea id="master_comment_'+o.id+'" rows="2" placeholder="Например: задержка, ждём фурнитуру">'+esc(o.masterComment||'')+'</textarea><button class="btn btn-secondary" style="margin-top:8px;padding:9px;font-size:13px" onclick="saveMasterComment('+o.id+')">💾 Сохранить комментарий</button></div>';
   html+='</div>';
+  html+=renderOrderPaymentBlock(o);
   html+=renderOrderEventsBlock(o);
   if(canEditOrder(o))html+='<button type="button" class="btn-row-action" onclick="openItem(null)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg><span>Добавить позицию</span></button>';
   html+='<div class="summary"><div class="line">Позиций: '+items.length+' • Изделий: '+tq+' • Площадь: <span id="areaCounter">'+area.toFixed(3).replace('.',',')+'</span> м²</div>'+(bd?'<div class="breakdown">'+esc(bd)+'</div>':'')+'</div>';
@@ -4001,7 +4324,7 @@ function goBack(){
     return;
   }
   if(activeTab==='route_detail'){
-    currentRouteId=null;activeTab='routes';
+    currentRouteId=null;activeTab='calendar';calState.section='routes';
     withViewTransition(function(){render();window.scrollTo(0,0);});
     try{history.replaceState({view:'list'},'','#');}catch(e){}
     return;
@@ -4188,12 +4511,6 @@ function renderOrderWizardStep3(){
     '<div class="section-title">Примечания</div>'+
     '<label>📝 Для клиента</label><textarea id="wz_clientNote" rows="2" oninput="wzSetClientNote(this.value)">'+esc(s.clientNote)+'</textarea>'+
     '<label>🔒 Внутреннее</label><textarea id="wz_orderNote" rows="2" oninput="wzSetOrderNote(this.value)">'+esc(s.orderNote)+'</textarea>'+
-    '<div class="section-title">Оплата замера</div>'+
-    '<div class="chips" id="wz_chips_paid">'+
-      '<button type="button" class="chip'+(!s.paid?' active':'')+'" data-val="no" onclick="wzSetPaid(false)">Не оплачен</button>'+
-      '<button type="button" class="chip'+(s.paid?' active':'')+'" data-val="yes" onclick="wzSetPaid(true)">Оплачен</button>'+
-    '</div>'+
-    '<div id="wz_paid_amount_wrap" style="display:'+(s.paid?'block':'none')+'"><label>Сумма, ₽</label><input id="wz_paid_amount" type="text" inputmode="decimal" value="'+(s.paidAmount?numFmt(s.paidAmount):'')+'" oninput="wzSetPaidAmount(this.value)"></div>'+
     '<div class="wz-nav">'+
       '<button class="btn btn-secondary" onclick="wzPrev()">← Назад</button>'+
       '<button class="btn btn-primary" onclick="wzSave()">Создать</button>'+
@@ -4312,15 +4629,12 @@ function openEditOrder(id){
     '<div class="checkbox-row"><input type="checkbox" id="e_lift" '+(o.liftNeeded?'checked':'')+'><label for="e_lift">Подъём</label></div><div class="lift-wrap" id="lift_wrap_edit" style="display:'+(o.liftNeeded?'block':'none')+'"><label>Этажей</label><input id="e_liftFloor" type="number" value="'+(o.liftFloor||'')+'"></div>'+
     '<div class="checkbox-row"><input type="checkbox" id="e_parking" '+(o.parkingCarry?'checked':'')+'><label for="e_parking">Паркинг</label></div><div class="checkbox-row"><input type="checkbox" id="e_pass" '+(o.needPass?'checked':'')+'><label for="e_pass">Пропуск</label></div>'+
     '<div class="section-title" data-sec="Примечания">Примечания</div><label>📝 Для клиента</label><textarea id="e_clientNote" rows="2">'+esc(o.clientNote||'')+'</textarea><label>🔒 Внутреннее</label><textarea id="e_orderNote" rows="2">'+esc(o.orderNote||'')+'</textarea>'+
-    '<div class="section-title" data-sec="Оплата">Оплата</div><div class="chips" id="chips_paid_edit"><button type="button" class="chip '+(o.paid?'':'active')+'" data-val="no">Не оплачен</button><button type="button" class="chip '+(o.paid?'active':'')+'" data-val="yes">Оплачен</button></div><div id="paid_amount_wrap_edit" style="display:'+(o.paid?'block':'none')+'"><label>Сумма, ₽</label><input id="e_paid_amount" type="text" inputmode="decimal" value="'+(o.paidAmount?numFmt(o.paidAmount):'')+'"></div>'+
     '<div class="section-title" data-sec="Дата">Дата</div><label>Дата заказа</label><input id="e_createdAt" type="date" value="'+localDateStr(o.createdAt)+'"><label>📅 Дата замера</label><input id="e_measureDate" type="date" value="'+esc(o.measureDate||'')+'">'+
     '<button class="btn btn-primary" onclick="saveEditOrder('+o.id+')">Сохранить</button><button class="btn btn-secondary" onclick="closeModal()">Отмена</button>');
   var lc=document.getElementById('e_lift'),lw=document.getElementById('lift_wrap_edit');if(lc)lc.onchange=function(){lw.style.display=lc.checked?'block':'none';};
   var mn=document.getElementById('e_manualNum'),mw=document.getElementById('manual_num_wrap');if(mn)mn.onchange=function(){mw.style.display=mn.checked?'block':'none';};
   var ni=document.getElementById('e_orderNum'),nm=document.getElementById('num_validate_msg');
   if(ni)ni.oninput=function(){var t=ni.value||'';if(t.length>40){nm.style.display='block';nm.textContent='⚠ Максимум 40 символов';}else{nm.style.display='none';}};
-  var pc=document.getElementById('chips_paid_edit'),pw=document.getElementById('paid_amount_wrap_edit');
-  pc.querySelectorAll('.chip').forEach(function(b){b.onclick=function(){pc.querySelectorAll('.chip').forEach(function(x){x.classList.remove('active');});b.classList.add('active');pw.style.display=(b.dataset.val==='yes')?'block':'none';haptic(8);};});
 }
 async function saveEditOrder(id){
   var o=db.orders.find(function(x){return x.id===id;});if(!o){await uiAlert('Не найден');return;}if(!canEditOrder(o)){await uiAlert('Нет прав');return;}
@@ -4328,7 +4642,7 @@ async function saveEditOrder(id){
   var lastName=v('e_last'),firstName=v('e_first'),middleName=v('e_mid'),phone=v('e_phone');
   var city=v('e_city'),street=v('e_street'),house=v('e_house'),building=v('e_building'),entrance=v('e_entrance'),floor=v('e_floor'),apartment=v('e_apartment'),intercom=v('e_intercom');
   var liftNeeded=document.getElementById('e_lift').checked,liftFloor=parseInt(v('e_liftFloor'))||0,parkingCarry=document.getElementById('e_parking').checked,needPass=document.getElementById('e_pass').checked;
-  var pc=document.querySelector('#chips_paid_edit .chip.active'),paid=pc&&pc.dataset.val==='yes',paidAmount=paid?(parseFloat(String(v('e_paid_amount')).replace(',','.'))||0):0;
+  var paid=!!o.paid,paidAmount=Number(o.paidAmount)||0;
   var clientNote=v('e_clientNote'),orderNote=v('e_orderNote');
   var dateStr=v('e_createdAt'),newCreatedAt=o.createdAt;
   if(dateStr){var parts=dateStr.split('-');if(parts.length===3){var y=parseInt(parts[0],10),mm=parseInt(parts[1],10),dd=parseInt(parts[2],10);if(y>2000&&y<2100&&mm>=1&&mm<=12&&dd>=1&&dd<=31){var oldD=new Date(o.createdAt);newCreatedAt=new Date(y,mm-1,dd,oldD.getHours(),oldD.getMinutes(),oldD.getSeconds()).getTime();}}}
@@ -4345,6 +4659,93 @@ async function saveEditOrder(id){
   save();closeModal();render();
 }
 async function deleteOrder(id){var o=db.orders.find(function(x){return x.id===id;});if(!o)return;if(!canDeleteOrder(o)){uiAlert('Нет прав');return;}var ok=await uiConfirm('Удалить заказ № '+(o.orderNum||'—')+'?','Удаление',{danger:true,yesLabel:'Удалить'});if(!ok)return;var items=db.items.filter(function(i){return i.orderId===id;});db.trash.push({type:'order',deletedAt:Date.now(),deletedBy:db.currentUserId,order:JSON.parse(JSON.stringify(o)),items:items.map(function(i){return JSON.parse(JSON.stringify(i));})});var dk=orderDateKey(o);db.orders=db.orders.filter(function(x){return x.id!==id;});db.items=db.items.filter(function(i){return i.orderId!==id;});purgeNotificationsForOrder(id);db.events.filter(function(e){return e.orderId===id;}).forEach(function(e){purgeNotificationsForEvent(e.id);});if(dk)renumberDayOrders(dk);save();history.replaceState({view:'list'},'','#');withViewTransition(function(){view='list';currentOrderId=null;render();window.scrollTo(0,0);});showUndo('Заказ в корзине',function(){var t=db.trash[db.trash.length-1];if(t)restoreTrashEntry(t);},7000);}
+/* ============ v2.1.17: ОПЛАТА ЗАКАЗА ============ */
+function renderOrderPaymentBlock(o){
+  var total=Number(o.orderTotal)||0,paid=Number(o.orderPaid)||0,due=Math.max(0,total-paid);
+  var fullyPaid=(total>0&&due<=0);
+  var html='<div class="card no-tap" style="padding-left:20px">';
+  html+='<div class="payment-block'+(fullyPaid?' paid-full':'')+'">';
+  html+='<div class="pb-row"><span class="pb-lbl">Сумма заказа:</span><span class="pb-val">'+(total?numFmt(total)+' ₽':'—')+'</span></div>';
+  html+='<div class="pb-row"><span class="pb-lbl">Оплачено:</span><span class="pb-val">'+(paid?numFmt(paid)+' ₽':'0 ₽')+'</span></div>';
+  if(total>0)html+='<div class="pb-due"><span>'+(fullyPaid?'✓ Полностью оплачен':'💰 К доплате')+'</span><span>'+numFmt(due)+' ₽</span></div>';
+  else html+='<div class="pb-due"><span>💰 Оплата не указана</span></div>';
+  html+='</div>';
+  if(userCan('orders.payment')){
+    html+='<button class="btn btn-secondary" style="margin-top:10px;padding:10px;font-size:14px" onclick="event.stopPropagation();openPaymentModal('+o.id+')">💰 '+(total>0?'Изменить оплату':'Указать сумму и оплату')+'</button>';
+  }
+  html+='</div>';
+  return html;
+}
+function paymentChipHtml(o){
+  var total=Number(o.orderTotal)||0,paid=Number(o.orderPaid)||0,due=Math.max(0,total-paid);
+  if(total<=0)return '';
+  if(due<=0)return '<span class="payment-chip paid">💰 Оплачен</span>';
+  return '<span class="payment-chip">💰 '+numFmt(due)+' ₽</span>';
+}
+function openPaymentModal(orderId){
+  if(!userCan('orders.payment')){uiAlert('Нет прав');return;}
+  var o=db.orders.find(function(x){return x.id===orderId;});
+  if(!o){uiAlert('Заказ не найден');return;}
+  var est=null;try{est=computeOrderPrice(o,itemsOf(o.id));}catch(e){}
+  var estTotal=est?Number(est.total)||0:0;
+  var total=Number(o.orderTotal)||0,paid=Number(o.orderPaid)||0;
+  var html='<h2>'+LOGO_MARK(30)+' Оплата заказа</h2>';
+  html+='<div class="modal-crumbs"><span>Заказ № '+esc(o.orderNum||'—')+'</span><span class="bc-sep">/</span><span class="bc-cur">Оплата</span></div>';
+  if(estTotal>0)html+='<div class="draft-notice">💡 Ориентировочно по прайсу: <b>'+numFmt(estTotal)+' ₽</b></div>';
+  html+='<label>Сумма заказа, ₽</label><input id="pay_total" type="text" inputmode="decimal" value="'+(total?numFmt(total):'')+'" oninput="payRecalc()">';
+  html+='<label>Оплачено, ₽</label><input id="pay_paid" type="text" inputmode="decimal" value="'+(paid?numFmt(paid):'')+'" oninput="payRecalc()">';
+  html+='<div class="chips" style="margin-top:8px">';
+  html+='<button type="button" class="chip" onclick="payQuickFull()">✓ Оплачен полностью</button>';
+  html+='<button type="button" class="chip" onclick="payQuickZero()">✕ Не оплачен</button>';
+  if(estTotal>0)html+='<button type="button" class="chip" onclick="payQuickEst('+estTotal+')">≈ По прайсу</button>';
+  html+='</div>';
+  html+='<div class="payment-block" style="margin-top:14px" id="pay_view_block"><div class="pb-row"><span class="pb-lbl">Сумма:</span><span class="pb-val" id="pay_t_view">—</span></div><div class="pb-row"><span class="pb-lbl">Оплачено:</span><span class="pb-val" id="pay_p_view">—</span></div><div class="pb-due" id="pay_due_view"><span>💰 К доплате</span><span>—</span></div></div>';
+  html+='<button class="btn btn-primary" onclick="savePayment('+o.id+')">Сохранить</button>';
+  html+='<button class="btn btn-secondary" onclick="closeModal()">Отмена</button>';
+  showModal(html);
+  payRecalc();
+}
+function payRecalc(){
+  var t=parseFloat(String((document.getElementById('pay_total')||{}).value||'').replace(',','.'))||0;
+  var p=parseFloat(String((document.getElementById('pay_paid')||{}).value||'').replace(',','.'))||0;
+  var due=Math.max(0,t-p);
+  var fully=(t>0&&due<=0);
+  var tv=document.getElementById('pay_t_view');if(tv)tv.textContent=(t?numFmt(t)+' ₽':'—');
+  var pv=document.getElementById('pay_p_view');if(pv)pv.textContent=(p?numFmt(p)+' ₽':'0 ₽');
+  var blk=document.getElementById('pay_view_block');
+  if(blk)blk.classList.toggle('paid-full',fully);
+  var dv=document.getElementById('pay_due_view');
+  if(dv){
+    if(fully)dv.innerHTML='<span>✓ Полностью оплачен</span><span>0 ₽</span>';
+    else dv.innerHTML='<span>💰 К доплате</span><span>'+(t>0?numFmt(due)+' ₽':'—')+'</span>';
+  }
+}
+function payQuickFull(){
+  var tEl=document.getElementById('pay_total'),pEl=document.getElementById('pay_paid');
+  if(!tEl||!pEl)return;
+  var t=parseFloat(String(tEl.value||'').replace(',','.'))||0;
+  pEl.value=t?numFmt(t):'';
+  payRecalc();
+}
+function payQuickZero(){
+  var pEl=document.getElementById('pay_paid');if(pEl)pEl.value='';
+  payRecalc();
+}
+function payQuickEst(est){
+  var tEl=document.getElementById('pay_total');if(tEl)tEl.value=numFmt(est);
+  payRecalc();
+}
+function savePayment(orderId){
+  var o=db.orders.find(function(x){return x.id===orderId;});
+  if(!o){uiAlert('Заказ не найден');return;}
+  if(!userCan('orders.payment')){uiAlert('Нет прав');return;}
+  var t=parseFloat(String((document.getElementById('pay_total')||{}).value||'').replace(',','.'))||0;
+  var p=parseFloat(String((document.getElementById('pay_paid')||{}).value||'').replace(',','.'))||0;
+  if(t<0)t=0;if(p<0)p=0;
+  o.orderTotal=t;o.orderPaid=p;touch(o);
+  haptic(8);save();closeModal();render();
+}
+
 /* ============ БЛОК СОБЫТИЙ ПО ЗАКАЗУ (замеры и монтажи) ============ */
 function renderOrderEventsBlock(o){
   var evs=eventsOfOrder(o.id);
@@ -4366,10 +4767,11 @@ function renderOrderEventsBlock(o){
       var isDone=(e.status==='done');
       var dateStr='';
       if(e.date){var d=ymdToDate(e.date);dateStr=d?(pad2(d.getDate())+' '+monthNameRuGen(d.getMonth())):e.date;}
+      var _est=estimateEventDuration(e);
       return '<div class="cal-ev'+(isDone?' done':'')+'" style="margin-bottom:6px" onclick="event.stopPropagation();openEventFromCalendar('+e.id+')">'+
         '<div class="cal-ev-ico '+(e.type||'measure')+'">'+eventTypeIco(e.type||'measure')+'</div>'+
         '<div class="cal-ev-body">'+
-          '<div class="cal-ev-date">'+esc(dateStr)+(e.time?(' • '+esc(e.time)):'')+'</div>'+
+          '<div class="cal-ev-date">'+esc(dateStr)+(e.time?(' • '+esc(e.time)):'')+(_est>0?(' • ⏱ '+esc(formatDurationMin(_est))):'')+'</div>'+
           '<div class="cal-ev-title">'+esc(eventTypeLabel(e.type||'measure'))+'</div>'+
           (e.note?'<div class="cal-ev-sub">'+esc(e.note)+'</div>':'')+
         '</div>'+
@@ -4840,6 +5242,8 @@ function renderEventCard(e){
   if(o&&o.orderNum)title+=' • №'+o.orderNum;
   var sub=[];
   if(e.time)sub.push('🕐 '+e.time);
+  var est=estimateEventDuration(e);
+  if(est>0)sub.push('⏱ '+formatDurationMin(est));
   var clientName=o?orderClientName(o):'';
   if(clientName)sub.push(clientName);
   else if(e.note)sub.push(e.note);
@@ -4877,6 +5281,22 @@ function openDayModal(dateYmd){
   var html='<h2>'+LOGO_MARK(30)+' '+esc(title)+'</h2>';
   if(!evs.length)html+='<div class="empty" style="padding:20px;font-size:13px">Событий нет</div>';
   else html+='<div class="cal-list">'+evs.map(renderEventCard).join('')+'</div>';
+  var workload=dayWorkload(dateYmd);
+  var wlKeys=Object.keys(workload).filter(function(k){return workload[k].total>0;});
+  if(wlKeys.length){
+    wlKeys.sort(function(a,b){return workload[b].total-workload[a].total;});
+    html+='<div class="section-title" style="margin-top:16px">👥 Загрузка команды</div>';
+    html+='<div class="card no-tap" style="padding:12px 16px">';
+    wlKeys.forEach(function(uid){
+      var u=db.users.find(function(x){return x.id===parseInt(uid,10);});
+      var w=workload[uid];
+      var parts=[];
+      if(w.events)parts.push('события: '+formatDurationMin(w.events));
+      if(w.routes)parts.push('маршрут: '+formatDurationMin(w.routes));
+      html+='<div class="info-line" style="padding:8px 0"><span class="lbl" style="min-width:0;flex:1"><b>'+esc(u?u.name:'ID '+uid)+'</b><br><span style="font-size:11.5px;color:var(--muted)">'+esc(parts.join(' • '))+'</span></span><span class="val" style="font-weight:800;color:var(--accent-deep)">'+formatDurationMin(w.total)+'</span></div>';
+    });
+    html+='</div>';
+  }
   if(canManageEvents())html+='<button class="btn btn-primary" style="margin-top:14px" onclick="openEventForm(\''+dateYmd+'\',null)">+ Событие на этот день</button>';
   html+='<button class="btn btn-secondary" onclick="closeModal()">Закрыть</button>';
   showModal(html);
@@ -4919,12 +5339,16 @@ function openEventForm(dateYmd,eventId,presetOrderId){
   html+='<label>Тип</label>';
   html+='<div class="chips" id="ev_type_chips" style="flex-wrap:wrap">';
   EVENT_TYPES.forEach(function(et){
-    html+='<button type="button" class="chip'+(d.type===et.key?' active':'')+'" data-val="'+et.key+'" onclick="window._evType=\''+et.key+'\';var p=this.parentNode;p.querySelectorAll(\'.chip\').forEach(function(c){c.classList.toggle(\'active\',c.dataset.val===window._evType);});">'+et.ico+' '+et.label+'</button>';
+    html+='<button type="button" class="chip'+(d.type===et.key?' active':'')+'" data-val="'+et.key+'" onclick="window._evType=\''+et.key+'\';var p=this.parentNode;p.querySelectorAll(\'.chip\').forEach(function(c){c.classList.toggle(\'active\',c.dataset.val===window._evType);});if(typeof evRecalcDurations===\'function\')evRecalcDurations();">'+et.ico+' '+et.label+'</button>';
   });
   html+='</div>';
   html+='<label>Заказ (необязательно)</label><select id="ev_order">'+orderOpts+'</select>';
-  html+='<div class="row2"><div><label>Дата</label><input id="ev_date" type="date" value="'+esc(d.date)+'"></div><div><label>Время</label><input id="ev_time" type="time" value="'+esc(d.time)+'"></div></div>';
+  html+='<div class="row2"><div><label>Дата</label><input id="ev_date" type="date" value="'+esc(d.date)+'" onchange="if(typeof evRecalcDurations===\'function\')evRecalcDurations()"></div><div><label>Время</label><input id="ev_time" type="time" value="'+esc(d.time)+'"></div></div>';
   html+='<label>Команда</label><div class="team-grid" id="ev_team">'+teamChips+'</div>';
+  html+='<div class="section-title" style="margin-top:14px">⏱ Длительность</div>';
+  html+='<div id="ev_duration_block">'+renderEventDurationBlock(e)+'</div>';
+  html+='<div class="section-title" style="margin-top:14px">📍 Расстояние (OSRM)</div>';
+  html+='<div id="ev_geo_block">'+renderEventGeoBlock(e)+'</div>';
   html+='<label>Заметка</label><textarea id="ev_note" rows="2">'+esc(d.note)+'</textarea>';
   if(e){
     html+='<div class="checkbox-row"><input type="checkbox" id="ev_done" '+(e.status==='done'?'checked':'')+'><label for="ev_done">✓ Выполнено</label></div>';
@@ -4941,6 +5365,102 @@ function openEventForm(dateYmd,eventId,presetOrderId){
     btn.classList.toggle('active');
   };
 }
+function renderEventGeoBlock(e){
+  var leg=e&&e.legFromPrev;
+  var html='<div style="font-size:12px;color:var(--muted);line-height:1.5;margin-bottom:8px">Для доставки, возврата, закупки и закалки — расстояние от базы до адреса заказа. Нажми «Рассчитать» — подставится время в пути.</div>';
+  html+='<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">';
+  html+='<button type="button" class="chip" onclick="evCalcRoute()">📍 Рассчитать от базы</button>';
+  html+='<button type="button" class="chip" onclick="evOpenYandex()">🗺 Яндекс.Карты</button>';
+  html+='</div>';
+  if(leg)html+='<div style="margin-top:8px;padding:8px 12px;background:var(--ok-soft);color:#2c7a54;border-radius:10px;font-size:13px;font-weight:600">📏 '+numFmt(leg.km)+' км • ⏱ '+formatDurationMin(leg.minutes)+'</div>';
+  return html;
+}
+async function evCalcRoute(){
+  var type=window._evType||'measure';
+  var orderId=parseInt((document.getElementById('ev_order')||{}).value||'0',10)||null;
+  if(!orderId){uiAlert('Выберите заказ — нужен адрес для расчёта.');return;}
+  var base=(db.settings&&db.settings.baseAddress)||'';
+  if(!base){uiAlert('Сначала укажите «🏠 Адрес базы» в настройках.');return;}
+  var o=db.orders.find(function(x){return x.id===orderId;});
+  if(!o){uiAlert('Заказ не найден');return;}
+  var toAddr=orderAddrString(o);
+  if(!toAddr){uiAlert('У заказа не заполнен адрес.');return;}
+  var el=document.getElementById('ev_geo_block');
+  if(el)el.insertAdjacentHTML('afterbegin','<div id="ev_geo_loading" style="padding:8px 12px;background:var(--accent-soft);border-radius:10px;font-size:13px;font-weight:600;margin-bottom:8px">⏳ Считаем…</div>');
+  try{
+    var isReturn=(type==='return');
+    var fromAddr=isReturn?toAddr:base;
+    var toAddr2=isReturn?base:toAddr;
+    var r=await calcRouteDistance(fromAddr,toAddr2);
+    var ld=document.getElementById('ev_geo_loading');if(ld)ld.remove();
+    if(!r||r.error){
+      var msg=r&&r.error==='from'?'Не удалось определить адрес базы.':(r&&r.error==='to'?'Не удалось найти адрес заказа.':'OSRM не отвечает.');
+      if(el)el.insertAdjacentHTML('afterbegin','<div style="padding:8px 12px;background:var(--danger-soft);color:var(--danger);border-radius:10px;font-size:13px;font-weight:600;margin-bottom:8px">❌ '+msg+' Введите расстояние вручную.</div>');
+      return;
+    }
+    window._evLeg={km:r.km,minutes:r.minutes};
+    var durEl=document.getElementById('ev_duration');
+    if(durEl&&!durEl.value){
+      var baseMeta=EVENT_TYPES.find(function(x){return x.key===type;});
+      var defaultBase=(baseMeta&&baseMeta.defaultMin)||0;
+      durEl.value=String(defaultBase+r.minutes);
+    }
+    if(el){
+      var old=el.querySelector('.ev-leg-result');if(old)old.remove();
+      el.insertAdjacentHTML('beforeend','<div class="ev-leg-result" style="margin-top:8px;padding:8px 12px;background:var(--ok-soft);color:#2c7a54;border-radius:10px;font-size:13px;font-weight:600">📏 '+numFmt(r.km)+' км • ⏱ '+formatDurationMin(r.minutes)+' <button type="button" class="chip" style="margin-left:8px;padding:4px 10px;font-size:11px" onclick="evApplyLegToDuration()">→ в длительность</button></div>');
+    }
+    evRecalcDurations();
+  }catch(e){
+    var ld2=document.getElementById('ev_geo_loading');if(ld2)ld2.remove();
+    uiAlert('Ошибка: '+(e.message||e));
+  }
+}
+function evApplyLegToDuration(){
+  if(!window._evLeg)return;
+  var type=window._evType||'measure';
+  var meta=EVENT_TYPES.find(function(x){return x.key===type;});
+  var base=(meta&&meta.defaultMin)||0;
+  var el=document.getElementById('ev_duration');
+  if(el)el.value=String(base+window._evLeg.minutes);
+  evRecalcDurations();
+}
+function evOpenYandex(){
+  var orderId=parseInt((document.getElementById('ev_order')||{}).value||'0',10)||null;
+  if(!orderId){uiAlert('Выберите заказ.');return;}
+  var o=db.orders.find(function(x){return x.id===orderId;});
+  var a=o?orderAddrString(o):'';
+  if(!a){uiAlert('У заказа нет адреса.');return;}
+  openYandexRoute(a);
+}
+function renderEventDurationBlock(e){
+  var dur=e&&Number(e.duration)>0?Number(e.duration):0;
+  var est=e?estimateEventDuration(Object.assign({},e,{duration:0})):0;
+  var html='<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">';
+  html+='<input id="ev_duration" type="text" inputmode="decimal" value="'+(dur||'')+'" placeholder="минут" style="flex:1;min-width:120px;margin-top:0">';
+  html+='<span style="font-size:12px;color:var(--muted);font-weight:600">мин</span>';
+  html+='</div>';
+  html+='<div style="font-size:12px;color:var(--muted);margin-top:8px;line-height:1.5">Расчётное: <b id="ev_duration_est">'+formatDurationMin(est)+'</b>';
+  if(!dur)html+=' <span style="color:var(--warn)">(применится автоматически)</span>';
+  html+='</div>';
+  if(!dur)html+='<button type="button" class="chip" style="margin-top:8px" onclick="evApplyEst()">✓ Вставить расчётное</button>';
+  return html;
+}
+function evApplyEst(){
+  var eId=window._evEditId||0;
+  var e=eId?eventById(eId):null;
+  var fake={type:window._evType||'measure',orderId:parseInt((document.getElementById('ev_order')||{}).value||'0',10)||null,date:(document.getElementById('ev_date')||{}).value||'',time:(document.getElementById('ev_time')||{}).value||'',duration:0};
+  var est=estimateEventDuration(fake);
+  var el=document.getElementById('ev_duration');if(el)el.value=String(est);
+  var estEl=document.getElementById('ev_duration_est');if(estEl)estEl.textContent=formatDurationMin(est);
+}
+async function evRecalcDurations(){
+  var type=window._evType||'measure';
+  var orderId=parseInt((document.getElementById('ev_order')||{}).value||'0',10)||null;
+  var fake={type:type,orderId:orderId,date:'',time:'',duration:0};
+  var est=estimateEventDuration(fake);
+  var estEl=document.getElementById('ev_duration_est');if(estEl)estEl.textContent=formatDurationMin(est);
+}
+
 async function saveEventForm(eventId){
   if(!canManageEvents()){uiAlert('Нет прав');return;}
   var v=function(id){return (document.getElementById(id)&&document.getElementById(id).value||'').trim();};
@@ -4950,12 +5470,14 @@ async function saveEventForm(eventId){
   var time=v('ev_time');
   var note=v('ev_note');
   var team=(window._evTeam||[]).slice();
+  var durEl=document.getElementById('ev_duration');
+  var durManual=parseInt((durEl&&durEl.value)||'0',10)||0;
   if(!date){await uiAlert('Укажите дату');return;}
   haptic([15,40,15]);
   if(eventId){
     var e=eventById(eventId);if(!e){await uiAlert('Событие не найдено');return;}
     var oldDate=e.date,oldTime=e.time;
-    e.type=type;e.orderId=orderId;e.date=date;e.time=time;e.note=note;e.assignedUserIds=team;
+    e.type=type;e.orderId=orderId;e.date=date;e.time=time;e.note=note;e.assignedUserIds=team;e.duration=durManual;if(window._evLeg)e.legFromPrev=window._evLeg;
     var doneEl=document.getElementById('ev_done');
     if(doneEl)e.status=doneEl.checked?'done':'planned';
     touch(e);
@@ -4969,12 +5491,12 @@ async function saveEventForm(eventId){
       var hadAlready=Array.isArray(e.assignedUserIds);/* упрощённо: если уведомления уже были созданы для этого события и юзера — не плодим */
     });
   }else{
-    var newE={id:db.nextEvent++,type:type,orderId:orderId,date:date,time:time,duration:0,assignedUserIds:team,note:note,status:'planned',createdAt:Date.now(),createdBy:db.currentUserId,updatedAt:Date.now()};
+    var newE={id:db.nextEvent++,type:type,orderId:orderId,date:date,time:time,duration:durManual,assignedUserIds:team,note:note,status:'planned',createdAt:Date.now(),createdBy:db.currentUserId,updatedAt:Date.now(),legFromPrev:window._evLeg||null};
     db.events.push(newE);
     notifyEventCreated(newE,db.currentUserId);
   }
   save();
-  window._evType=null;window._evTeam=null;window._evTeamToggle=null;
+  window._evType=null;window._evTeam=null;window._evTeamToggle=null;window._evLeg=null;
   closeModal();
   render();
 }
@@ -5260,10 +5782,11 @@ function renderRouteFormModal(editId){
       '</div>'+
     '</div>';
   }).join('')+'</div>';
-  html+='<div class="shower-actions" style="margin-top:10px">';
+  html+='<div class="shower-actions" style="margin-top:10px;flex-wrap:wrap">';
   html+='<button type="button" onclick="addRoutePointOrder()">+ Заказ</button>';
   html+='<button type="button" onclick="addRoutePointContractor()">+ Контрагент</button>';
   html+='<button type="button" onclick="addRoutePointCustom()">+ Свободный</button>';
+  if((db.settings&&db.settings.baseAddress)||'')html+='<button type="button" style="background:var(--ok-soft);color:#2c7a54;border-color:rgba(76,175,125,0.4)" onclick="addRoutePointBase()">🏠 Вернуться на базу</button>';
   html+='</div>';
   html+='<button class="btn btn-primary" onclick="saveRouteForm('+(editId||0)+')">Сохранить</button>';
   html+='<button class="btn btn-secondary" onclick="cancelRouteForm()">Отмена</button>';
@@ -5308,6 +5831,13 @@ function confirmAddRoutePointContractor(){
   var t=(document.getElementById('rpc_time').value||'').trim();
   if(!cid)return;
   routeDraft.points.push({kind:'contractor',refId:cid,addressId:null,label:'',note:'',time:t});
+  renderRouteFormModal(currentRouteId||null);
+}
+function addRoutePointBase(){
+  if(!routeDraft)return;
+  var base=(db.settings&&db.settings.baseAddress)||'';
+  if(!base){uiAlert('Сначала укажите «🏠 Адрес базы» в настройках.');return;}
+  routeDraft.points.push({kind:'custom',refId:null,addressId:null,label:'🏠 База',note:'Возврат на базу',time:'',legFromPrev:null});
   renderRouteFormModal(currentRouteId||null);
 }
 function addRoutePointCustom(){
@@ -5702,6 +6232,8 @@ function buildReceiptModel(o,items){
     date:new Date(o.createdAt),
     createdAt:o.createdAt,
     measureDate:o.measureDate||null,
+    orderTotal:Number(o.orderTotal)||0,
+    orderPaid:Number(o.orderPaid)||0,
     client:{
       fullName:orderClientName(o),phone:orderClientPhone(o),address:orderAddressFull(o),intercom:o.intercom||'',
       liftNeeded:!!o.liftNeeded,liftFloor:o.liftFloor||0,parkingCarry:!!o.parkingCarry,
@@ -5771,7 +6303,6 @@ function receiptClientRows(model){
   if(c.liftNeeded)rows.push(['Подъём',c.liftFloor>0?('на '+c.liftFloor+' этаж'):'нужен']);
   if(c.parkingCarry)rows.push(['Паркинг','Пронос']);
   if(c.needPass)rows.push(['Пропуск','⚠ Нужен']);
-  rows.push(['Оплата',c.paid?('✓ Оплачен'+(c.paidAmount?(' — '+numFmt(c.paidAmount)+' ₽'):'')):'не оплачен']);
   return rows;
 }
 function receiptToText(model){
@@ -5806,6 +6337,16 @@ function receiptToHTML(model){
   var _mDs=_mD?_mD.toLocaleDateString('ru-RU'):model.date.toLocaleDateString('ru-RU');
   body+='<div class="sub">Создан '+model.date.toLocaleDateString('ru-RU')+' • 📅 Дата замера: <b>'+_mDs+'</b></div><h2>Клиент</h2>';
   receiptClientRows(model).forEach(function(r){body+='<div class="row"><div class="lbl">'+esc(r[0])+':</div><div>'+esc(r[1])+'</div></div>';});
+  var _pt=Number(model.orderTotal)||0,_pp=Number(model.orderPaid)||0,_pd=Math.max(0,_pt-_pp);
+  if(_pt>0){
+    var _pf=(_pd<=0);
+    body+='<div style="margin:12px 0;padding:12px 14px;border:2px solid '+(_pf?'#4caf7d':'#d9a02a')+';border-radius:10px;background:'+(_pf?'#e6f4ec':'#fdf7e6')+'">';
+    body+='<div style="display:flex;justify-content:space-between;font-size:14px;padding:2px 0"><span style="color:#667085">Сумма заказа:</span><b>'+numFmt(_pt)+' ₽</b></div>';
+    body+='<div style="display:flex;justify-content:space-between;font-size:14px;padding:2px 0"><span style="color:#667085">Оплачено:</span><b>'+numFmt(_pp)+' ₽</b></div>';
+    if(_pf)body+='<div style="margin-top:8px;font-size:18px;font-weight:800;color:#2c7a54;text-align:center">✓ ЗАКАЗ ПОЛНОСТЬЮ ОПЛАЧЕН</div>';
+    else body+='<div style="margin-top:8px;font-size:18px;font-weight:800;color:#8a5a0c;text-align:center">💰 К ДОПЛАТЕ НА МЕСТЕ: '+numFmt(_pd)+' ₽</div>';
+    body+='</div>';
+  }
   if(model.client.notes)body+='<div style="background:#fdf7e6;border:1px solid #f2e0b6;border-radius:8px;padding:10px 12px;margin:10px 0;font-size:14px"><b style="color:#8a6a2c">📝 Примечание</b><br>'+esc(model.client.notes)+'</div>';
   model.items.forEach(function(it){
     body+='<div class="item"><h3>'+it.index+'. '+esc(it.typeLabel)+' ×'+it.qty+'</h3><div class="meta"><span class="title">— '+esc(it.title)+' ×'+it.qty+'</span>';
@@ -6026,8 +6567,6 @@ async function exportDB(){
   var idList=Object.keys(ids);
   for(var k=0;k<idList.length;k++){var id=idList[k];if(!photoCache[id]&&!drawingCache[id]){try{var d=await idbGetPhoto(id);if(d){photoCache[id]=d;drawingCache[id]=d;}}catch(e){}}}
   var exportDb=JSON.parse(JSON.stringify(db));
-  /* Безопасность: токен Яндекс.Диска не уходит в бэкап. */
-  if(exportDb.sync){exportDb.sync=Object.assign({},exportDb.sync);delete exportDb.sync.token;}
   exportDb.items=(exportDb.items||[]).map(function(i){
     var r=JSON.parse(JSON.stringify(i));
     if(Array.isArray(r.photos))r.photos=r.photos.map(function(p){if(!p)return '';if(typeof p==='string'&&p.indexOf('data:')===0)return p;return photoCache[p]||'';}).filter(Boolean);
@@ -6197,12 +6736,15 @@ function renderReportsBody(){
   });
   var byStatus={new:0,work:0,ready:0,installed:0,cancelled:0};
   orders.forEach(function(o){byStatus[o.status]=(byStatus[o.status]||0)+1;});
-  var area=0,itemsCount=0,revenue=0,paidCount=0;
+  var area=0,itemsCount=0,revenue=0,paidCount=0,dueTotal=0;
   orders.forEach(function(o){
     var items=itemsOf(o.id);
     itemsCount+=items.length;
     items.forEach(function(i){area+=calcArea(i)*i.qty;});
-    if(o.paid){paidCount++;revenue+=Number(o.paidAmount)||0;}
+    var _t=Number(o.orderTotal)||0,_p=Number(o.orderPaid)||0;
+    revenue+=_p;
+    dueTotal+=Math.max(0,_t-_p);
+    if(_t>0&&_p>=_t)paidCount++;
   });
   /* Загрузка пользователей. */
   var workByUser={};
@@ -6232,7 +6774,8 @@ function renderReportsBody(){
   html+='<div class="report-kpi-cell"><div class="num">'+orders.length+'</div><div class="lbl">Заказов</div></div>';
   html+='<div class="report-kpi-cell"><div class="num">'+itemsCount+'</div><div class="lbl">Позиций</div></div>';
   html+='<div class="report-kpi-cell"><div class="num">'+area.toFixed(2).replace('.',',')+'</div><div class="lbl">м² стекла</div></div>';
-  html+='<div class="report-kpi-cell"><div class="num">'+numFmt(revenue)+' ₽</div><div class="lbl">Оплачено</div></div>';
+  html+='<div class="report-kpi-cell"><div class="num">'+numFmt(revenue)+' ₽</div><div class="lbl">Поступило</div></div>';
+  html+='<div class="report-kpi-cell" style="grid-column:1/-1"><div class="num" style="color:#c14d4d">'+numFmt(dueTotal)+' ₽</div><div class="lbl">К доплате</div></div>';
   html+='</div>';
   html+='<div class="report-card"><div class="rc-title">Статусы</div>';
   Object.keys(STATUS_META).forEach(function(k){
@@ -6286,7 +6829,13 @@ var ZRZ_DOCS={
 'Веб-приложение для стекольной компании: заказы на замеры,',
 'расчёт зеркал/стекла/душевых/фартуков/панно, технические чертежи A4,',
 'клиенты, адреса, события (замер/дозамер/монтаж/доставка/закупка),',
-'маршруты водителей, контрагенты, уведомления.',
+'маршруты водителей, контрагенты, уведомления, оплата заказа.',
+'',
+'## Разделы',
+'- 🏠 Сегодня — ролевой дашборд дня.',
+'- 👥 Клиенты — база клиентов и адресов.',
+'- 📅 Календарь — события и маршруты.',
+'- ☰ Ещё — контрагенты, отчёты, пользователи, настройки.',
 '',
 '## Стек',
 '- Чистый HTML/CSS/JS без сборки и фреймворков.',
@@ -6319,6 +6868,31 @@ var ZRZ_DOCS={
     title:'📋 CHANGELOG',
     content:[
 '# История версий',
+'',
+'## v2.1.17 — Оплата заказа',
+'- Убрана «оплата замера» из UI (визард, редактирование, карточки, PDF).',
+'- Новые поля заказа: orderTotal (сумма), orderPaid (оплачено).',
+'- Отдельная модалка «💰 Оплата» с быстрыми действиями.',
+'- Чип оплаты в списке заказов (жёлтый — есть остаток, зелёный — оплачен).',
+'- Блок оплаты в деталях заказа и в PDF-бланке.',
+'- Право orders.payment (admin, manager, master, surveyor).',
+'- Отчёты: «Поступило» + «К доплате».',
+'',
+'## v2.1.16 — Дашборд «Сегодня» + меню',
+'- Новый таб «🏠 Сегодня» с ролевым дашбордом.',
+'- Таббар: 4 вкладки (Сегодня, Клиенты, Календарь, Ещё).',
+'- «Ещё» — 5 сгруппированных секций (Работа/Команда/Система/Справка/Аккаунт).',
+'- Компактная sync-точка в шапке.',
+'- Чистка следов Яндекс.Диска.',
+'',
+'## v2.1.15 — Безопасность Firebase',
+'- Anonymous Auth при старте (signInAnonymously).',
+'- Опциональный App Check через reCAPTCHA.',
+'- Экран «🔐 Безопасность Firebase» в настройках.',
+'- Группа тестов Security.',
+'',
+'## v2.1.14 — Фикс площади круглых зеркал',
+'- Формула π/4 × w² для CIRCLE, π/4 × w × h для OVAL.',
 '',
 '## v2.1.13 — Документация',
 '- Встроенный раздел «📚 Документация» с 5 вкладками.',
@@ -6374,7 +6948,9 @@ var ZRZ_DOCS={
 '- clientId, addressId, snapshot {clientName, clientPhone, addressFull}',
 '- status: new | work | ready | installed | cancelled',
 '- measureDate (YYYY-MM-DD)',
-'- paid, paidAmount',
+'- orderTotal (сумма заказа, ₽), orderPaid (оплачено, ₽)',
+'- orderDue = orderTotal − orderPaid (вычисляется в UI)',
+'- paid, paidAmount (legacy, не используется в UI)',
 '- assignedUserIds: [userId]',
 '- clientNote, orderNote, masterComment',
 '- createdBy',
@@ -6458,6 +7034,7 @@ var ZRZ_DOCS={
 'Ветка zerzalo в Realtime Database содержит:',
 '- Все заказы, позиции, клиенты, адреса, события.',
 '- Маршруты, контрагенты, уведомления.',
+'- Сумма заказа и оплата (orderTotal, orderPaid).',
 '- Пользователи и их роли (PIN НЕ уходит в Firebase).',
 '- Настройки компании (телефон, email, сайт, прайс).',
 '',
@@ -6494,7 +7071,7 @@ var ZRZ_DOCS={
 'Скачивается файл zerzalo-backup-YYYY-MM-DD.json.',
 '',
 'Что попадает в бэкап:',
-'- Все заказы, позиции, клиенты, адреса, события, маршруты.',
+'- Все заказы (включая orderTotal, orderPaid) и позиции, клиенты, адреса, события, маршруты.',
 '- Контрагенты, пользователи, уведомления.',
 '- Настройки и прайс.',
 '- Фотографии и чертежи, если они помещаются в localStorage (иначе — пустые).',
@@ -6572,7 +7149,9 @@ function openHelp(){
   if(!canViewHelp()){uiAlert('Нет прав');return;}
   var u=currentUser();
   var html='<h2>'+LOGO_MARK(30)+' Помощь</h2>';
-  html+='<div class="help-section"><h3>👋 Введение</h3><p>Приложение «Зерцало» помогает вести заказы на замеры и монтаж зеркал, стекла, душевых, фартуков и панно. Все данные хранятся локально на устройстве и (при желании) синхронизируются через Яндекс.Диск.</p></div>';
+  html+='<div class="help-section"><h3>👋 Введение</h3><p>Приложение «Зерцало» помогает вести заказы на замеры и монтаж зеркал, стекла, душевых, фартуков и панно. Все данные хранятся локально на устройстве и (при желании) синхронизируются через Firebase.</p></div>';
+  html+='<div class="help-section"><h3>🏠 Сегодня</h3><p>Первый экран — ролевой дашборд. Водитель и замерщик видят свой маршрут и события дня. Мастер — заказы в работе. Менеджер и админ — сводку: новые за 24 часа, события сегодня, неоплаченные заказы.</p><p>Под дашбордом — кнопка <span class="help-tag">+ Новый заказ</span> и полный список заказов.</p></div>';
+  html+='<div class="help-section"><h3>💰 Оплата заказа</h3><p>В карточке заказа — блок «Оплата» с кнопкой. Менеджер (или мастер/замерщик с правом <span class="help-tag">orders.payment</span>) вводит сумму заказа и сколько уже оплачено. Остаток «к доплате» виден в списке (жёлтый чип), в деталях и в PDF-бланке для монтажников.</p></div>';
   html+='<div class="help-section"><h3>🏠 Заказы</h3><ol>';
   html+='<li>Нажмите <span class="help-tag">+ Новый заказ</span> и пройдите 3 шага: клиент → адрес → детали.</li>';
   html+='<li>Внутри заказа добавьте позиции кнопкой <span class="help-tag">+ Добавить позицию</span>.</li>';
@@ -6592,7 +7171,7 @@ function openHelp(){
   html+='<div class="help-section"><h3>👥 Клиенты</h3><p>Один клиент может иметь несколько адресов. Дубликаты по телефону/ФИО предупреждаются при сохранении.</p></div>';
   html+='<div class="help-section"><h3>🏢 Контрагенты</h3><p>Поставщики, партнёры, склады. Могут быть добавлены в маршруты.</p></div>';
   html+='<div class="help-section"><h3>🔔 Уведомления</h3><p>Значок 🔔 в шапке — ваши уведомления. Красный бейдж на вкладке «Календарь» показывает непрочитанные.</p></div>';
-  html+='<div class="help-section"><h3>☁️ Синхронизация</h3><p>Работает через Яндекс.Диск. Нужен OAuth-токен. Синхронизируются: заказы, клиенты, события, маршруты, контрагенты, пользователи, настройки.</p><p><b>Фотографии и чертежи</b> синхронизируются отдельно (в разработке).</p></div>';
+  html+='<div class="help-section"><h3>☁️ Синхронизация</h3><p>Работает через Firebase Realtime Database. Данные автоматически синхронизируются между устройствами: заказы, клиенты, события, маршруты, контрагенты, пользователи, настройки.</p><p><b>Фотографии и чертежи</b> синхронизируются отдельно (в разработке).</p></div>';
   html+='<div class="help-section"><h3>⚙️ Права доступа</h3><p>Встроенные роли: <b>Админ</b>, <b>Менеджер</b>, <b>Мастер</b> (цех), <b>Замерщик-монтажник</b>, <b>Водитель</b>. Админ может гибко настроить права в разделе «Ещё» → «Роли и права».</p></div>';
   html+='<div class="help-section"><h3>🗑 Корзина</h3><p>Удалённые заказы и позиции попадают в корзину. Их можно восстановить в разделе «Ещё» → «Корзина».</p></div>';
   html+='<div class="help-section"><h3>📊 Отчёты</h3><p>Сводка по заказам: количество, статусы, площадь, выручка, загрузка по пользователям.</p></div>';
@@ -6679,7 +7258,6 @@ function renderGlobalSearchResults(q){
   return html;
 }
 /* ============ СИНХРОНИЗАЦИЯ ЧЕРЕЗ FIREBASE REALTIME DATABASE ============
-   Заменяет прежний модуль Яндекс.Диска.
    Вся база хранится в одной ветке: zerzalo/ (корень — объект со всеми полями).
    Каждое изменение на любом устройстве появляется у всех остальных в течение ~1 сек.
    Ручные кнопки pull/push не нужны — данные уходят сами.
@@ -7112,6 +7690,8 @@ function openSettings(){
     '<label>Сайт</label><input id="s_website" type="text" value="'+esc(s.website)+'">'+
     '<label>Telegram</label><input id="s_telegram" type="text" value="'+esc(s.telegram)+'">'+
     '<label>Слоган</label><input id="s_slogan" type="text" value="'+esc(s.slogan)+'">'+
+    '<label>🏠 Адрес базы (склад / офис)</label><input id="s_baseAddress" type="text" value="'+esc(s.baseAddress||'')+'" placeholder="Например: г. Москва, ул. Ленина, д. 5">'+
+    '<div style="font-size:12px;color:var(--muted);margin-top:6px;line-height:1.5">Используется для расчёта расстояний (OSRM). Возврат всегда считается «точка → база».</div>'+
     '<button class="btn btn-primary" onclick="saveSettings()">Сохранить</button>';
   html+='<div class="section-title">Внешний вид</div><div class="chips" id="themeChips"><button type="button" class="chip theme-chip '+(getSavedTheme()==='light'?'active':'')+'" data-val="light" onclick="setTheme(\'light\')">☀️ Светлая</button><button type="button" class="chip theme-chip '+(getSavedTheme()==='dark'?'active':'')+'" data-val="dark" onclick="setTheme(\'dark\')">🌙 Тёмная</button><button type="button" class="chip theme-chip '+(getSavedTheme()==='auto'?'active':'')+'" data-val="auto" onclick="setTheme(\'auto\')">⚙️ Системная</button></div>';
   html+='<div class="section-title">Уведомления</div>';
@@ -7147,7 +7727,7 @@ function openSettings(){
   html+='<button class="btn btn-secondary" onclick="closeModal()">Отмена</button>';
   showModal(html);
 }
-function saveSettings(){db.settings=db.settings||{};db.settings.phone=(document.getElementById('s_phone').value||'').trim();db.settings.email=(document.getElementById('s_email').value||'').trim();db.settings.website=(document.getElementById('s_website').value||'').trim();db.settings.telegram=(document.getElementById('s_telegram').value||'').trim();db.settings.slogan=(document.getElementById('s_slogan').value||'').trim();db.settings.updatedAt=Date.now();save();closeModal();render();}
+function saveSettings(){db.settings=db.settings||{};db.settings.phone=(document.getElementById('s_phone').value||'').trim();db.settings.email=(document.getElementById('s_email').value||'').trim();db.settings.website=(document.getElementById('s_website').value||'').trim();db.settings.telegram=(document.getElementById('s_telegram').value||'').trim();db.settings.slogan=(document.getElementById('s_slogan').value||'').trim();var _ba=document.getElementById('s_baseAddress');if(_ba)db.settings.baseAddress=(_ba.value||'').trim();db.settings.updatedAt=Date.now();save();closeModal();render();}
 function savePrices(){
   var v=function(id){var el=document.getElementById(id);if(!el)return 0;return parseFloat(String(el.value||'').replace(',','.'))||0;};
   db.settings.prices=db.settings.prices||{};
@@ -7256,8 +7836,8 @@ function renderAuth(){
 (function(){if(!('serviceWorker' in navigator))return;if(location.protocol==='file:'||location.protocol==='content:')return;var swCode=["const CACHE='zerzalo-v3';","const SHELL=['./','./index.html'];","self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(SHELL)).then(()=>self.skipWaiting()).catch(()=>{}));});","self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()).catch(()=>{}));});","self.addEventListener('fetch',e=>{if(e.request.method!=='GET')return;const u=new URL(e.request.url);if(u.origin!==location.origin)return;e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request).then(resp=>{if(!resp||resp.status!==200||resp.type==='opaque')return resp;const cl=resp.clone();caches.open(CACHE).then(c=>c.put(e.request,cl)).catch(()=>{});return resp;}).catch(()=>caches.match('./index.html'))));});"].join('\n');window.addEventListener('load',function(){var urlsToTry=[];try{urlsToTry.push('./sw.js');}catch(e){}if(window.Blob&&window.URL&&URL.createObjectURL){try{var b=new Blob([swCode],{type:'application/javascript'}),blobUrl=URL.createObjectURL(b);urlsToTry.push(blobUrl);}catch(e){}}var tried=0;function tryNext(){if(tried>=urlsToTry.length)return;var u=urlsToTry[tried++];navigator.serviceWorker.register(u).then(function(reg){console.log('SW registered',reg.scope);}).catch(function(e){tryNext();});}tryNext();});})();
 
 /* ============ ВЕРСИЯ / BOOT ============ */
-var APP_VERSION='2.1.15';
-var SCHEMA_BUILD='17/notifications/roles/sync/auto-token/rounded/backlight-facet/manual-num/measure-date/event-types/fab-top/cta/back-guard/inline-actions/cad-mirror/cutout-sockets/header-mark/driver-tab/push/morning/test-stand/docs/firebase-security';
+var APP_VERSION='2.1.18';
+var SCHEMA_BUILD='17/notifications/roles/sync/auto-token/rounded/backlight-facet/manual-num/measure-date/event-types/fab-top/cta/back-guard/inline-actions/cad-mirror/cutout-sockets/header-mark/driver-tab/push/morning/test-stand/docs/firebase-security/home-dashboard/order-payment/events-duration-osrm-workload';
 
 /* ============================================================
    v2.1.12: ТЕСТОВЫЙ СТЕНД
@@ -7626,12 +8206,8 @@ function boot(){
   if(/[?&]test=1/.test(location.search))setTimeout(function(){runSelfTests();},300);
   idbInit().then(function(){if(!idb)return;gcOrphanBlobs().catch(function(){});}).catch(function(){});
   /* Автопулл при старте, если синхронизация включена. */
-  if(db.sync&&db.sync.enabled&&db.sync.token&&isOnline()){
+  if(db.sync&&db.sync.enabled&&isOnline()){
     setTimeout(function(){schedulePull();},1200);
-    /* Если токен только что подставился (вариант A) — сразу отправим свои данные на Диск. */
-    if(!db.sync.lastPushAt){
-      setTimeout(function(){yandexPush().then(function(){updateSyncDot();}).catch(function(e){db.sync.status='error';db.sync.lastError=String(e.message||e);updateSyncDot();});},2500);
-    }
   }
 }
 
