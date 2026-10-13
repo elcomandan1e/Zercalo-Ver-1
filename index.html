@@ -518,6 +518,12 @@ html[data-theme="dark"] .fab-top{box-shadow:0 8px 22px rgba(0,0,0,0.55)}
 .modal.has-back h2{padding-left:48px;padding-right:8px}
 .modal.has-back .modal-crumbs{padding-left:48px}
 @media (max-width:380px){.fab-top{padding:10px 14px 10px 12px;font-size:13px}.fab-top .fab-top-label{max-width:110px}}
+/* === v2.1.6: встроенные кнопки-действия (замена парящему FAB) === */
+.btn-row-action{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:14px 18px;border-radius:16px;border:none;background:linear-gradient(135deg,#7b9dd1,#5b7fb8);color:#fff;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer;box-shadow:0 6px 16px rgba(91,127,184,0.28);margin:6px 0 14px;transition:transform .16s ease,box-shadow .16s ease;letter-spacing:0.2px}
+.btn-row-action:active{transform:scale(0.98);box-shadow:0 3px 10px rgba(91,127,184,0.35)}
+.btn-row-action svg{flex-shrink:0;display:block}
+html[data-theme="dark"] .btn-row-action{box-shadow:0 6px 16px rgba(0,0,0,0.4)}
+.btn-row-action.btn-row-compact{padding:11px 16px;font-size:14px;margin:4px 0 12px;border-radius:14px}
 </style>
 </head>
 <body>
@@ -3346,9 +3352,9 @@ function renderClientsTab(){
   html+='<button type="button" class="chip sort-chip'+(clientsSortMode==='orders'?' active':'')+'" onclick="setClientsSort(\'orders\')">По заказам</button>';
   html+='<button type="button" class="chip sort-chip'+(clientsShowArchived?' active':'')+'" onclick="toggleClientsArchived()">'+(clientsShowArchived?'✓ Архив':'📦 Архив')+'</button>';
   html+='</div>';
+  if(canManageClients()&&db.clients.filter(function(c){return !c.archived;}).length)html+='<button type="button" class="btn-row-action" onclick="openClientForm(null)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg><span>Новый клиент</span></button>';
   html+='<div id="clientsList">'+renderClientsList()+'</div>';
   html+='<div class="footer-brand">'+LOGO_MARK(20)+'<span>Зерцало • клиенты</span></div>';
-  if(canManageClients()&&db.clients.filter(function(c){return !c.archived;}).length)html+='<button class="fab-top" onclick="openClientForm(null)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg><span class="fab-top-label">Новый клиент</span></button>';
   return html;
 }
 function renderCalendarTab(){
@@ -3375,10 +3381,10 @@ function renderCalendarTab(){
   html+='<button type="button" class="chip sort-chip'+(calState.filter==='install'?' active':'')+'" onclick="calSetFilter(\'install\')">🔧 Монтажи</button>';
   html+='<button type="button" class="chip sort-chip'+(calState.filter==='mine'?' active':'')+'" onclick="calSetFilter(\'mine\')">👤 Мои</button>';
   html+='</div>';
+  if(canManageEvents())html+='<button type="button" class="btn-row-action btn-row-compact" onclick="openEventForm(null,null)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg><span>Событие</span></button>';
   if(calState.view==='month')html+=renderCalendarMonthGrid();
   else html+=renderCalendarList();
   html+='<div class="footer-brand">'+LOGO_MARK(20)+'<span>Зерцало • календарь</span></div>';
-  if(canManageEvents())html+='<button class="fab-top" onclick="openEventForm(null,null)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg><span class="fab-top-label">Событие</span></button>';
   return html;
 }
 function calSetSection(s){calState.section=(s==='routes')?'routes':'events';render();}
@@ -3426,9 +3432,9 @@ function renderList(){
   if(orderFiltersCount())html+='<button type="button" class="chip sort-chip" onclick="clearOrderFilters()">✕ Сбросить</button>';
   html+='</div>';
   html+='<div class="filter-panel" id="orderFiltersPanel" hidden>'+renderOrderFiltersPanel()+'</div>';
+  if(canCreateOrder())html+='<button type="button" class="btn-row-action" onclick="openNewOrder()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg><span>Новый заказ</span></button>';
   html+='<div id="orderList">'+renderOrderList()+'</div>';
   html+='<div class="footer-brand">'+LOGO_MARK(20)+'<span>Зерцало • замеры</span></div>';
-  if(canCreateOrder())html+='<button class="fab-top" onclick="openNewOrder()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg><span class="fab-top-label">Новый заказ</span></button>';
   return html;
 }
 /* === ПАНЕЛЬ ФИЛЬТРОВ ЗАКАЗОВ (ЭТАП 2) === */
@@ -3555,6 +3561,7 @@ function renderDetail(){
   if(hasRole(['admin','manager','master']))html+='<div style="margin-top:12px"><label>Комментарий мастера</label><textarea id="master_comment_'+o.id+'" rows="2" placeholder="Например: задержка, ждём фурнитуру">'+esc(o.masterComment||'')+'</textarea><button class="btn btn-secondary" style="margin-top:8px;padding:9px;font-size:13px" onclick="saveMasterComment('+o.id+')">💾 Сохранить комментарий</button></div>';
   html+='</div>';
   html+=renderOrderEventsBlock(o);
+  if(canEditOrder(o))html+='<button type="button" class="btn-row-action" onclick="openItem(null)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg><span>Добавить позицию</span></button>';
   html+='<div class="summary"><div class="line">Позиций: '+items.length+' • Изделий: '+tq+' • Площадь: <span id="areaCounter">'+area.toFixed(3).replace('.',',')+'</span> м²</div>'+(bd?'<div class="breakdown">'+esc(bd)+'</div>':'')+'</div>';
   if(!items.length&&canEditOrder(o))html+='<div class="empty-cta"><span class="ec-ico">📦</span><div class="ec-title">Позиций пока нет</div><div class="ec-sub">Добавьте зеркало, стекло, душевую, фартук или панно — с размерами и чертежом.</div><button class="btn btn-primary" onclick="openItem(null)">+ Добавить позицию</button></div>';
   else if(!items.length)html+='<div class="empty">Позиций нет</div>';
@@ -3585,7 +3592,6 @@ function renderDetail(){
   html+='<button class="btn btn-secondary" onclick="openPhotoReport(\''+esc(o.id)+'\')" style="margin-top:10px">📷 Фотоотчёт</button>';
   if(canDeleteOrder(o))html+='<button class="btn btn-danger" onclick="deleteOrder('+o.id+')" style="margin-bottom:110px">Удалить заказ</button>';else html+='<div style="margin-bottom:110px"></div>';
   html+='<div class="footer-brand" style="margin-bottom:20px">'+LOGO_MARK(20)+'<span>Зерцало</span></div>';
-  if(canEditOrder(o))html+='<button class="fab-top" onclick="openItem(null)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg><span class="fab-top-label">Добавить позицию</span></button>';
   return html;
 }
 function saveMasterComment(id){var o=db.orders.find(function(x){return x.id===id;});if(!o)return;var ta=document.getElementById('master_comment_'+id);if(!ta)return;o.masterComment=(ta.value||'').trim();touch(o);save();haptic(8);var btn=ta.parentNode.querySelector('button');if(btn){var t=btn.textContent;btn.textContent='✓ Сохранено';setTimeout(function(){btn.textContent=t;},1200);}}
@@ -4692,8 +4698,8 @@ function renderRoutesList(){
       html+=groups[dateYmd].map(renderRouteCard).join('');
     });
   }
+  if(canManageRoutes()&&routes.length)html+='<button type="button" class="btn-row-action" onclick="openRouteForm(null)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg><span>Новый маршрут</span></button>';
   html+='<div class="footer-brand">'+LOGO_MARK(20)+'<span>Зерцало • маршруты</span></div>';
-  if(canManageRoutes()&&routes.length)html+='<button class="fab-top" onclick="openRouteForm(null)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg><span class="fab-top-label">Новый маршрут</span></button>';
   return html;
 }
 function renderRouteCard(r){
@@ -4996,9 +5002,9 @@ function renderContractorsTab(){
   html+='<div class="chips sort-chips">';
   html+='<button type="button" class="chip sort-chip'+(contractorsShowArchived?' active':'')+'" onclick="toggleContractorsArchived()">'+(contractorsShowArchived?'✓ Архив':'📦 Архив')+'</button>';
   html+='</div>';
+  if(canManageContractors()&&db.contractors.filter(function(c){return !c.archived;}).length)html+='<button type="button" class="btn-row-action" onclick="openContractorForm(null)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg><span>Новый контрагент</span></button>';
   html+='<div id="contractorsList">'+renderContractorsList()+'</div>';
   html+='<div class="footer-brand">'+LOGO_MARK(20)+'<span>Зерцало • контрагенты</span></div>';
-  if(canManageContractors()&&db.contractors.filter(function(c){return !c.archived;}).length)html+='<button class="fab-top" onclick="openContractorForm(null)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg><span class="fab-top-label">Контрагент</span></button>';
   return html;
 }
 function renderContractorsList(){
@@ -6426,8 +6432,8 @@ function renderAuth(){
 (function(){if(!('serviceWorker' in navigator))return;if(location.protocol==='file:'||location.protocol==='content:')return;var swCode=["const CACHE='zerzalo-v3';","const SHELL=['./','./index.html'];","self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(SHELL)).then(()=>self.skipWaiting()).catch(()=>{}));});","self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()).catch(()=>{}));});","self.addEventListener('fetch',e=>{if(e.request.method!=='GET')return;const u=new URL(e.request.url);if(u.origin!==location.origin)return;e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request).then(resp=>{if(!resp||resp.status!==200||resp.type==='opaque')return resp;const cl=resp.clone();caches.open(CACHE).then(c=>c.put(e.request,cl)).catch(()=>{});return resp;}).catch(()=>caches.match('./index.html'))));});"].join('\n');window.addEventListener('load',function(){var urlsToTry=[];try{urlsToTry.push('./sw.js');}catch(e){}if(window.Blob&&window.URL&&URL.createObjectURL){try{var b=new Blob([swCode],{type:'application/javascript'}),blobUrl=URL.createObjectURL(b);urlsToTry.push(blobUrl);}catch(e){}}var tried=0;function tryNext(){if(tried>=urlsToTry.length)return;var u=urlsToTry[tried++];navigator.serviceWorker.register(u).then(function(reg){console.log('SW registered',reg.scope);}).catch(function(e){tryNext();});}tryNext();});})();
 
 /* ============ ВЕРСИЯ / BOOT ============ */
-var APP_VERSION='2.1.5';
-var SCHEMA_BUILD='17/notifications/roles/sync/auto-token/rounded/backlight-facet/manual-num/measure-date/event-types/fab-top/cta/back-guard';
+var APP_VERSION='2.1.6';
+var SCHEMA_BUILD='17/notifications/roles/sync/auto-token/rounded/backlight-facet/manual-num/measure-date/event-types/fab-top/cta/back-guard/inline-actions';
 
 function boot(){
   applyTheme(getSavedTheme());
