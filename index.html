@@ -902,6 +902,7 @@ function migrateItem(i){
   if(i.plinthMount==null)i.plinthMount=false;if(i.plinthHeight==null)i.plinthHeight=0;
   if(i.socketsMount==null)i.socketsMount=false;if(i.cutoutEnabled==null)i.cutoutEnabled=false;
   if(i.cutoutW==null)i.cutoutW=0;if(i.cutoutH==null)i.cutoutH=0;
+  if(i.cutoutShape==null)i.cutoutShape='rect';
   if(i.cutV==null)i.cutV=false;if(i.cutVPos==null)i.cutVPos=50;if(i.cutH==null)i.cutH=false;if(i.cutHPos==null)i.cutHPos=50;
   if(i.isNiche==null)i.isNiche=false;if(i.nicheDepth==null)i.nicheDepth=0;if(i.tempered==null)i.tempered=false;
   if(!Array.isArray(i.socketsList))i.socketsList=[];
@@ -1757,23 +1758,110 @@ function drawTechIso(ctx,x,y,w,h,dims,scale,d){
     ctx.restore();return;
   }
 
-  /* Зеркало / полка / панно */
+  /* v2.1.8: профессиональная отрисовка зеркала в изометрии */
   var gd=glassDimensions(d);
-  var sc3=Math.min((w-80)/Math.max(gd.w||1,1),(h-60)/Math.max(gd.h||1,1));
-  var pxW=gd.w*sc3,pxH=gd.h*sc3,x0=cx-pxW/2,y0=cy-pxH/2;
-  ctx.fillStyle='rgba(200,221,240,0.55)';ctx.strokeStyle=accent;ctx.lineWidth=2.5;
+  var _padL=64,_padR=88,_padT=48,_padB=78;
+  var _avW=Math.max(80,w-_padL-_padR),_avH=Math.max(60,h-_padT-_padB);
+  var sc3=Math.min(_avW/Math.max(gd.w||1,1),_avH/Math.max(gd.h||1,1));
+  var pxW=gd.w*sc3,pxH=gd.h*sc3;
+  var x0=cx-pxW/2,y0=cy-pxH/2+12;
+
+  _drawMirrorBacklightRays(ctx,x0,y0,pxW,pxH,d,sc3);
+
   var _rMm=(d.roundedCorners&&d.type==='MIRROR'&&(d.shape==='RECT'||d.shape==='RECT4'))?(Number(d.cornerRadius)||0):0;
   var _rPx=_rMm/10*sc3;
-  _drawMirrorBacklightRays(ctx,x0,y0,pxW,pxH,d,sc3);
-  ctx.beginPath();canvasRoundRect(ctx,x0,y0,pxW,pxH,_rPx);ctx.fill();ctx.stroke();
-  _drawMirrorBacklightStrip(ctx,x0,y0,pxW,pxH,d,sc3);
+  var _blArr=(d.type==='MIRROR')?backlightArr(d):[];
+  var _hasBl=(d.type==='MIRROR')&&(_backlightHasMode(_blArr,'Из-за зеркала')||_backlightHasMode(_blArr,'На зеркале'));
+  var _boPx=Math.max(2,((Number(d.backlightOffset)||2))*sc3);
+  var _bwPx=Math.max(6,((Number(d.backlightWidth)||2))*sc3);
+  var _bandInset=_backlightHasMode(_blArr,'На зеркале')?_boPx:0;
+
+  ctx.fillStyle='rgba(200,221,240,0.55)';
+  ctx.beginPath();canvasRoundRect(ctx,x0,y0,pxW,pxH,_rPx);ctx.fill();
+
+  if(_hasBl){_drawHatchBand(ctx,x0,y0,pxW,pxH,_rPx,_bandInset,_bwPx);}
+
+  if(_hasBl){
+    var _inset=_bandInset+_bwPx;
+    ctx.save();
+    ctx.strokeStyle='rgba(30,77,123,0.75)';
+    ctx.lineWidth=1;
+    ctx.beginPath();
+    canvasRoundRect(ctx,x0+_inset,y0+_inset,Math.max(2,pxW-2*_inset),Math.max(2,pxH-2*_inset),Math.max(0,_rPx-_inset));
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  ctx.strokeStyle=ink;
+  ctx.lineWidth=2.2;
+  ctx.beginPath();canvasRoundRect(ctx,x0,y0,pxW,pxH,_rPx);ctx.stroke();
+
   _drawMirrorFacet(ctx,x0,y0,pxW,pxH,d,sc3);
-  if(_rMm>0){ctx.fillStyle=red;ctx.font='700 12px "PT Sans Narrow",Arial';ctx.textAlign='left';ctx.textBaseline='top';ctx.fillText('R'+numFmt(_rMm),x0+_rPx+6,y0+_rPx+2);}
-  ctx.strokeStyle=red;ctx.lineWidth=1;ctx.setLineDash([3,3]);
-  ctx.beginPath();ctx.moveTo(x0,y0-24);ctx.lineTo(x0+pxW,y0-24);ctx.stroke();
-  ctx.beginPath();ctx.moveTo(x0-24,y0);ctx.lineTo(x0-24,y0+pxH);ctx.stroke();ctx.setLineDash([]);
-  ctx.fillStyle=red;ctx.font='700 14px "PT Sans Narrow",Arial';ctx.textAlign='center';ctx.textBaseline='bottom';ctx.fillText(numFmt(gd.w)+' см',x0+pxW/2,y0-28);
-  ctx.save();ctx.translate(x0-34,y0+pxH/2);ctx.rotate(-Math.PI/2);ctx.textBaseline='middle';ctx.fillText(numFmt(gd.h)+' см',0,0);ctx.restore();
+
+  if(d.type==='MIRROR'&&(d.cutV||d.cutH)){
+    ctx.save();
+    ctx.strokeStyle='#9d3668';ctx.lineWidth=1.4;ctx.setLineDash([7,4]);
+    if(d.cutV){var cvx=x0+(Number(d.cutVPos)||0)*sc3;ctx.beginPath();ctx.moveTo(cvx,y0-4);ctx.lineTo(cvx,y0+pxH+4);ctx.stroke();}
+    if(d.cutH){var chy=y0+(Number(d.cutHPos)||0)*sc3;ctx.beginPath();ctx.moveTo(x0-4,chy);ctx.lineTo(x0+pxW+4,chy);ctx.stroke();}
+    ctx.setLineDash([]);ctx.restore();
+  }
+
+  if(d.type==='MIRROR'&&d.cutoutEnabled&&d.cutoutW>0){
+    ctx.save();
+    ctx.strokeStyle='#c95a1e';ctx.lineWidth=1.6;
+    if((d.cutoutShape||'rect')==='circle'){
+      var rrC=d.cutoutW*sc3/2;
+      ctx.beginPath();ctx.arc(x0+pxW/2,y0+pxH/2,rrC,0,Math.PI*2);ctx.stroke();
+    } else if(d.cutoutH>0){
+      var cow=d.cutoutW*sc3,coh=d.cutoutH*sc3;
+      ctx.beginPath();ctx.rect(x0+pxW/2-cow/2,y0+pxH/2-coh/2,cow,coh);ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  if(d.type==='MIRROR'&&d.socketsMount&&Array.isArray(d.socketsList)){
+    var sockR=(7/2)*sc3;
+    if(sockR<4)sockR=4;
+    d.socketsList.forEach(function(s){
+      var cnt=Math.max(1,Number(s.count)||1);
+      var stepCm=Number(s.step)||7.1;
+      var dx=Number(s.distX)||0,dy=Number(s.distY)||0;
+      var baseX=(s.edgeX==='right')?(x0+pxW-dx*sc3):(x0+dx*sc3);
+      var baseY=(s.edgeY==='top')?(y0+dy*sc3):(y0+pxH-dy*sc3);
+      for(var k=0;k<cnt;k++){
+        var sy=(s.edgeY==='top')?(baseY+k*stepCm*sc3):(baseY-k*stepCm*sc3);
+        ctx.save();
+        ctx.fillStyle='#f5c93a';
+        ctx.strokeStyle='#8a6a2c';ctx.lineWidth=1.1;
+        ctx.beginPath();ctx.arc(baseX,sy,sockR,0,Math.PI*2);ctx.fill();ctx.stroke();
+        ctx.strokeStyle='#8a6a2c';ctx.lineWidth=0.8;
+        var ext=sockR+4;
+        ctx.beginPath();
+        ctx.moveTo(baseX-ext,sy);ctx.lineTo(baseX+ext,sy);
+        ctx.moveTo(baseX,sy-ext);ctx.lineTo(baseX,sy+ext);
+        ctx.stroke();
+        ctx.restore();
+      }
+    });
+  }
+
+  if(_rMm>0&&_rPx>4){
+    _rCalloutArrow(ctx,x0+pxW-_rPx,y0+pxH-_rPx,_rPx,_rMm);
+  }
+
+  _dimH(ctx,x0,x0+pxW,y0+pxH+18,numFmt(gd.w)+' см');
+  _dimV(ctx,y0,y0+pxH,x0+pxW+22,numFmt(gd.h)+' см');
+
+  if(d.type==='MIRROR'&&d.cutV){_drawSectionMark(ctx,x0-22,y0,y0+pxH,'А');}
+
+  var _leg10=_backlightFacetLegend(d);
+  if(_leg10){
+    ctx.save();
+    ctx.fillStyle='#8a6a2c';ctx.font='700 11px "PT Sans Narrow",Arial';
+    ctx.textAlign='center';ctx.textBaseline='top';
+    ctx.fillText(_leg10,cx,y0+pxH+42);
+    ctx.restore();
+  }
   ctx.restore();
 }
 
@@ -2304,7 +2392,16 @@ function openItem(id){
     '<div id="sockets_block"><div class="checkbox-row"><input type="checkbox" id="e_sockets" '+(d.socketsMount?'checked':'')+'><label for="e_sockets">🔌 Розетки</label></div><div id="sockets_wrap" style="display:'+(d.socketsMount?'block':'none')+'"><div id="socketsList"></div><button type="button" class="btn btn-secondary" style="margin-top:10px;padding:10px;font-size:14px" onclick="addSocketRow()">+ Розетка</button></div></div>'+
 
     /* ВЫРЕЗ */
-    '<div id="cutout_block"><div class="checkbox-row"><input type="checkbox" id="e_cutout" '+(d.cutoutEnabled?'checked':'')+'><label for="e_cutout">✂️ Вырез</label></div><div id="cutout_wrap" style="display:'+(d.cutoutEnabled?'block':'none')+'"><div class="row2"><div><label>Ш, см</label><input id="f_cutoutW" type="text" inputmode="decimal" value="'+(d.cutoutW?numFmt(d.cutoutW):'')+'"></div><div><label>В, см</label><input id="f_cutoutH" type="text" inputmode="decimal" value="'+(d.cutoutH?numFmt(d.cutoutH):'')+'"></div></div></div></div>'+
+    '<div id="cutout_block"><div class="checkbox-row"><input type="checkbox" id="e_cutout" '+(d.cutoutEnabled?'checked':'')+'><label for="e_cutout">✂️ Вырез</label></div><div id="cutout_wrap" style="display:'+(d.cutoutEnabled?'block':'none')+'">'+
+      '<div class="chips" id="chips_cutoutShape" style="margin-bottom:8px">'+
+        '<button type="button" class="chip '+((d.cutoutShape||'rect')==='rect'?'active':'')+'" data-val="rect" onclick="setCutoutShape(\'rect\')">▭ Прямоугольный</button>'+
+        '<button type="button" class="chip '+((d.cutoutShape||'rect')==='circle'?'active':'')+'" data-val="circle" onclick="setCutoutShape(\'circle\')">◯ Круглый</button>'+
+      '</div>'+
+      '<div class="row2">'+
+        '<div><label id="lbl_cutoutW">'+((d.cutoutShape||'rect')==='circle'?'Диаметр, см':'Ш, см')+'</label><input id="f_cutoutW" type="text" inputmode="decimal" value="'+(d.cutoutW?numFmt(d.cutoutW):'')+'"></div>'+
+        '<div id="cutout_h_wrap" style="display:'+((d.cutoutShape||'rect')==='circle'?'none':'block')+'"><label>В, см</label><input id="f_cutoutH" type="text" inputmode="decimal" value="'+(d.cutoutH?numFmt(d.cutoutH):'')+'"></div>'+
+      '</div>'+
+    '</div></div>'+
 
     /* ЗЕРКАЛО В НИШУ */
     '<div class="mirror-mode-block" id="mirror_mode_block" data-sec="Режим" style="display:'+(d.type==='MIRROR'?'block':'none')+'">'+
@@ -2878,7 +2975,10 @@ function collectDraft(d){
   r.socketsList=Array.isArray(d.socketsList)?d.socketsList.map(function(s){return {count:Math.max(1,Math.min(4,Number(s.count)||1)),step:(Number(s.step)>0?Number(s.step):7.1),distX:Number(s.distX)||0,edgeX:s.edgeX==='right'?'right':'left',distY:Number(s.distY)||0,edgeY:s.edgeY==='top'?'top':'bottom'};}):[];
   var cutChk=document.getElementById('e_cutout');r.cutoutEnabled=cutChk?cutChk.checked:false;
   var cw2=document.getElementById('f_cutoutW'),ch2=document.getElementById('f_cutoutH');
-  r.cutoutW=r.cutoutEnabled&&cw2?numVal(cw2):0;r.cutoutH=r.cutoutEnabled&&ch2?numVal(ch2):0;
+  r.cutoutShape=(d.cutoutShape==='circle')?'circle':'rect';
+  r.cutoutW=r.cutoutEnabled&&cw2?numVal(cw2):0;
+  if(r.cutoutShape==='circle')r.cutoutH=r.cutoutW;
+  else r.cutoutH=r.cutoutEnabled&&ch2?numVal(ch2):0;
   var cvEl=document.getElementById('f_cutVPos'),chEl=document.getElementById('f_cutHPos');
   r.cutV=!!d.cutV;r.cutH=!!d.cutH;
   r.cutVPos=cvEl?numVal(cvEl):(d.cutVPos||0);r.cutHPos=chEl?numVal(chEl):(d.cutHPos||0);
@@ -2976,6 +3076,17 @@ function updateRoundingVisibility(d){
   var inp=document.getElementById('f_cornerRadiusRounded');if(inp&&document.activeElement!==inp)inp.value=numFmt(d.cornerRadius!=null?d.cornerRadius:50);
 }
 function canvasRoundRect(ctx,x,y,w,h,r){r=Math.min(Number(r)||0,w/2,h/2);if(r<=0){ctx.rect(x,y,w,h);return;}if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x,y,w,h,r);return;}ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+function setCutoutShape(s){
+  var d=window._editDraft;if(!d)return;
+  d.cutoutShape=(s==='circle')?'circle':'rect';
+  var b=document.getElementById('chips_cutoutShape');
+  if(b)b.querySelectorAll('.chip').forEach(function(c){c.classList.toggle('active',c.dataset.val===d.cutoutShape);});
+  var hw=document.getElementById('cutout_h_wrap');
+  if(hw)hw.style.display=(d.cutoutShape==='circle')?'none':'block';
+  var lbl=document.getElementById('lbl_cutoutW');
+  if(lbl)lbl.textContent=(d.cutoutShape==='circle')?'Диаметр, см':'Ш, см';
+  calcPreview(d);saveDraft();
+}
 /* === v2.1.3: подсветка и фацет на чертежах === */
 function _backlightSides(b){
   var s={top:false,right:false,bottom:false,left:false};
@@ -3099,6 +3210,132 @@ function _backlightFacetLegend(d){
   if(_backlightHasMode(b,'На зеркале'))parts.push('💡 на зеркале');
   if(d.edge==='Фацет'&&Number(d.facetWidth)>0)parts.push('✂️ фацет '+numFmt(d.facetWidth)+' мм');
   return parts.join(' • ');
+}
+/* === v2.1.8: CAD-хелперы для проф. чертежа зеркала === */
+function _roundRectPath(ctx,x,y,w,h,r){
+  r=Math.min(Number(r)||0,w/2,h/2);
+  ctx.moveTo(x+r,y);
+  ctx.arcTo(x+w,y,x+w,y+h,r);
+  ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r);
+  ctx.arcTo(x,y,x+w,y,r);
+  ctx.closePath();
+}
+function _drawHatchBand(ctx,x,y,w,h,rOuter,bandInset,bandWidth){
+  if(bandWidth<=0)return;
+  var bw=bandInset+bandWidth;
+  if(bw*2>=w||bw*2>=h)return;
+  var iw=w-2*bw,ih=h-2*bw;
+  var rIn=Math.max(0,(rOuter||0)-bw);
+  ctx.save();
+  ctx.beginPath();
+  _roundRectPath(ctx,x,y,w,h,rOuter||0);
+  _roundRectPath(ctx,x+bw,y+bw,iw,ih,rIn);
+  ctx.clip('evenodd');
+  ctx.strokeStyle='rgba(140,110,70,0.65)';
+  ctx.lineWidth=0.9;
+  var step=4.5;
+  ctx.beginPath();
+  for(var i=-h;i<w+h;i+=step){
+    ctx.moveTo(x+i,y);
+    ctx.lineTo(x+i+h,y+h);
+  }
+  ctx.stroke();
+  ctx.strokeStyle='rgba(100,80,50,0.9)';
+  ctx.lineWidth=0.8;
+  ctx.setLineDash([3,2]);
+  ctx.beginPath();
+  _roundRectPath(ctx,x+bw,y+bw,iw,ih,rIn);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.restore();
+}
+function _dimH(ctx,x1,x2,y,text){
+  var col='#c14d4d';
+  ctx.save();
+  ctx.strokeStyle=col;ctx.fillStyle=col;ctx.lineWidth=1;
+  ctx.beginPath();
+  ctx.moveTo(x1,y-6);ctx.lineTo(x1,y+6);
+  ctx.moveTo(x2,y-6);ctx.lineTo(x2,y+6);
+  ctx.stroke();
+  ctx.beginPath();ctx.moveTo(x1,y);ctx.lineTo(x2,y);ctx.stroke();
+  var a=6;
+  ctx.beginPath();
+  ctx.moveTo(x1,y);ctx.lineTo(x1+a,y-2.5);ctx.lineTo(x1+a,y+2.5);ctx.closePath();
+  ctx.moveTo(x2,y);ctx.lineTo(x2-a,y-2.5);ctx.lineTo(x2-a,y+2.5);ctx.closePath();
+  ctx.fill();
+  ctx.font='700 13px "PT Sans Narrow",Arial';
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  var tw=ctx.measureText(text).width+10;
+  var tx=(x1+x2)/2,ty=y+16;
+  ctx.fillStyle='#fff';ctx.fillRect(tx-tw/2,ty-7,tw,14);
+  ctx.fillStyle=col;ctx.fillText(text,tx,ty);
+  ctx.restore();
+}
+function _dimV(ctx,y1,y2,x,text){
+  var col='#c14d4d';
+  ctx.save();
+  ctx.strokeStyle=col;ctx.fillStyle=col;ctx.lineWidth=1;
+  ctx.beginPath();
+  ctx.moveTo(x-6,y1);ctx.lineTo(x+6,y1);
+  ctx.moveTo(x-6,y2);ctx.lineTo(x+6,y2);
+  ctx.stroke();
+  ctx.beginPath();ctx.moveTo(x,y1);ctx.lineTo(x,y2);ctx.stroke();
+  var a=6;
+  ctx.beginPath();
+  ctx.moveTo(x,y1);ctx.lineTo(x-2.5,y1+a);ctx.lineTo(x+2.5,y1+a);ctx.closePath();
+  ctx.moveTo(x,y2);ctx.lineTo(x-2.5,y2-a);ctx.lineTo(x+2.5,y2-a);ctx.closePath();
+  ctx.fill();
+  ctx.font='700 13px "PT Sans Narrow",Arial';
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.translate(x+16,(y1+y2)/2);
+  ctx.rotate(-Math.PI/2);
+  var tw=ctx.measureText(text).width+10;
+  ctx.fillStyle='#fff';ctx.fillRect(-tw/2,-7,tw,14);
+  ctx.fillStyle=col;ctx.fillText(text,0,0);
+  ctx.restore();
+}
+function _rCalloutArrow(ctx,arcCx,arcCy,rPx,rMm){
+  if(rPx<4)return;
+  var ang=Math.PI/4;
+  var tipX=arcCx+rPx*Math.cos(ang);
+  var tipY=arcCy+rPx*Math.sin(ang);
+  var lx=tipX-56,ly=tipY-24;
+  ctx.save();
+  ctx.strokeStyle='#c14d4d';ctx.fillStyle='#c14d4d';ctx.lineWidth=1;
+  ctx.beginPath();
+  ctx.moveTo(tipX,tipY);
+  ctx.lineTo(tipX-24,tipY-10);
+  ctx.lineTo(lx,ly);
+  ctx.stroke();
+  var ba=Math.atan2(10,24);
+  var arr=6;
+  ctx.beginPath();
+  ctx.moveTo(tipX,tipY);
+  ctx.lineTo(tipX-arr*Math.cos(ba-0.45),tipY-arr*Math.sin(ba-0.45));
+  ctx.lineTo(tipX-arr*Math.cos(ba+0.45),tipY-arr*Math.sin(ba+0.45));
+  ctx.closePath();ctx.fill();
+  ctx.font='700 13px "PT Sans Narrow",Arial';
+  ctx.textAlign='right';ctx.textBaseline='bottom';
+  ctx.fillText('R'+numFmt(rMm),lx-2,ly+4);
+  ctx.restore();
+}
+function _drawSectionMark(ctx,x,y1,y2,label){
+  ctx.save();
+  ctx.strokeStyle='#1a2733';ctx.fillStyle='#1a2733';ctx.lineWidth=1.8;
+  ctx.beginPath();
+  ctx.moveTo(x,y1);ctx.lineTo(x+16,y1);
+  ctx.moveTo(x,y2);ctx.lineTo(x+16,y2);
+  ctx.stroke();
+  var a=5;
+  ctx.beginPath();
+  ctx.moveTo(x,y1);ctx.lineTo(x-a,y1-3);ctx.lineTo(x-a,y1+3);ctx.closePath();
+  ctx.moveTo(x,y2);ctx.lineTo(x-a,y2-3);ctx.lineTo(x-a,y2+3);ctx.closePath();
+  ctx.fill();
+  ctx.font='700 13px "PT Sans Narrow",Arial';
+  ctx.textAlign='right';ctx.textBaseline='middle';
+  ctx.fillText(label,x-6,(y1+y2)/2);
+  ctx.restore();
 }
 /* ============ ФОТО ============ */
 var PHOTO_PLACEHOLDER='data:image/svg+xml;utf8,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60"><rect width="60" height="60" fill="#e4e7ec"/><text x="30" y="36" text-anchor="middle" font-family="Arial" font-size="18" fill="#98a2b3">📷</text></svg>');
@@ -6432,8 +6669,8 @@ function renderAuth(){
 (function(){if(!('serviceWorker' in navigator))return;if(location.protocol==='file:'||location.protocol==='content:')return;var swCode=["const CACHE='zerzalo-v3';","const SHELL=['./','./index.html'];","self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(SHELL)).then(()=>self.skipWaiting()).catch(()=>{}));});","self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()).catch(()=>{}));});","self.addEventListener('fetch',e=>{if(e.request.method!=='GET')return;const u=new URL(e.request.url);if(u.origin!==location.origin)return;e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request).then(resp=>{if(!resp||resp.status!==200||resp.type==='opaque')return resp;const cl=resp.clone();caches.open(CACHE).then(c=>c.put(e.request,cl)).catch(()=>{});return resp;}).catch(()=>caches.match('./index.html'))));});"].join('\n');window.addEventListener('load',function(){var urlsToTry=[];try{urlsToTry.push('./sw.js');}catch(e){}if(window.Blob&&window.URL&&URL.createObjectURL){try{var b=new Blob([swCode],{type:'application/javascript'}),blobUrl=URL.createObjectURL(b);urlsToTry.push(blobUrl);}catch(e){}}var tried=0;function tryNext(){if(tried>=urlsToTry.length)return;var u=urlsToTry[tried++];navigator.serviceWorker.register(u).then(function(reg){console.log('SW registered',reg.scope);}).catch(function(e){tryNext();});}tryNext();});})();
 
 /* ============ ВЕРСИЯ / BOOT ============ */
-var APP_VERSION='2.1.6';
-var SCHEMA_BUILD='17/notifications/roles/sync/auto-token/rounded/backlight-facet/manual-num/measure-date/event-types/fab-top/cta/back-guard/inline-actions';
+var APP_VERSION='2.1.8';
+var SCHEMA_BUILD='17/notifications/roles/sync/auto-token/rounded/backlight-facet/manual-num/measure-date/event-types/fab-top/cta/back-guard/inline-actions/cad-mirror/cutout-sockets';
 
 function boot(){
   applyTheme(getSavedTheme());
