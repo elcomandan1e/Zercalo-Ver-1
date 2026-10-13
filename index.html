@@ -15,6 +15,8 @@
 <link id="appManifest" rel="manifest">
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-check-compat.js"></script>
 <style>
 :root{color-scheme:light;--font-sans:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;--font-mono:"PT Mono","SF Mono",ui-monospace,Menlo,Consolas,monospace;--bg-1:#f6f8fc;--bg-2:#eef3fa;--cloud-1:rgba(184,209,247,0.45);--cloud-2:rgba(222,213,250,0.40);--cloud-3:rgba(196,231,248,0.45);--accent:#5b7fb8;--accent-deep:#3b5c8f;--accent-soft:#eaf1fb;--accent-line:#d6e2f3;--text:#2a3547;--text-soft:#5a6780;--muted:#8894a9;--muted-2:#aab4c5;--line:#e8eef7;--line-soft:#f0f4fa;--surface:#ffffff;--ok:#4caf7d;--ok-soft:#e6f4ec;--warn:#d9924a;--warn-soft:#fdf3e6;--danger:#c96565;--danger-soft:#fcedec;--r-card:24px;--r-btn:16px;--r-input:14px;--r-pill:999px;--sh-sm:0 2px 10px rgba(90,120,170,0.07);--sh-md:0 8px 28px rgba(90,120,170,0.09);--sh-lg:0 16px 48px rgba(90,120,170,0.13);--sh-accent:0 8px 22px rgba(91,127,184,0.28);--t-fast:0.16s ease;--t:0.24s cubic-bezier(.4,0,.2,1);--logo-blue:#1e4d7b;--logo-ring:#1e4d7b;--logo-bg:#e6f1fb;--logo-bg-inner:#f5fafe;--logo-glass-1:#eef6fd;--logo-glass-2:#bfdcf2;--logo-glass-3:#8fbce2;--logo-spark:#e8a70c;--font-tech:"PT Sans Narrow","Arial Narrow","Helvetica Neue",Arial,sans-serif;--tech-ink:#1a2733;--tech-line:#3b5c8f;--tech-dim:#c14d4d;--tech-accent:#3d86c8}
 :root[data-theme="dark"]{color-scheme:dark;--bg-1:#141a24;--bg-2:#101621;--cloud-1:rgba(80,120,190,0.14);--cloud-2:rgba(120,100,180,0.12);--cloud-3:rgba(70,130,190,0.14);--accent:#7ba0dd;--accent-deep:#a8c3eb;--accent-soft:rgba(123,160,221,0.14);--accent-line:rgba(123,160,221,0.28);--text:#e6ecf5;--text-soft:#b6c2d4;--muted:#8a97ac;--muted-2:#606b80;--line:#232c3b;--line-soft:#1b2230;--surface:#1c2431;--ok:#4ec38c;--ok-soft:rgba(78,195,140,0.15);--warn:#e0a866;--warn-soft:rgba(224,168,102,0.14);--danger:#e08080;--danger-soft:rgba(224,128,128,0.14);--sh-sm:0 2px 10px rgba(0,0,0,0.35);--sh-md:0 8px 28px rgba(0,0,0,0.4);--sh-lg:0 16px 48px rgba(0,0,0,0.55);--sh-accent:0 8px 22px rgba(123,160,221,0.25);--logo-blue:#a8c3eb;--logo-ring:#7ba0dd;--logo-bg:#252f42;--logo-bg-inner:#2f3b52;--logo-glass-1:#dcebf9;--logo-glass-2:#9fc6e8;--logo-glass-3:#5e8fc0;--logo-spark:#f0b400}
@@ -3793,6 +3795,8 @@ function renderMoreTab(){
   if('Notification' in window&&Notification.permission!=='granted')html+='<button class="btn btn-secondary" onclick="requestNotifPermission().then(function(){render();})">🔔 Включить push-уведомления '+notifPermissionBadge()+'</button>';
   html+='<button class="btn btn-secondary" onclick="openSettings()">⚙️ Настройки</button>';
   if(canViewHelp())html+='<button class="btn btn-secondary" onclick="openHelp()">📖 Помощь / инструкция</button>';
+  if(canViewHelp())html+='<button class="btn btn-secondary" onclick="openDocs()">📚 Документация</button>';
+  if(DEBUG_MODE||(u&&u.role==='admin'))html+='<button class="btn btn-secondary" onclick="openTestStand()">🧪 Тестовый стенд</button>';
   html+='<button class="btn btn-danger" onclick="doLogout()">🚪 Выйти</button>';
   html+='<div class="footer-brand" style="margin-top:20px">'+LOGO_MARK(20)+'<span>Зерцало</span></div>';
   return html;
@@ -6270,6 +6274,300 @@ function renderReportsBody(){
 }
 
 /* ============ СПРАВКА / ИНСТРУКЦИЯ (ЭТАП 2) ============ */
+/* ============================================================
+   v2.1.13: Документация (встроенная)
+   ============================================================ */
+var ZRZ_DOCS={
+  README:{
+    title:'📘 README',
+    content:[
+'# Зерцало — замеры зеркал и стекла',
+'',
+'Веб-приложение для стекольной компании: заказы на замеры,',
+'расчёт зеркал/стекла/душевых/фартуков/панно, технические чертежи A4,',
+'клиенты, адреса, события (замер/дозамер/монтаж/доставка/закупка),',
+'маршруты водителей, контрагенты, уведомления.',
+'',
+'## Стек',
+'- Чистый HTML/CSS/JS без сборки и фреймворков.',
+'- Хранение: localStorage (локально) + Firebase Realtime Database (синхронизация).',
+'- Идентификация: локальная, PIN по 4 цифры, хеш через SHA-256 (или fallback).',
+'- PWA: манифест + service worker, установка на домашний экран.',
+'',
+'## Хостинг',
+'- Статика на GitHub Pages: <домен>/index.html',
+'- Одна страница (index.html), никаких зависимостей от сборщиков.',
+'',
+'## Развёртывание',
+'1. Скопировать index.html в репозиторий GitHub Pages.',
+'2. Коммит → push → обновится через ~30 сек.',
+'3. Открыть домен на телефоне, разрешить уведомления, войти как admin.',
+'',
+'## Как применять патчи',
+'- Патчи приходят в виде patch.html.',
+'- Открой patch.html в Chrome, выбери файл index.html → получишь новый index.html.',
+'- Закрой приложение, замени файл, обнови страницу.',
+'',
+'## Схема данных',
+'См. вкладку DATA_MODEL.',
+'',
+'## Приватность',
+'См. вкладку PRIVACY.'
+    ].join('\n')
+  },
+  CHANGELOG:{
+    title:'📋 CHANGELOG',
+    content:[
+'# История версий',
+'',
+'## v2.1.13 — Документация',
+'- Встроенный раздел «📚 Документация» с 5 вкладками.',
+'',
+'## v2.1.12 — Тестовый стенд',
+'- Реестр тестов, sandbox, UI прогона.',
+'- 49 тестов в 9 группах.',
+'',
+'## v2.1.11 — Вкладка Маршруты + Push + Утренняя сводка',
+'- Вкладка «🚚 Маршруты» в таббаре.',
+'- Права driver и surveyor на создание маршрутов.',
+'- Push-уведомления через Notification API.',
+'- Утренняя сводка в 9:00 для разъездных сотрудников.',
+'',
+'## v2.1.9 — Только эмблема в шапке',
+'- В шапке — только LOGO_MARK, без надписи.',
+'',
+'## v2.1.8 — CAD-чертёж зеркала',
+'- Проф. отрисовка зеркала в изометрии (штриховка подсветки,',
+'  размеры со стрелками, выноска R, метки А–А).',
+'- Розетки — жёлтые кружки Ø7 см с осями.',
+'- Вырез — круглый или прямоугольный.',
+'- Плинтус на чертежах не рисуется.',
+'',
+'## v2.1.5 — Встроенные кнопки-действия',
+'- Кнопка «Назад» в каждой модалке + предупреждение о несохранённых.',
+'- FAB сверху → встроенные кнопки в поток.',
+'',
+'## v2.1.4 — Ручной номер, дата замера, типы событий',
+'- Ручной номер заказа (до 40 символов).',
+'- Поле «Дата замера» в карточке заказа и в бланках.',
+'- Новые типы событий: дозамер, доставка, закупка.',
+'',
+'## v2.1.3 — Подсветка и фацет на чертежах',
+'',
+'## v2.1.2 — Скругление углов зеркала',
+'',
+'## v2.0.0 — Базовая версия',
+'- Заказы, позиции, события, клиенты, адреса.',
+'- Синхронизация через Firebase.',
+'- Роли и гибкие права.'
+    ].join('\n')
+  },
+  DATA_MODEL:{
+    title:'🗂 DATA_MODEL',
+    content:[
+'# Модель данных',
+'',
+'Всё хранится в одном объекте db (localStorage ключ mirror_orders_v2).',
+'',
+'## db.orders — заказы',
+'- id, orderNum, manualNum, createdAt, updatedAt',
+'- clientId, addressId, snapshot {clientName, clientPhone, addressFull}',
+'- status: new | work | ready | installed | cancelled',
+'- measureDate (YYYY-MM-DD)',
+'- paid, paidAmount',
+'- assignedUserIds: [userId]',
+'- clientNote, orderNote, masterComment',
+'- createdBy',
+'',
+'## db.items — позиции заказа',
+'- id, orderId, type: MIRROR|SHOWER|APRON|SHELF|PANNO',
+'- shape: RECT|RECT4|CIRCLE|OVAL|FIGURED|TEMPLATE',
+'- w, h, T, B, L, R (стороны, см)',
+'- th (толщина, мм), qty',
+'- glass (цвет), edge: Полированный|Фацет, facetWidth (мм)',
+'- frameColor, frameThickness, mountType, mountCustom',
+'- roundedCorners + cornerRadius (мм)',
+'- cutoutShape: rect|circle, cutoutW, cutoutH',
+'- socketsMount, socketsList: [{count, step, distX, distY, edgeX, edgeY}]',
+'- cutV, cutVPos, cutH, cutHPos (линии реза)',
+'- mirrorMeasureMode: glass|niche|both, mirrorInset, mirrorNicheCutMode, mirrorNicheRefCorner',
+'- showerPanels, showerProfiles, showerHandle, showerH, hingeCount',
+'- apronSections, apronMaterial, apronShape, apronDirection',
+'- photos: [photoId], note',
+'',
+'## db.clients — клиенты',
+'- id, lastName, firstName, middleName',
+'- phone, phoneExtra, email, note',
+'- tags: [], archived: bool',
+'',
+'## db.addresses — адреса',
+'- id, clientId, label',
+'- city, street, house, building, entrance, floor, apartment, intercom',
+'- liftNeeded, liftFloor, parkingCarry, needPass, geoNote',
+'',
+'## db.events — события',
+'- id, type: measure|remeasure|install|delivery|purchase',
+'- orderId, date, time, duration',
+'- assignedUserIds: [], note',
+'- status: planned|done',
+'',
+'## db.routes — маршруты',
+'- id, title, date, assignedUserId',
+'- points: [{kind: order|contractor|custom, refId, addressId, label, note, time}]',
+'- note',
+'',
+'## db.contractors — контрагенты',
+'- id, name, category: supplier|partner|warehouse|other',
+'- contactName, phone, email, addressId, note, archived',
+'',
+'## db.notifications — уведомления',
+'- id, userId, type: info|assigned|moved|removed|route',
+'- title, body, linkOrderId, linkEventId, linkRouteId, createdAt, readAt',
+'',
+'## db.users — пользователи',
+'- id, name, role: admin|manager|master|surveyor|driver',
+'- login, phone, pinHash, pinPlain (до первой смены)',
+'- active, createdBy, createdAt, lastLogin, mustChangePassword',
+'- permsOverride (опционально)',
+'',
+'## db.roles — кастомные права ролей',
+'- {roleKey: {permKey: bool}} или null для роли по умолчанию',
+'',
+'## db.trash — корзина',
+'- {type: order|item, deletedAt, deletedBy, order/item}',
+'',
+'## Константы',
+'- SCHEMA_VERSION (int) — версия схемы, для миграций',
+'- APP_VERSION — версия релиза',
+'- Firebase: zercalo-673ed (RTDB, eur-west1)'
+    ].join('\n')
+  },
+  PRIVACY:{
+    title:'🔒 PRIVACY',
+    content:[
+'# Приватность и данные',
+'',
+'## Что хранится локально (на устройстве)',
+'- Вся база приложения: заказы, позиции, клиенты, адреса,',
+'  события, маршруты, контрагенты, уведомления, пользователи.',
+'- Фотографии и чертежи позиций (IndexedDB, ключ zerzalo_photos_v1).',
+'- Черновики открытых позиций (sessionStorage, до 24 часов).',
+'- Тема оформления, режим сортировки, кэш утренней сводки.',
+'',
+'## Что синхронизируется в Firebase',
+'Ветка zerzalo в Realtime Database содержит:',
+'- Все заказы, позиции, клиенты, адреса, события.',
+'- Маршруты, контрагенты, уведомления.',
+'- Пользователи и их роли (PIN НЕ уходит в Firebase).',
+'- Настройки компании (телефон, email, сайт, прайс).',
+'',
+'Фотографии и чертежи в Firebase НЕ синхронизируются — только на устройстве.',
+'',
+'## Внешние сервисы',
+'- Firebase Realtime Database (Google) — синхронизация.',
+'- Google Fonts — шрифты Montserrat и PT Sans Narrow.',
+'- Яндекс.Карты / Apple Maps — только при явном клике «📍 Карта».',
+'',
+'## Кто имеет доступ',
+'- Ключ apiKey Firebase — публичный, это норма для веб-приложений.',
+'- Доступ к базе ограничен правилами Security Rules Firebase.',
+'- Правила по умолчанию должны требовать авторизацию (auth != null).',
+'- PIN-коды пользователей хешируются SHA-256 с солью user.id.',
+'',
+'## Чего у нас нет',
+'- Нет куки для трекинга.',
+'- Нет Google Analytics / Яндекс.Метрики.',
+'- Нет передачи данных третьим лицам.',
+'',
+'## Отзыв данных',
+'- Экспорт: «Настройки» → «📥 Экспорт (JSON)».',
+'- Удаление: «Настройки» → «🗑 Удалить все данные».'
+    ].join('\n')
+  },
+  BACKUP:{
+    title:'💾 BACKUP',
+    content:[
+'# Резервное копирование и восстановление',
+'',
+'## Экспорт',
+'«Настройки» → «📥 Экспорт (JSON)».',
+'Скачивается файл zerzalo-backup-YYYY-MM-DD.json.',
+'',
+'Что попадает в бэкап:',
+'- Все заказы, позиции, клиенты, адреса, события, маршруты.',
+'- Контрагенты, пользователи, уведомления.',
+'- Настройки и прайс.',
+'- Фотографии и чертежи, если они помещаются в localStorage (иначе — пустые).',
+'',
+'Что НЕ попадает:',
+'- Токен Firebase (его хранит только браузер).',
+'- Черновики несохранённых позиций.',
+'- Парольные хеши уходят, но не восстановить PIN, если хеш утерян.',
+'',
+'## Импорт',
+'Только для роли admin.',
+'«Настройки» → «📤 Импорт» → выбрать JSON-файл.',
+'',
+'Импорт ПОЛНОСТЬЮ заменяет текущую базу.',
+'Перед импортом система покажет предупреждение.',
+'',
+'## Автосинхронизация',
+'Если включена синхронизация с Firebase:',
+'- любое изменение автоматически уходит в облако через ~1,5 сек;',
+'- при открытии приложения подтягиваются свежие данные;',
+'- last-write-wins по updatedAt сущностей.',
+'',
+'## Сценарии восстановления',
+'1. Потерял телефон → заходишь на новом, разрешаешь синхронизацию →',
+'   данные подтянутся из Firebase.',
+'2. Всё удалено случайно → восстанавливаешь из JSON-бэкапа.',
+'3. Сломал базу → Firebase держит историю (до 30 дней на бесплатном плане)',
+'   в консоли проекта → Realtime Database → Backups.',
+'',
+'## Рекомендации',
+'- Делай экспорт раз в неделю. Это 5 секунд.',
+'- Храни бэкапы в трёх местах: телефон, компьютер, облако.',
+'- Раз в месяц проверяй восстановление на тестовом устройстве.'
+    ].join('\n')
+  }
+};
+function openDocs(){
+  if(!canViewHelp()){uiAlert('Нет прав');return;}
+  window._docsTab=window._docsTab||'README';
+  renderDocsModal();
+}
+function renderDocsModal(){
+  var keys=Object.keys(ZRZ_DOCS);
+  var cur=window._docsTab;
+  var d=ZRZ_DOCS[cur];
+  var html='<h2>'+LOGO_MARK(30)+' Документация</h2>';
+  html+='<div class="chips" style="margin:8px 0 12px;flex-wrap:wrap">';
+  keys.forEach(function(k){
+    html+='<button type="button" class="chip '+(k===cur?'active':'')+'" onclick="window._docsTab=\''+k+'\';renderDocsModal()">'+ZRZ_DOCS[k].title+'</button>';
+  });
+  html+='</div>';
+  html+='<div style="max-height:56vh;overflow-y:auto;padding:12px 14px;background:var(--line-soft);border-radius:12px;border:1px solid var(--line);font-size:13px;line-height:1.6;white-space:pre-wrap;word-break:break-word;font-family:ui-monospace,Menlo,Consolas,monospace;color:var(--text)">'+esc(d.content)+'</div>';
+  html+='<button class="btn btn-secondary" onclick="copyDocs()">📋 Скопировать</button>';
+  html+='<button class="btn btn-secondary" onclick="downloadDocs()">💾 Скачать .md</button>';
+  html+='<button class="btn btn-secondary" onclick="closeModal()">Закрыть</button>';
+  showModal(html);
+}
+function copyDocs(){
+  var d=ZRZ_DOCS[window._docsTab];
+  if(!d)return;
+  if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(d.content).then(function(){uiAlert('Скопировано.');});
+  else uiAlert(d.content);
+}
+function downloadDocs(){
+  var d=ZRZ_DOCS[window._docsTab];
+  if(!d)return;
+  var blob=new Blob([d.content],{type:'text/markdown;charset=utf-8'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');
+  a.href=url;a.download=(window._docsTab+'.md');
+  document.body.appendChild(a);a.click();a.remove();
+  setTimeout(function(){URL.revokeObjectURL(url);},1000);
+}
 function openHelp(){
   if(!canViewHelp()){uiAlert('Нет прав');return;}
   var u=currentUser();
@@ -6507,6 +6805,8 @@ function syncEnsureDefaults(){
   if(db.sync.enabled&&!_fbApp){
     try{
       _fbApp=firebase.initializeApp(firebaseConfig);
+      initFirebaseAuth();
+      initAppCheck();
       _fbDbRef=firebase.database().ref('zerzalo');
       _fbSubscribe();
       db.sync.status='idle';
@@ -6640,6 +6940,113 @@ function updateSyncDot(){
   dot.className='sync-dot '+st;
 }
 
+/* === v2.1.15: безопасность Firebase (Anonymous Auth + App Check) === */
+function initFirebaseAuth(){
+  try{
+    if(!window.firebase||typeof firebase.auth!=='function')return;
+    var auth=firebase.auth();
+    auth.onAuthStateChanged(function(user){
+      if(user){
+        db.sync=db.sync||{};
+        db.sync.authUid=user.uid;
+        db.sync.authStatus='signed';
+      }else{
+        db.sync=db.sync||{};
+        db.sync.authStatus='none';
+      }
+      if(typeof updateSyncDot==='function')updateSyncDot();
+    });
+    if(!auth.currentUser){
+      auth.signInAnonymously().catch(function(e){
+        db.sync=db.sync||{};
+        db.sync.authStatus='error';
+        db.sync.authError=String((e&&e.message)||e);
+        try{console.warn('[auth] signInAnonymously',e);}catch(_){}
+      });
+    }else{
+      db.sync=db.sync||{};
+      db.sync.authStatus='signed';
+      db.sync.authUid=auth.currentUser.uid;
+    }
+  }catch(e){
+    db.sync=db.sync||{};
+    db.sync.authStatus='error';
+    db.sync.authError=String((e&&e.message)||e);
+  }
+}
+function initAppCheck(){
+  try{
+    if(!window.firebase||typeof firebase.appCheck!=='function')return;
+    var key=(db.settings&&db.settings.appCheckSiteKey)||'';
+    if(!key){
+      db.sync=db.sync||{};
+      db.sync.acStatus='nokey';
+      return;
+    }
+    var provider=null;
+    try{
+      if(firebase.appCheck.ReCaptchaV3Provider){
+        provider=new firebase.appCheck.ReCaptchaV3Provider(key);
+      }
+    }catch(e){}
+    if(provider){firebase.appCheck().activate(provider,true);}
+    else{firebase.appCheck().activate(key,true);}
+    db.sync=db.sync||{};
+    db.sync.acStatus='active';
+    db.sync.acError='';
+  }catch(e){
+    db.sync=db.sync||{};
+    db.sync.acStatus='error';
+    db.sync.acError=String((e&&e.message)||e);
+    try{console.warn('[appcheck] activate',e);}catch(_){}
+  }
+}
+function firebaseSecurityStatus(){
+  var aOk=(db.sync&&db.sync.authStatus==='signed');
+  var aTxt=aOk?('✅ Вход выполнен (UID '+String(db.sync.authUid||'').slice(0,8)+'…)'):((db.sync&&db.sync.authStatus==='error')?('❌ Ошибка: '+(db.sync.authError||'неизвестно')):'⚪️ Не выполнен');
+  var k=(db.settings&&db.settings.appCheckSiteKey)||'';
+  var cOk=(db.sync&&db.sync.acStatus==='active');
+  var cTxt=cOk?'✅ Активен':(k?('⚠ Ошибка: '+(db.sync&&db.sync.acError||'не инициализирован')):'⚪️ Не задан ключ reCAPTCHA (опционально)');
+  return {authOk:aOk,authTxt:aTxt,acOk:cOk,acTxt:cTxt,key:k};
+}
+function openFirebaseSecurity(){
+  var s=firebaseSecurityStatus();
+  var k=s.key;
+  var html='<h2>'+LOGO_MARK(30)+' Безопасность Firebase</h2>';
+  html+='<div class="draft-notice">Уровни защиты: <b>Anonymous Auth</b> — база пропускает только авторизованные устройства. <b>App Check</b> — дополнительная защита, опциональна (сейчас не требуется).</div>';
+  html+='<div class="sync-panel">';
+  html+='<div class="sync-status-row"><span class="slbl">Anonymous Auth:</span><span class="sval '+(s.authOk?'ok':'')+'">'+esc(s.authTxt)+'</span></div>';
+  html+='<div class="sync-status-row"><span class="slbl">App Check:</span><span class="sval '+(s.acOk?'ok':'')+'">'+esc(s.acTxt)+'</span></div>';
+  html+='</div>';
+  html+='<div class="section-title">Правила Firebase</div>';
+  html+='<div style="background:#1e2b3d;color:#e2e8f0;border-radius:12px;padding:12px 14px;font-family:ui-monospace,Menlo,monospace;font-size:12px;line-height:1.55;white-space:pre-wrap">'+esc('{\n  "rules": {\n    "zerzalo": {\n      ".read": "auth != null",\n      ".write": "auth != null"\n    }\n  }\n}')+'</div>';
+  html+='<div style="font-size:12px;color:var(--muted);margin-top:6px;line-height:1.5">Опубликовать в Firebase Console → Realtime Database → Rules. Публикуй <b>после</b> того, как Anonymous Auth = ✅.</div>';
+  html+='<button class="btn btn-secondary" onclick="copyFirebaseRules()">📋 Скопировать правила</button>';
+  html+='<button class="btn btn-secondary" onclick="openFirebaseRules()">🔗 Открыть Firebase Console</button>';
+  html+='<div class="section-title">Проверка</div>';
+  html+='<button class="btn btn-secondary" onclick="openFirebaseJsonCheck()">🩺 Открыть /zerzalo.json в новой вкладке</button>';
+  html+='<div style="font-size:12px;color:var(--muted);margin-top:6px;line-height:1.5">Если правила опубликованы — будет «Permission denied». Если видны данные — правила ещё открыты.</div>';
+  html+='<button class="btn btn-secondary" onclick="closeModal()">Закрыть</button>';
+  showModal(html);
+}
+function copyFirebaseRules(){
+  var txt='{\n  "rules": {\n    "zerzalo": {\n      ".read": "auth != null",\n      ".write": "auth != null"\n    }\n  }\n}';
+  if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(txt).then(function(){uiAlert('Правила скопированы.');});
+  else uiAlert(txt);
+}
+function openFirebaseRules(){
+  var pid=(firebaseConfig&&firebaseConfig.projectId)||'zercalo-673ed';
+  var url='https://console.firebase.google.com/project/'+pid+'/database/'+pid+'-default-rtdb/rules';
+  window.open(url,'_blank');
+}
+function openFirebaseJsonCheck(){
+  var base=(firebaseConfig&&firebaseConfig.databaseURL)||'';
+  if(!base){uiAlert('databaseURL не найден.');return;}
+  var url=base.replace(/\/+$/,'')+'/zerzalo.json';
+  window.open(url,'_blank');
+  uiAlert('Открыли /zerzalo.json в новой вкладке.\n\nЕсли видишь JSON — правила ещё открыты.\nЕсли Permission denied — защита работает.');
+}
+
 /* === Экран синхронизации. === */
 function openSyncPanel(){
   if(!canManageSync()){uiAlert('Нет прав');return;}
@@ -6731,9 +7138,11 @@ function openSettings(){
   if(userCan('settings.export'))html+='<button class="btn btn-secondary" onclick="exportDB()">📥 Экспорт (JSON)</button>';
   if(me&&me.role==='admin'&&userCan('settings.import'))html+='<button class="btn btn-secondary" onclick="document.getElementById(\'importInput\').click()">📤 Импорт</button><input type="file" id="importInput" accept=".json,application/json" style="display:none" onchange="importDB(this.files[0])">';
   if(canManageSync())html+='<button class="btn btn-secondary" onclick="closeModal();openSyncPanel()">☁️ Синхронизация'+(db.sync&&db.sync.enabled?' 🟢':' ⚪️')+'</button>';
+  if(canManageSync())html+='<button class="btn btn-secondary" onclick="closeModal();openFirebaseSecurity()">🔐 Безопасность Firebase'+(db.sync&&db.sync.authStatus==='signed'?' 🔒':' ⚠️')+'</button>';
   if(me&&me.role==='admin')html+='<button class="btn btn-secondary" onclick="gcOrphanBlobs().then(function(n){uiAlert(n?(\'Очищено: \'+n):\'Мусора нет\');})">🧹 Очистить мусор</button><button class="btn btn-danger" onclick="wipeAll()">🗑 Удалить все данные</button>';
   if(me)html+='<div class="section-title">Профиль</div><div class="info-line"><span class="lbl">Вы вошли как</span><span class="val"><b>'+esc(me.name)+'</b> <span class="role-badge role-'+me.role+'">'+(ROLE_META[me.role]?ROLE_META[me.role].label:me.role)+'</span></span></div><button class="btn btn-secondary" onclick="closeModal();openProfile()">👤 Открыть профиль</button><button class="btn btn-danger" onclick="closeModal();doLogout()">🚪 Выйти из аккаунта</button>';
   if(canViewHelp())html+='<button class="btn btn-secondary" onclick="closeModal();openHelp()">📖 Помощь</button>';
+  if(canViewHelp())html+='<button class="btn btn-secondary" onclick="closeModal();openDocs()">📚 Документация</button>';
   html+='<div style="text-align:center;color:var(--muted-2);font-size:11.5px;margin-top:24px">Зерцало v'+esc(APP_VERSION)+' • Схема '+esc(SCHEMA_BUILD)+'</div>';
   html+='<button class="btn btn-secondary" onclick="closeModal()">Отмена</button>';
   showModal(html);
@@ -6847,8 +7256,360 @@ function renderAuth(){
 (function(){if(!('serviceWorker' in navigator))return;if(location.protocol==='file:'||location.protocol==='content:')return;var swCode=["const CACHE='zerzalo-v3';","const SHELL=['./','./index.html'];","self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(SHELL)).then(()=>self.skipWaiting()).catch(()=>{}));});","self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()).catch(()=>{}));});","self.addEventListener('fetch',e=>{if(e.request.method!=='GET')return;const u=new URL(e.request.url);if(u.origin!==location.origin)return;e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request).then(resp=>{if(!resp||resp.status!==200||resp.type==='opaque')return resp;const cl=resp.clone();caches.open(CACHE).then(c=>c.put(e.request,cl)).catch(()=>{});return resp;}).catch(()=>caches.match('./index.html'))));});"].join('\n');window.addEventListener('load',function(){var urlsToTry=[];try{urlsToTry.push('./sw.js');}catch(e){}if(window.Blob&&window.URL&&URL.createObjectURL){try{var b=new Blob([swCode],{type:'application/javascript'}),blobUrl=URL.createObjectURL(b);urlsToTry.push(blobUrl);}catch(e){}}var tried=0;function tryNext(){if(tried>=urlsToTry.length)return;var u=urlsToTry[tried++];navigator.serviceWorker.register(u).then(function(reg){console.log('SW registered',reg.scope);}).catch(function(e){tryNext();});}tryNext();});})();
 
 /* ============ ВЕРСИЯ / BOOT ============ */
-var APP_VERSION='2.1.11';
-var SCHEMA_BUILD='17/notifications/roles/sync/auto-token/rounded/backlight-facet/manual-num/measure-date/event-types/fab-top/cta/back-guard/inline-actions/cad-mirror/cutout-sockets/header-mark/driver-tab/push/morning';
+var APP_VERSION='2.1.15';
+var SCHEMA_BUILD='17/notifications/roles/sync/auto-token/rounded/backlight-facet/manual-num/measure-date/event-types/fab-top/cta/back-guard/inline-actions/cad-mirror/cutout-sockets/header-mark/driver-tab/push/morning/test-stand/docs/firebase-security';
+
+/* ============================================================
+   v2.1.12: ТЕСТОВЫЙ СТЕНД
+   Реестр групп и тестов, sandbox, UI прогона.
+   Старый selfTests() подключается как группа "Legacy".
+   ============================================================ */
+var _tsGroups=[];
+function _tsEnsureGroup(name){
+  var g=_tsGroups.find(function(x){return x.name===name;});
+  if(!g){g={name:name,ico:_tsGroupIco(name),tests:[]};_tsGroups.push(g);}
+  return g;
+}
+function _tsGroupIco(name){
+  return ({
+    Geometry:'📐',Dates:'📅',Permissions:'🔐',Notifications:'🔔',
+    Sync:'☁️',CRUD:'🗂',Filters:'🎛',UI:'🖥',Legacy:'🕰'
+  })[name]||'⚙️';
+}
+function _tsRegister(group,name,fn){
+  _tsEnsureGroup(group).tests.push({name:name,fn:fn});
+}
+function _tsSandbox(fn){
+  var realDb=db,realEdit=window._editDraft,realOrder=currentOrderId;
+  try{
+    db=JSON.parse(JSON.stringify(realDb));
+    return fn();
+  } finally {
+    db=realDb;
+    window._editDraft=realEdit;
+    currentOrderId=realOrder;
+  }
+}
+function _tsEq(a,b,eps){
+  if(eps!=null)return Math.abs(a-b)<=eps;
+  return a===b;
+}
+function _tsRunAll(){
+  var results=[];
+  _tsGroups.forEach(function(g){
+    g.tests.forEach(function(t){
+      var t0=Date.now();
+      var res;
+      try{
+        var r=t.fn();
+        if(r===true||r===undefined)res={ok:true};
+        else if(r===false)res={ok:false,msg:'вернул false'};
+        else if(r&&typeof r==='object'&&typeof r.ok==='boolean')res={ok:r.ok,msg:r.msg||''};
+        else res={ok:!!r};
+      }catch(e){
+        res={ok:false,msg:String((e&&e.message)||e)};
+      }
+      results.push({group:g.name,ico:g.ico,name:t.name,ok:res.ok,msg:res.msg||'',ms:Date.now()-t0});
+    });
+  });
+  return results;
+}
+function _tsEscape(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function _tsShowReport(results,filter){
+  var passed=results.filter(function(r){return r.ok;}).length;
+  var total=results.length;
+  var shown=filter==='failed'?results.filter(function(r){return !r.ok;}):results;
+  var color=passed===total?'#2c7a54':(passed/total>0.8?'#a05c26':'#c14d4d');
+  var html='<h2>'+LOGO_MARK(30)+' Тестовый стенд</h2>';
+  html+='<div style="display:flex;gap:8px;align-items:center;margin:8px 0 12px;font-size:13px;color:var(--muted)">';
+  html+='<span style="font-weight:800;font-size:22px;color:'+color+'">'+passed+' / '+total+'</span>';
+  html+='<span>· '+new Date().toLocaleTimeString('ru-RU')+'</span>';
+  html+='</div>';
+  html+='<div class="chips" style="margin-bottom:10px">';
+  html+='<button type="button" class="chip '+(filter!=='failed'?'active':'')+'" onclick="window._tsLastFilter=\'all\';runTestStand()">Все</button>';
+  html+='<button type="button" class="chip '+(filter==='failed'?'active':'')+'" onclick="window._tsLastFilter=\'failed\';runTestStand()">Только упавшие ('+results.filter(function(r){return !r.ok;}).length+')</button>';
+  html+='</div>';
+  if(!shown.length){
+    html+='<div class="empty" style="padding:20px;font-size:13px">Ничего не найдено.</div>';
+  } else {
+    var byGroup={};
+    shown.forEach(function(r){if(!byGroup[r.group])byGroup[r.group]=[];byGroup[r.group].push(r);});
+    Object.keys(byGroup).forEach(function(gname){
+      var arr=byGroup[gname];
+      var gPass=arr.filter(function(r){return r.ok;}).length;
+      html+='<div style="margin-top:14px"><div style="font-size:12px;font-weight:700;color:var(--accent-deep);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">'+arr[0].ico+' '+_tsEscape(gname)+' <span style="color:'+(gPass===arr.length?'#2c7a54':'#c14d4d')+'">('+gPass+'/'+arr.length+')</span></div>';
+      arr.forEach(function(r){
+        var c=r.ok?'test-pass':'test-fail';
+        html+='<div class="'+c+'" style="padding:3px 0;font-size:13px;font-family:ui-monospace,Menlo,monospace">'+(r.ok?'✓':'✗')+' '+_tsEscape(r.name)+(r.msg?' — '+_tsEscape(r.msg):'')+(r.ms>4?' <span style="color:#8894a9">('+r.ms+'мс)</span>':'')+'</div>';
+      });
+      html+='</div>';
+    });
+  }
+  html+='<button class="btn btn-primary" onclick="runTestStand()">🔁 Прогнать заново</button>';
+  html+='<button class="btn btn-secondary" onclick="copyTestReport()">📋 Скопировать отчёт</button>';
+  html+='<button class="btn btn-secondary" onclick="closeModal()">Закрыть</button>';
+  showModal(html);
+  window._tsLastResults=results;
+}
+function runTestStand(){
+  var results=_tsRunAll();
+  var filter=window._tsLastFilter||'all';
+  _tsShowReport(results,filter);
+}
+function copyTestReport(){
+  var results=window._tsLastResults||[];
+  var passed=results.filter(function(r){return r.ok;}).length;
+  var txt='Zerzalo test stand — '+new Date().toISOString()+'\n'+passed+'/'+results.length+' passed\n\n';
+  results.forEach(function(r){txt+=(r.ok?'✓':'✗')+' ['+r.group+'] '+r.name+(r.msg?' — '+r.msg:'')+'\n';});
+  if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(txt).then(function(){uiAlert('Отчёт скопирован в буфер обмена.');});
+  else uiAlert(txt);
+}
+
+/* ============================================================
+   Регистрация тестов
+   ============================================================ */
+/* --- Geometry --- */
+_tsRegister('Geometry','Площадь RECT 100×50 = 0.5',function(){
+  return _tsEq(calcArea({type:'MIRROR',shape:'RECT',w:100,h:50}),0.5,0.0001);
+});
+_tsRegister('Geometry','Площадь RECT4 100/100/50/50 = 0.5',function(){
+  return _tsEq(calcArea({type:'MIRROR',shape:'RECT4',T:100,B:100,L:50,R:50}),0.5,0.0001);
+});
+_tsRegister('Geometry','Периметр RECT 100×50 = 3 м',function(){
+  return _tsEq(calcPerim({type:'MIRROR',shape:'RECT',w:100,h:50}),3,0.0001);
+});
+_tsRegister('Geometry','Ниша: стекло В = 99.7 (припуск 1.5мм)',function(){
+  var g=getMirrorNicheAndGlass({type:'MIRROR',shape:'RECT',mirrorMeasureMode:'niche',mirrorInset:1.5,T:100,B:100,L:50,R:50});
+  return _tsEq(g.glass.T,99.7,0.0001);
+});
+_tsRegister('Geometry','Both: зазор 0.5 см',function(){
+  var z=mirrorBothZazor({type:'MIRROR',shape:'RECT',mirrorMeasureMode:'both',T:100,B:100,L:50,R:50,w:99,h:49});
+  return _tsEq(z.wTop,0.5,0.0001);
+});
+_tsRegister('Geometry','Скошенность ниши top_wide',function(){
+  var sk=analyzeNicheSkew({T:358,B:353.1,L:54,R:54.1});
+  return sk.vertical==='top_wide';
+});
+_tsRegister('Geometry','Круг: площадь Ø100',function(){
+  var a=calcArea({type:'MIRROR',shape:'CIRCLE',w:100,h:100});
+  return _tsEq(a,Math.PI/4,0.01);
+});
+_tsRegister('Geometry','canvasRoundRect не падает при r=0',function(){
+  try{
+    var cv=document.createElement('canvas');cv.width=100;cv.height=100;
+    var ctx=cv.getContext('2d');
+    canvasRoundRect(ctx,10,10,80,80,0);
+    canvasRoundRect(ctx,10,10,80,80,50);
+    return true;
+  }catch(e){return {ok:false,msg:String(e.message||e)};}
+});
+
+/* --- Dates --- */
+_tsRegister('Dates','validateOrderNum 15/03 ОК',function(){return validateOrderNum('15/03').ok===true;});
+_tsRegister('Dates','validateOrderNum 32/01 ошибка',function(){return validateOrderNum('32/01').ok===false;});
+_tsRegister('Dates','ymdToDate 2026-10-15',function(){
+  var d=ymdToDate('2026-10-15');
+  return d&&d.getFullYear()===2026&&d.getMonth()===9&&d.getDate()===15;
+});
+_tsRegister('Dates','dateToYmd ↔ ymdToDate (round-trip)',function(){
+  var s='2026-03-07';
+  return dateToYmd(ymdToDate(s))===s;
+});
+_tsRegister('Dates','daysInMonth февраль 2024 = 29',function(){
+  return daysInMonth(2024,1)===29;
+});
+_tsRegister('Dates','firstWeekdayOfMonth 1 окт 2026 = 3 (Чт)',function(){
+  return firstWeekdayOfMonth(2026,9)===3;
+});
+
+/* --- Permissions --- */
+_tsRegister('Permissions','PERMISSIONS не пуст',function(){return Object.keys(PERMISSIONS).length>0;});
+_tsRegister('Permissions','ROLE_DEFAULTS.admin существует',function(){return !!ROLE_DEFAULTS.admin;});
+_tsRegister('Permissions','admin имеет orders.create',function(){return ROLE_DEFAULTS.admin['orders.create']===true;});
+_tsRegister('Permissions','driver НЕ может orders.create',function(){return ROLE_DEFAULTS.driver['orders.create']===false;});
+_tsRegister('Permissions','surveyor МОЖЕТ orders.create',function(){return ROLE_DEFAULTS.surveyor['orders.create']===true;});
+_tsRegister('Permissions','driver МОЖЕТ routes.manage',function(){return ROLE_DEFAULTS.driver['routes.manage']===true;});
+_tsRegister('Permissions','rolePermissions возвращает объект',function(){
+  var rp=rolePermissions('admin');
+  return typeof rp==='object'&&rp!==null;
+});
+_tsRegister('Permissions','roleIsCustomized не падает',function(){
+  try{return typeof roleIsCustomized('admin')==='boolean';}catch(e){return {ok:false,msg:String(e.message||e)};}
+});
+
+/* --- Notifications --- */
+_tsRegister('Notifications','createNotification +1',function(){
+  return _tsSandbox(function(){
+    var before=db.notifications.length;
+    var n=createNotification({userId:999,type:'info',title:'t',body:'b'});
+    return db.notifications.length===before+1&&!!n;
+  });
+});
+_tsRegister('Notifications','unreadNotificationsCount > 0',function(){
+  return _tsSandbox(function(){
+    createNotification({userId:999,type:'info',title:'x',body:'y'});
+    return unreadNotificationsCount(999)>=1;
+  });
+});
+_tsRegister('Notifications','markNotificationRead ставит readAt',function(){
+  return _tsSandbox(function(){
+    var n=createNotification({userId:999,type:'info',title:'x',body:'y'});
+    markNotificationRead(n.id);
+    var found=db.notifications.find(function(x){return x.id===n.id;});
+    return !!(found&&found.readAt);
+  });
+});
+_tsRegister('Notifications','clearReadNotifications удаляет',function(){
+  return _tsSandbox(function(){
+    var n=createNotification({userId:999,type:'info',title:'x',body:'y'});
+    markNotificationRead(n.id);
+    var before=db.notifications.length;
+    clearReadNotifications(999);
+    return db.notifications.length<before;
+  });
+});
+
+/* --- Sync --- */
+_tsRegister('Sync','buildSyncPayload возвращает объект',function(){
+  var p=buildSyncPayload();
+  return typeof p==='object'&&Array.isArray(p.orders)&&Array.isArray(p.items);
+});
+_tsRegister('Sync','mergeEntityArray LWW (remote новее)',function(){
+  var out=mergeEntityArray([{id:1,v:'L',updatedAt:100}],[{id:1,v:'R',updatedAt:200}]);
+  return out.length===1&&out[0].v==='R';
+});
+_tsRegister('Sync','mergeEntityArray LWW (local новее)',function(){
+  var out=mergeEntityArray([{id:1,v:'L',updatedAt:300}],[{id:1,v:'R',updatedAt:200}]);
+  return out.length===1&&out[0].v==='L';
+});
+_tsRegister('Sync','mergeEntityArray дополняет новыми',function(){
+  var out=mergeEntityArray([{id:1,updatedAt:100}],[{id:2,updatedAt:100}]);
+  return out.length===2;
+});
+_tsRegister('Sync','computeOrderPrice без прайса → null',function(){
+  return _tsSandbox(function(){
+    var s=db.settings.prices;db.settings.prices={};
+    var r=computeOrderPrice({},[]);
+    db.settings.prices=s;
+    return r===null;
+  });
+});
+
+/* --- CRUD (sandbox) --- */
+_tsRegister('CRUD','создание клиента (sandbox)',function(){
+  return _tsSandbox(function(){
+    var nc={id:db.nextClient++,lastName:'Тест',firstName:'Тест',middleName:'',phone:'+70000000000',phoneExtra:'',email:'',note:'',tags:[],createdAt:Date.now(),createdBy:null,archived:false,updatedAt:Date.now()};
+    migrateClient(nc);
+    db.clients.push(nc);
+    return db.clients.some(function(c){return c.id===nc.id;});
+  });
+});
+_tsRegister('CRUD','создание адреса (sandbox)',function(){
+  return _tsSandbox(function(){
+    var cid=db.nextClient++;
+    var na={id:db.nextAddress++,clientId:cid,label:'Тест',city:'М',street:'Л',house:'1',building:'',entrance:'',floor:'',apartment:'',intercom:'',liftNeeded:false,liftFloor:0,parkingCarry:false,needPass:false,geoNote:'',createdAt:Date.now(),updatedAt:Date.now()};
+    migrateAddress(na);
+    db.addresses.push(na);
+    return db.addresses.some(function(a){return a.id===na.id;});
+  });
+});
+_tsRegister('CRUD','fullName + addressFull',function(){
+  var n=fullName({lastName:'И',firstName:'И',middleName:'И'});
+  return n==='И И И';
+});
+_tsRegister('CRUD','migrateItem не падает на пустом объекте',function(){
+  try{migrateItem({});return true;}catch(e){return {ok:false,msg:String(e.message||e)};}
+});
+_tsRegister('CRUD','migrateOrder не падает',function(){
+  try{migrateOrder({});return true;}catch(e){return {ok:false,msg:String(e.message||e)};}
+});
+_tsRegister('CRUD','touch ставит updatedAt',function(){
+  var o={};touch(o);return typeof o.updatedAt==='number'&&o.updatedAt>0;
+});
+_tsRegister('CRUD','touch(null) безопасен',function(){
+  try{touch(null);return true;}catch(e){return {ok:false,msg:String(e.message||e)};}
+});
+
+/* --- Filters --- */
+_tsRegister('Filters','orderFiltersActive при пустых = false',function(){
+  var saved=JSON.parse(JSON.stringify(orderFilters));
+  orderFilters={status:'',dateFrom:'',dateTo:'',team:'',paid:'',type:''};
+  var r=orderFiltersActive();
+  orderFilters=saved;
+  return r===false;
+});
+_tsRegister('Filters','orderFiltersCount считает поля',function(){
+  var saved=JSON.parse(JSON.stringify(orderFilters));
+  orderFilters={status:'new',dateFrom:'',dateTo:'',team:'',paid:'yes',type:''};
+  var n=orderFiltersCount();
+  orderFilters=saved;
+  return n===2;
+});
+_tsRegister('Filters','orderFiltersCount при пустых = 0',function(){
+  var saved=JSON.parse(JSON.stringify(orderFilters));
+  orderFilters={status:'',dateFrom:'',dateTo:'',team:'',paid:'',type:''};
+  var n=orderFiltersCount();
+  orderFilters=saved;
+  return n===0;
+});
+
+/* --- UI smoke --- */
+_tsRegister('UI','renderOrderList не бросает',function(){
+  try{var s=renderOrderList();return typeof s==='string';}catch(e){return {ok:false,msg:String(e.message||e)};}
+});
+_tsRegister('UI','miniSchematic MIRROR / SHOWER / APRON',function(){
+  try{
+    var a=miniSchematic('MIRROR'),b=miniSchematic('SHOWER'),c=miniSchematic('APRON');
+    return typeof a==='string'&&a.indexOf('svg')>0&&typeof b==='string'&&typeof c==='string';
+  }catch(e){return {ok:false,msg:String(e.message||e)};}
+});
+_tsRegister('UI','layoutPreviewSVG для всех PANNO_LAYOUTS',function(){
+  try{
+    for(var i=0;i<PANNO_LAYOUTS.length;i++){
+      var s=layoutPreviewSVG(PANNO_LAYOUTS[i].key);
+      if(typeof s!=='string'||s.indexOf('svg')<0)return {ok:false,msg:'падает на '+PANNO_LAYOUTS[i].key};
+    }
+    return true;
+  }catch(e){return {ok:false,msg:String(e.message||e)};}
+});
+_tsRegister('UI','renderGlobalSearchResults на короткую строку',function(){
+  try{var s=renderGlobalSearchResults('a');return typeof s==='string'&&s.indexOf('Введите')>=0;}catch(e){return {ok:false,msg:String(e.message||e)};}
+});
+
+/* --- Security --- */
+_tsRegister('Security','SDK firebase.auth() доступен',function(){
+  return typeof window.firebase!=='undefined'&&typeof firebase.auth==='function';
+});
+_tsRegister('Security','SDK firebase.appCheck() доступен',function(){
+  return typeof window.firebase!=='undefined'&&typeof firebase.appCheck==='function';
+});
+_tsRegister('Security','authStatus не в состоянии error',function(){
+  return !(db.sync&&db.sync.authStatus==='error');
+});
+
+/* --- Legacy --- */
+_tsRegister('Legacy','старый selfTests() отработал',function(){
+  try{
+    var r=selfTests();
+    var failed=r.filter(function(x){return !x.pass;});
+    if(failed.length)return {ok:false,msg:'провалено '+failed.length+' из '+r.length};
+    return true;
+  }catch(e){return {ok:false,msg:String(e.message||e)};}
+});
+_tsRegister('Legacy','Firebase config задан',function(){
+  return typeof firebaseConfig==='object'&&!!firebaseConfig.databaseURL;
+});
+
+/* === Открытие тестового стенда === */
+function openTestStand(){
+  var u=currentUser();
+  var isAdmin=u&&u.role==='admin';
+  if(!DEBUG_MODE&&!isAdmin){
+    uiAlert('Тестовый стенд доступен только администратору или в режиме ?debug=1.');
+    return;
+  }
+  runTestStand();
+}
 
 function boot(){
   applyTheme(getSavedTheme());
