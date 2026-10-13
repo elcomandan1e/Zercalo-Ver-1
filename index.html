@@ -984,6 +984,7 @@ function migrateItem(i){
   if(!Array.isArray(i.socketsList))i.socketsList=[];
   i.socketsList.forEach(function(s){if(s.step==null)s.step=7.1;if(s.distX==null)s.distX=30;if(s.distY==null)s.distY=110;if(s.edgeX!=='right')s.edgeX='left';if(s.edgeY!=='top')s.edgeY='bottom';if(!s.count)s.count=1;});
   if(i.shape==='FIGURED'&&i.cornerRadius==null)i.cornerRadius=50;
+  if(!Array.isArray(i.cornerCorners))i.cornerCorners=['TL','TR','BL','BR'];
   if(i.type==='SHOWER'||i.type==='APRON'){i.edge='';i.facetWidth=0;}
   if(i.type==='MIRROR')i.tempered=false;
   if(i.type==='SHOWER'){i.plinthMount=false;i.plinthHeight=0;i.isNiche=false;i.nicheDepth=0;i.socketsMount=false;i.socketsList=[];i.cutoutEnabled=false;i.cutoutW=0;i.cutoutH=0;}
@@ -1610,7 +1611,7 @@ function shapeLabel(i){
   if(i.type==='PANNO'){var gP=glassDimensions(i);return 'Панно Ш'+numFmt(gP.w)+'×В'+numFmt(gP.h)+' см • '+(pannoLabel(i)||'рамка')+' • ст. '+i.th+' мм';}
   if(i.shape==='RECT4')return '4 стороны: Верх '+numFmt(i.T||0)+', Низ '+numFmt(i.B||0)+', Лево '+numFmt(i.L||0)+', Право '+numFmt(i.R||0)+' см, ст. '+i.th+' мм';
   if(i.shape==='RECT')return 'Прямоуг. Ш'+numFmt(i.w)+'×В'+numFmt(i.h)+' см, ст. '+i.th+' мм';
-  if(i.shape==='FIGURED')return 'Фигурное Ш'+numFmt(i.w)+'×В'+numFmt(i.h)+' см, R'+numFmt(i.cornerRadius!=null?i.cornerRadius:50)+' мм, ст. '+i.th+' мм';
+  if(i.shape==='FIGURED'){var cc2=Array.isArray(i.cornerCorners)?i.cornerCorners:['TL','TR','BL','BR'];var ccMap={TL:'ВЛ',TR:'ВП',BL:'НЛ',BR:'НП'};var ccLbl=(cc2.length===4)?'все углы':(cc2.length===0?'без скругл.':cc2.map(function(k){return ccMap[k];}).join(', '));return 'Фигурное Ш'+numFmt(i.w)+'×В'+numFmt(i.h)+' см, R'+numFmt(i.cornerRadius!=null?i.cornerRadius:50)+' мм ('+ccLbl+'), ст. '+i.th+' мм';}
   if(i.shape==='TEMPLATE')return 'По шаблону, ст. '+i.th+' мм';
   if(i.shape==='CIRCLE')return 'Круг Ø'+numFmt(i.w)+' см, ст. '+i.th+' мм';
   return 'Овал Ш'+numFmt(i.w)+'×В'+numFmt(i.h)+' см, ст. '+i.th+' мм';
@@ -1651,6 +1652,22 @@ function techDims(d){
   return {W:Math.max(1,gd.w||60),D:Math.max(1,d.th||4),H:Math.max(1,gd.h||60),label:typeInfo(d.type).label};
 }
 
+function roundedRectPath(ctx,x,y,w,h,r,corners){
+  corners=corners||['TL','TR','BL','BR'];
+  var tl=corners.indexOf('TL')>=0,tr=corners.indexOf('TR')>=0,bl=corners.indexOf('BL')>=0,br=corners.indexOf('BR')>=0;
+  var rr=Math.min(r,Math.min(w,h)/2);
+  ctx.beginPath();
+  ctx.moveTo(x+(tl?rr:0),y);
+  ctx.lineTo(x+w-(tr?rr:0),y);
+  if(tr)ctx.arcTo(x+w,y,x+w,y+rr,rr);
+  ctx.lineTo(x+w,y+h-(br?rr:0));
+  if(br)ctx.arcTo(x+w,y+h,x+w-rr,y+h,rr);
+  ctx.lineTo(x+(bl?rr:0),y+h);
+  if(bl)ctx.arcTo(x,y+h,x,y+h-rr,rr);
+  ctx.lineTo(x,y+(tl?rr:0));
+  if(tl)ctx.arcTo(x,y,x+rr,y,rr);
+  ctx.closePath();
+}
 function makeTechCanvas(d){
   var A4W=1240,A4H=1754,PAD=70;
   var cv=document.createElement('canvas');cv.width=A4W;cv.height=A4H;var ctx=cv.getContext('2d');
@@ -1689,6 +1706,82 @@ function makeTechCanvas(d){
   var s=db.settings||{},foot=[s.phone,s.email,s.website].filter(Boolean).join('   •   ');
   ctx.fillText(foot||'Зерцало • стекольная компания',A4W/2,A4H-PAD+20);
   return cv;
+}
+
+/* ============ РОЗЕТКИ И ВЫРЕЗЫ НА A4 ============ */
+function arrowHead(ctx,x,y,dx,dy,color){
+  var size=5;ctx.fillStyle=color;ctx.beginPath();
+  if(dx!==0){ctx.moveTo(x,y);ctx.lineTo(x-dx*size,y-size*0.7);ctx.lineTo(x-dx*size,y+size*0.7);}
+  else{ctx.moveTo(x,y);ctx.lineTo(x-size*0.7,y-dy*size);ctx.lineTo(x+size*0.7,y-dy*size);}
+  ctx.closePath();ctx.fill();
+}
+function drawSocketsOnTech(ctx,x0,y0,W,H,scale,d){
+  if(!d.socketsMount)return;
+  var list=Array.isArray(d.socketsList)?d.socketsList:[];
+  if(!list.length)return;
+  var red='#c14d4d',blue='#1e4d7b',green='#3a7a5a',orange='#d97706';
+  var bottomY=y0+H*scale;
+  list.forEach(function(s){
+    var count=Math.max(1,Math.min(4,Number(s.count)||1));
+    var stepCm=(Number(s.step)>0?Number(s.step):7.1);
+    var distXCm=(Number(s.distX)||0);
+    var distYCm=(Number(s.distY)||0);
+    var totalWidthCm=count===1?0:(count-1)*stepCm;
+    var firstX;
+    if(s.edgeX==='right'){firstX=W-distXCm-totalWidthCm;}else{firstX=distXCm;}
+    var cy=(s.edgeY==='top')?(distYCm):(H-distYCm);
+    var px0=x0+firstX*scale;
+    var py=y0+cy*scale;
+    var stepPx=stepCm*scale;
+    var rx=Math.max(5,Math.min(11,stepPx*0.32));
+    var sockets=[];
+    for(var i=0;i<count;i++){sockets.push({x:px0+i*stepPx,y:py,r:rx});}
+    sockets.forEach(function(pt){
+      ctx.fillStyle='#fff7ed';ctx.strokeStyle=orange;ctx.lineWidth=1.8;
+      ctx.beginPath();ctx.arc(pt.x,pt.y,pt.r,0,Math.PI*2);ctx.fill();ctx.stroke();
+      ctx.strokeStyle=orange;ctx.lineWidth=1.4;
+      ctx.beginPath();
+      ctx.moveTo(pt.x-pt.r*0.32,pt.y-pt.r*0.42);ctx.lineTo(pt.x-pt.r*0.32,pt.y+pt.r*0.42);
+      ctx.moveTo(pt.x+pt.r*0.32,pt.y-pt.r*0.42);ctx.lineTo(pt.x+pt.r*0.32,pt.y+pt.r*0.42);
+      ctx.stroke();
+    });
+    if(count>1){
+      var yDim=py-rx-22;var xA=sockets[0].x,xB=sockets[sockets.length-1].x;
+      ctx.strokeStyle=orange;ctx.lineWidth=1.2;
+      ctx.beginPath();ctx.moveTo(xA,yDim);ctx.lineTo(xB,yDim);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(xA,yDim-4);ctx.lineTo(xA,yDim+4);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(xB,yDim-4);ctx.lineTo(xB,yDim+4);ctx.stroke();
+      arrowHead(ctx,xB,yDim,1,0,orange);arrowHead(ctx,xA,yDim,-1,0,orange);
+      ctx.fillStyle=orange;ctx.font='700 12px "PT Sans Narrow",Arial';ctx.textAlign='center';ctx.textBaseline='bottom';
+      ctx.fillText('X1',(xA+xB)/2,yDim-4);
+    }
+    var yDim2=py+rx+22;var xRef=(s.edgeX==='right')?(x0+W*scale):x0;
+    ctx.strokeStyle=blue;ctx.lineWidth=1.2;ctx.setLineDash([4,3]);
+    ctx.beginPath();ctx.moveTo(sockets[0].x,yDim2);ctx.lineTo(xRef,yDim2);ctx.stroke();ctx.setLineDash([]);
+    ctx.beginPath();ctx.moveTo(sockets[0].x,yDim2-4);ctx.lineTo(sockets[0].x,yDim2+4);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(xRef,yDim2-4);ctx.lineTo(xRef,yDim2+4);ctx.stroke();
+    if(s.edgeX==='right'){arrowHead(ctx,sockets[0].x,yDim2,-1,0,blue);arrowHead(ctx,xRef,yDim2,1,0,blue);}else{arrowHead(ctx,sockets[0].x,yDim2,1,0,blue);arrowHead(ctx,xRef,yDim2,-1,0,blue);}
+    ctx.fillStyle=blue;ctx.font='700 12px "PT Sans Narrow",Arial';ctx.textAlign='center';ctx.textBaseline='top';
+    ctx.fillText('X',(sockets[0].x+xRef)/2,yDim2+4);
+    var xDim=sockets[0].x-rx-20;var yRef=(s.edgeY==='top')?y0:bottomY;
+    ctx.strokeStyle=green;ctx.lineWidth=1.2;
+    ctx.beginPath();ctx.moveTo(xDim,py);ctx.lineTo(xDim,yRef);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(xDim-4,py);ctx.lineTo(xDim+4,py);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(xDim-4,yRef);ctx.lineTo(xDim+4,yRef);ctx.stroke();
+    if(s.edgeY==='top'){arrowHead(ctx,xDim,py,0,-1,green);arrowHead(ctx,xDim,yRef,0,1,green);}else{arrowHead(ctx,xDim,py,0,1,green);arrowHead(ctx,xDim,yRef,0,-1,green);}
+    ctx.fillStyle=green;ctx.font='700 12px "PT Sans Narrow",Arial';ctx.textAlign='right';ctx.textBaseline='middle';
+    ctx.fillText('Y',xDim-4,(py+yRef)/2);
+  });
+  if(d.cutoutEnabled&&d.cutoutW>0&&d.cutoutH>0){
+    var cwPx=d.cutoutW*scale,chPx=d.cutoutH*scale;
+    var cxC=x0+cwPx/2,cyC=bottomY-chPx/2;
+    ctx.fillStyle='rgba(193,77,77,0.13)';ctx.strokeStyle=red;ctx.lineWidth=1.8;
+    ctx.beginPath();ctx.rect(cxC-cwPx/2,cyC-chPx/2,cwPx,chPx);ctx.fill();ctx.stroke();
+    ctx.strokeStyle=red;ctx.lineWidth=1.2;
+    ctx.beginPath();ctx.moveTo(cxC-8,cyC-8);ctx.lineTo(cxC+8,cyC+8);ctx.moveTo(cxC+8,cyC-8);ctx.lineTo(cxC-8,cyC+8);ctx.stroke();
+    ctx.fillStyle=red;ctx.font='700 11px "PT Sans Narrow",Arial';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText('ВЫРЕЗ '+numFmt(d.cutoutW)+'×'+numFmt(d.cutoutH),cxC,cyC+chPx/2+12);
+  }
 }
 
 /* ============ ВИД 1: ИЗОМЕТРИЯ ============ */
@@ -1847,7 +1940,9 @@ function drawTechIso(ctx,x,y,w,h,dims,scale,d){
   var sc3=Math.min((w-80)/Math.max(gd.w||1,1),(h-60)/Math.max(gd.h||1,1));
   var pxW=gd.w*sc3,pxH=gd.h*sc3,x0=cx-pxW/2,y0=cy-pxH/2;
   ctx.fillStyle='rgba(200,221,240,0.55)';ctx.strokeStyle=accent;ctx.lineWidth=2.5;
-  ctx.beginPath();ctx.rect(x0,y0,pxW,pxH);ctx.fill();ctx.stroke();
+  var roundedCorners=(d.shape==='FIGURED'&&Array.isArray(d.cornerCorners))?d.cornerCorners:null;
+  var cornerRadPx=(d.shape==='FIGURED'&&d.cornerRadius)?((Number(d.cornerRadius)||50)/10*sc3):0;
+  if(roundedCorners&&cornerRadPx>0){roundedRectPath(ctx,x0,y0,pxW,pxH,cornerRadPx,roundedCorners);ctx.fill();ctx.stroke();}else{ctx.beginPath();ctx.rect(x0,y0,pxW,pxH);ctx.fill();ctx.stroke();}
   drawMirrorDecor(ctx,x0,y0,pxW,pxH,d,sc3);
   ctx.strokeStyle=red;ctx.lineWidth=1;ctx.setLineDash([3,3]);
   ctx.beginPath();ctx.moveTo(x0,y0-24);ctx.lineTo(x0+pxW,y0-24);ctx.stroke();
@@ -1984,6 +2079,7 @@ function drawTechFront(ctx,x,y,w,h,d){
   ctx.beginPath();ctx.moveTo(cx-pxW/2-24,cy-pxH/2);ctx.lineTo(cx-pxW/2-24,cy+pxH/2);ctx.stroke();ctx.setLineDash([]);
   ctx.fillStyle=red;ctx.font='700 14px "PT Sans Narrow",Arial';ctx.textAlign='center';ctx.textBaseline='bottom';ctx.fillText(numFmt(gd.w)+' см',cx,cy-pxH/2-28);
   ctx.save();ctx.translate(cx-pxW/2-34,cy);ctx.rotate(-Math.PI/2);ctx.textBaseline='middle';ctx.fillText(numFmt(gd.h)+' см',0,0);ctx.restore();
+  try{drawSocketsOnTech(ctx,cx-pxW/2,cy-pxH/2,gd.w,gd.h,sc3,d);}catch(e){}
   ctx.restore();
 }
 
@@ -2714,7 +2810,13 @@ function renderSizeFields(d){
     box.innerHTML='<div style="margin-top:14px;padding:16px;background:var(--accent-soft);border-radius:14px;text-align:center"><div style="font-size:15px;font-weight:700;color:var(--accent-deep)">📐 Чертёж по шаблону</div></div><div class="row2" style="margin-top:10px"><div><label>Ширина, см</label><input id="f_w" type="text" inputmode="decimal" value="'+numFmt(d.w)+'"></div><div><label>Высота, см</label><input id="f_h" type="text" inputmode="decimal" value="'+numFmt(d.h)+'"></div></div>';
   }
   else if(d.shape==='FIGURED'){
-    box.innerHTML='<div class="row2"><div><label>Ширина, см</label><input id="f_w" type="text" inputmode="decimal" value="'+numFmt(d.w)+'"></div><div><label>Высота, см</label><input id="f_h" type="text" inputmode="decimal" value="'+numFmt(d.h)+'"></div></div><label>Радиус, мм</label><input id="f_cornerRadius" type="text" inputmode="decimal" value="'+numFmt(d.cornerRadius!=null?d.cornerRadius:50)+'">';
+    var cc=Array.isArray(d.cornerCorners)?d.cornerCorners:['TL','TR','BL','BR'];
+    box.innerHTML='<div class="row2"><div><label>Ширина, см</label><input id="f_w" type="text" inputmode="decimal" value="'+numFmt(d.w)+'"></div><div><label>Высота, см</label><input id="f_h" type="text" inputmode="decimal" value="'+numFmt(d.h)+'"></div></div><label>Радиус, мм</label><input id="f_cornerRadius" type="text" inputmode="decimal" value="'+numFmt(d.cornerRadius!=null?d.cornerRadius:50)+'"><label>Скруглить углы</label><div class="chips" id="chips_cornerCorners">'+
+      '<button type="button" class="chip '+(cc.indexOf('TL')>=0?'active':'')+'" data-val="TL" onclick="toggleCornerCorner(this.dataset.val)">◤ ВЛ</button>'+
+      '<button type="button" class="chip '+(cc.indexOf('TR')>=0?'active':'')+'" data-val="TR" onclick="toggleCornerCorner(this.dataset.val)">◥ ВП</button>'+
+      '<button type="button" class="chip '+(cc.indexOf('BL')>=0?'active':'')+'" data-val="BL" onclick="toggleCornerCorner(this.dataset.val)">◣ НЛ</button>'+
+      '<button type="button" class="chip '+(cc.indexOf('BR')>=0?'active':'')+'" data-val="BR" onclick="toggleCornerCorner(this.dataset.val)">◢ НП</button>'+
+    '</div>';
   }
   else if(d.shape==='CIRCLE'){
     box.innerHTML='<label>Диаметр, см</label><input id="f_w" type="text" inputmode="decimal" value="'+numFmt(d.w)+'">';
@@ -2930,7 +3032,7 @@ function collectDraft(d){
   }
   else if(d.shape==='FIGURED'){
     var w=numVal(document.getElementById('f_w')),h=numVal(document.getElementById('f_h')),cr=document.getElementById('f_cornerRadius');
-    r=Object.assign(d,{w:w,h:h,cornerRadius:cr!=null?numVal(cr):(d.cornerRadius!=null?d.cornerRadius:50),qty:parseInt(document.getElementById('f_qty').value)||1,pannoLayout:_pannoKey});
+    r=Object.assign(d,{w:w,h:h,cornerRadius:cr!=null?numVal(cr):(d.cornerRadius!=null?d.cornerRadius:50),cornerCorners:Array.isArray(d.cornerCorners)?d.cornerCorners.slice():['TL','TR','BL','BR'],qty:parseInt(document.getElementById('f_qty').value)||1,pannoLayout:_pannoKey});
   }
   else if(d.shape==='TEMPLATE'){
     r=Object.assign(d,{w:numVal(document.getElementById('f_w')),h:numVal(document.getElementById('f_h')),qty:parseInt(document.getElementById('f_qty').value)||1});
@@ -3035,6 +3137,7 @@ async function saveItem(id){
   clearDraft();save();closeModal();render();
 }
 function setPannoLayout(key){_pannoKey=key;if(window._editDraft)window._editDraft.pannoLayout=key;var g=document.getElementById('chips_panno');if(g)g.querySelectorAll('.panno-chip').forEach(function(x){x.classList.toggle('active',x.getAttribute('data-val')===key);});saveDraft();}
+function toggleCornerCorner(c){var d=window._editDraft;if(!d)return;if(!Array.isArray(d.cornerCorners))d.cornerCorners=['TL','TR','BL','BR'];var idx=d.cornerCorners.indexOf(c);if(idx>=0){if(d.cornerCorners.length<=1)return;d.cornerCorners.splice(idx,1);}else d.cornerCorners.push(c);var box=document.getElementById('chips_cornerCorners');if(box)box.querySelectorAll('.chip').forEach(function(x){x.classList.toggle('active',d.cornerCorners.indexOf(x.dataset.val)>=0);});calcPreview(d);saveDraft();}
 /* ============ ФОТО ============ */
 var PHOTO_PLACEHOLDER='data:image/svg+xml;utf8,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60"><rect width="60" height="60" fill="#e4e7ec"/><text x="30" y="36" text-anchor="middle" font-family="Arial" font-size="18" fill="#98a2b3">📷</text></svg>');
 var idb=null,photoCache={},drawingCache={};
@@ -4421,8 +4524,90 @@ function openDayModal(dateYmd){
   if(!evs.length)html+='<div class="empty" style="padding:20px;font-size:13px">Событий нет</div>';
   else html+='<div class="cal-list">'+evs.map(renderEventCard).join('')+'</div>';
   if(canManageEvents())html+='<button class="btn btn-primary" style="margin-top:14px" onclick="openEventForm(\''+dateYmd+'\',null)">+ Событие на этот день</button>';
+  var routeAddrs=collectDayAddresses(dateYmd);
+  if(routeAddrs.length){html+='<button class="btn btn-tg" style="margin-top:10px" onclick="openDayRoutePreview(\''+dateYmd+'\')">🚚 Построить маршрут ('+routeAddrs.length+' адр.)</button>';}
   html+='<button class="btn btn-secondary" onclick="closeModal()">Закрыть</button>';
   showModal(html);
+}
+function collectDayAddresses(dateYmd){
+  var seen={},out=[];
+  function add(a,label,time){
+    if(!a)return;
+    var s=(addressFull(a)||addressShort(a)||'').trim();
+    if(!s)return;
+    if(seen[s])return;
+    seen[s]=1;out.push({addr:a,address:s,label:label||'',time:time||''});
+  }
+  var evs=db.events.filter(function(e){return e.date===dateYmd;});
+  evs.forEach(function(e){
+    if(!e.orderId)return;
+    var o=db.orders.find(function(x){return x.id===e.orderId;});
+    if(!o)return;
+    var a=o.addressId?addressById(o.addressId):null;
+    var lbl='№'+(o.orderNum||'—')+' '+(orderClientName(o)||'');
+    add(a,lbl,e.time||'');
+  });
+  var rts=db.routes.filter(function(r){return r.date===dateYmd;});
+  rts.forEach(function(r){
+    (r.points||[]).forEach(function(p){
+      var a=null,lbl='';
+      if(p.kind==='order'){var o=db.orders.find(function(x){return x.id===p.refId;});if(o){a=o.addressId?addressById(o.addressId):null;lbl='№'+(o.orderNum||'—')+' '+(orderClientName(o)||'');}}
+      else if(p.kind==='contractor'){var co=contractorById(p.refId);if(co){a=co.addressId?addressById(co.addressId):null;lbl=co.name||'Контрагент';}}
+      else{a=p.addressId?addressById(p.addressId):null;lbl=p.label||'';}
+      add(a,lbl,p.time||'');
+    });
+  });
+  out.sort(function(a,b){var am=parseTimeToMinutes(a.time),bm=parseTimeToMinutes(b.time);if(am==null&&bm==null)return 0;if(am==null)return 1;if(bm==null)return -1;return am-bm;});
+  return out;
+}
+function openDayRoutePreview(dateYmd){
+  var addrs=collectDayAddresses(dateYmd);
+  if(!addrs.length){uiAlert('Нет адресов за этот день');return;}
+  var base=(db.settings&&db.settings.baseAddress)||'Мытищи, 1-й проезд Карла Маркса, 3';
+  var html='<h2>'+LOGO_MARK(30)+' Маршрут на день</h2>';
+  html+='<div class="draft-notice">🏠 Старт и финиш: <b>'+esc(base)+'</b><br>Точек в маршруте: <b>'+addrs.length+'</b></div>';
+  html+='<div class="route-points-list" style="margin-top:12px;max-height:44vh;overflow-y:auto">';
+  html+='<div class="route-point" style="background:linear-gradient(135deg,#e8f4ee,#f0faf4);border-color:#3a7a5a"><div class="route-point-num" style="background:linear-gradient(135deg,#3a7a5a,#4caf7d)">🏠</div><div class="route-point-body"><div class="route-point-kind">Старт</div><div class="route-point-title">'+esc(base)+'</div></div></div>';
+  addrs.forEach(function(item,i){
+    html+='<div class="route-point"><div class="route-point-num">'+(i+1)+'</div><div class="route-point-body"><div class="route-point-kind">'+(item.time?('🕐 '+esc(item.time)+' • '):'')+'Точка</div><div class="route-point-title">'+esc(item.label||item.address)+'</div><div class="route-point-sub">'+esc(item.address)+'</div></div></div>';
+  });
+  html+='<div class="route-point" style="background:linear-gradient(135deg,#e8f4ee,#f0faf4);border-color:#3a7a5a"><div class="route-point-num" style="background:linear-gradient(135deg,#3a7a5a,#4caf7d)">🏠</div><div class="route-point-body"><div class="route-point-kind">Финиш</div><div class="route-point-title">'+esc(base)+'</div></div></div>';
+  html+='</div>';
+  html+='<button class="btn btn-tg" style="margin-top:14px" onclick="openDayRouteOnMap(\''+dateYmd+'\')">🗺 Открыть на карте</button>';
+  if(canManageRoutes())html+='<button class="btn btn-primary" onclick="createDayRouteInApp(\''+dateYmd+'\')">✅ Создать маршрут в приложении</button>';
+  html+='<button class="btn btn-secondary" onclick="closeModal()">Отмена</button>';
+  showModal(html);
+}
+function openDayRouteOnMap(dateYmd){
+  var addrs=collectDayAddresses(dateYmd);
+  if(!addrs.length)return;
+  var base=(db.settings&&db.settings.baseAddress)||'Мытищи, 1-й проезд Карла Маркса, 3';
+  var parts=[base].concat(addrs.map(function(x){return x.address;})).concat([base]);
+  var encoded=parts.map(encodeURIComponent).join('~');
+  var ua=navigator.userAgent||'';
+  var url;
+  if(/iphone|ipad|ipod/i.test(ua)){url='https://maps.apple.com/?q='+encodeURIComponent(base);}
+  else{url='https://yandex.ru/maps/?rtext='+encoded+'&rtt=auto';}
+  window.open(url,'_blank');
+}
+function createDayRouteInApp(dateYmd){
+  if(!canManageRoutes()){uiAlert('Нет прав');return;}
+  var addrs=collectDayAddresses(dateYmd);
+  if(!addrs.length)return;
+  var d2=ymdToDate(dateYmd);
+  var title='Маршрут на '+(d2?(d2.getDate()+'.'+pad2(d2.getMonth()+1)):dateYmd);
+  var points=[];var seenOrder={};
+  var evs=db.events.filter(function(e){return e.date===dateYmd;});
+  evs.forEach(function(e){if(!e.orderId||seenOrder[e.orderId])return;seenOrder[e.orderId]=1;points.push({kind:'order',refId:e.orderId,addressId:null,label:'',note:'',time:e.time||''});});
+  var rts=db.routes.filter(function(r){return r.date===dateYmd;});
+  rts.forEach(function(r){(r.points||[]).forEach(function(p){if(p.kind==='order'){if(seenOrder[p.refId])return;seenOrder[p.refId]=1;}points.push({kind:p.kind,refId:p.refId||null,addressId:p.addressId||null,label:p.label||'',note:p.note||'',time:p.time||''});});});
+  var nr={id:db.nextRoute++,title:title,date:dateYmd,assignedUserId:null,points:points,note:'Автоматически построен по адресам дня',createdAt:Date.now(),createdBy:db.currentUserId,updatedAt:Date.now()};
+  db.routes.push(nr);save();haptic(8);closeModal();
+  uiAlert('✔ Маршрут создан: «'+title+'»
+Точек: '+points.length);
+  activeTab='route_detail';currentRouteId=nr.id;
+  withViewTransition(function(){render();window.scrollTo(0,0);});
+  try{history.pushState({view:'route',routeId:nr.id},'','#route-'+nr.id);}catch(e){}
 }
 function openEventForm(dateYmd,eventId,presetOrderId){
   if(!canManageEvents()){uiAlert('Нет прав');return;}
@@ -6227,6 +6412,7 @@ function openSettings(){
     '<label>Сайт</label><input id="s_website" type="text" value="'+esc(s.website)+'">'+
     '<label>Telegram</label><input id="s_telegram" type="text" value="'+esc(s.telegram)+'">'+
     '<label>Слоган</label><input id="s_slogan" type="text" value="'+esc(s.slogan)+'">'+
+    '<label>🏠 Адрес базы (для маршрутов)</label><input id="s_baseAddress" type="text" value="'+esc(s.baseAddress||'Мытищи, 1-й проезд Карла Маркса, 3')+'" placeholder="Мытищи, 1-й проезд Карла Маркса, 3">'+
     '<button class="btn btn-primary" onclick="saveSettings()">Сохранить</button>';
   html+='<div class="section-title">Внешний вид</div><div class="chips" id="themeChips"><button type="button" class="chip theme-chip '+(getSavedTheme()==='light'?'active':'')+'" data-val="light" onclick="setTheme(\'light\')">☀️ Светлая</button><button type="button" class="chip theme-chip '+(getSavedTheme()==='dark'?'active':'')+'" data-val="dark" onclick="setTheme(\'dark\')">🌙 Тёмная</button><button type="button" class="chip theme-chip '+(getSavedTheme()==='auto'?'active':'')+'" data-val="auto" onclick="setTheme(\'auto\')">⚙️ Системная</button></div>';
   /* Прайс-лист (ЭТАП 2). */
@@ -6250,7 +6436,7 @@ function openSettings(){
   html+='<button class="btn btn-secondary" onclick="closeModal()">Отмена</button>';
   showModal(html);
 }
-function saveSettings(){db.settings=db.settings||{};db.settings.phone=(document.getElementById('s_phone').value||'').trim();db.settings.email=(document.getElementById('s_email').value||'').trim();db.settings.website=(document.getElementById('s_website').value||'').trim();db.settings.telegram=(document.getElementById('s_telegram').value||'').trim();db.settings.slogan=(document.getElementById('s_slogan').value||'').trim();db.settings.updatedAt=Date.now();save();closeModal();render();}
+function saveSettings(){db.settings=db.settings||{};db.settings.phone=(document.getElementById('s_phone').value||'').trim();db.settings.email=(document.getElementById('s_email').value||'').trim();db.settings.website=(document.getElementById('s_website').value||'').trim();db.settings.telegram=(document.getElementById('s_telegram').value||'').trim();db.settings.slogan=(document.getElementById('s_slogan').value||'').trim();var ba=document.getElementById('s_baseAddress');if(ba)db.settings.baseAddress=(ba.value||'').trim()||'Мытищи, 1-й проезд Карла Маркса, 3';db.settings.updatedAt=Date.now();save();closeModal();render();}
 function savePrices(){
   var v=function(id){var el=document.getElementById(id);if(!el)return 0;return parseFloat(String(el.value||'').replace(',','.'))||0;};
   db.settings.prices=db.settings.prices||{};
