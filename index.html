@@ -501,6 +501,23 @@ html[data-theme="dark"] .tabbar{background:rgba(20,26,36,0.94);border-top-color:
 .sync-status-row .sval{color:var(--text);font-weight:500;word-break:break-word;flex:1;text-align:right;font-size:12.5px}
 .sync-status-row .sval.ok{color:var(--ok);font-weight:700}
 .sync-status-row .sval.err{color:var(--danger);font-weight:700}
+/* === v2.1.5: FAB сверху, CTA на пустых списках, кнопка «Назад» в модалках === */
+.fab-top{position:fixed;top:calc(76px + env(safe-area-inset-top));right:16px;z-index:50;display:flex;align-items:center;gap:8px;padding:12px 18px 12px 14px;border-radius:999px;border:none;background:linear-gradient(135deg,#7b9dd1,#5b7fb8);color:#fff;font-size:14px;font-weight:700;font-family:inherit;box-shadow:0 8px 22px rgba(91,127,184,0.36);cursor:pointer;transition:transform .16s ease,box-shadow .16s ease;opacity:0;animation:fabTopIn .3s cubic-bezier(.2,.7,.3,1) .06s forwards;max-width:calc(100vw - 32px)}
+.fab-top:active{transform:scale(0.95);box-shadow:0 4px 14px rgba(91,127,184,0.45)}
+.fab-top svg{flex-shrink:0;display:block}
+.fab-top .fab-top-label{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@keyframes fabTopIn{from{opacity:0;transform:translateY(-14px) scale(0.86)}to{opacity:1;transform:none}}
+html[data-theme="dark"] .fab-top{box-shadow:0 8px 22px rgba(0,0,0,0.55)}
+.empty-cta{text-align:center;padding:40px 24px 32px;background:linear-gradient(180deg,var(--surface),var(--accent-soft));border-radius:24px;border:1.5px solid var(--accent-line);margin:16px 0;box-shadow:var(--sh-sm)}
+.empty-cta .ec-ico{font-size:54px;line-height:1;margin-bottom:14px;display:block}
+.empty-cta .ec-title{font-size:18px;font-weight:700;color:var(--text);margin-bottom:8px}
+.empty-cta .ec-sub{font-size:14px;color:var(--muted);line-height:1.55;margin-bottom:20px;max-width:340px;margin-left:auto;margin-right:auto}
+.empty-cta .btn{margin-top:0;max-width:340px;margin-left:auto;margin-right:auto}
+.modal-back{position:absolute;top:14px;left:14px;width:42px;height:42px;border-radius:50%;border:none;background:var(--accent-soft);color:var(--accent-deep);font-size:20px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:6;font-family:inherit;line-height:1;padding:0}
+.modal-back:active{background:var(--accent-line);transform:scale(0.94)}
+.modal.has-back h2{padding-left:48px;padding-right:8px}
+.modal.has-back .modal-crumbs{padding-left:48px}
+@media (max-width:380px){.fab-top{padding:10px 14px 10px 12px;font-size:13px}.fab-top .fab-top-label{max-width:110px}}
 </style>
 </head>
 <body>
@@ -894,7 +911,7 @@ function migrateItem(i){
   return i;
 }
 
-function migrateOrder(o){if(!o)return o;if(o.liftNeeded==null)o.liftNeeded=false;if(o.liftFloor==null)o.liftFloor=0;if(o.parkingCarry==null)o.parkingCarry=false;if(o.needPass==null)o.needPass=false;if(o.paid==null)o.paid=false;if(o.paidAmount==null)o.paidAmount=0;if(o.manualNum==null)o.manualNum=false;if(o.clientNote==null)o.clientNote='';if(o.orderNote==null)o.orderNote='';if(o.masterComment==null)o.masterComment='';if(o.status==null)o.status='new';if(o.createdBy==null)o.createdBy=null;if(!Array.isArray(o.assignedUserIds))o.assignedUserIds=null;
+function migrateOrder(o){if(!o)return o;if(o.liftNeeded==null)o.liftNeeded=false;if(o.liftFloor==null)o.liftFloor=0;if(o.parkingCarry==null)o.parkingCarry=false;if(o.needPass==null)o.needPass=false;if(o.paid==null)o.paid=false;if(o.paidAmount==null)o.paidAmount=0;if(o.manualNum==null)o.manualNum=false;if(o.clientNote==null)o.clientNote='';if(o.orderNote==null)o.orderNote='';if(o.masterComment==null)o.masterComment='';if(o.status==null)o.status='new';if(o.createdBy==null)o.createdBy=null;if(!Array.isArray(o.assignedUserIds))o.assignedUserIds=null;if(o.measureDate==null)o.measureDate=null;
   if(o.clientId==null)o.clientId=null;
   if(o.addressId==null)o.addressId=null;
   if(o.snapshot==null)o.snapshot=null;
@@ -1363,9 +1380,17 @@ function dayAgenda(dateStr){
   });
   return {events:evs,routes:rts,all:all};
 }
-function eventTypeLabel(t){return t==='install'?'Монтаж':'Замер';}
-function eventTypeIco(t){return t==='install'?'🔧':'📏';}
-function eventTypeColor(t){return t==='install'?'#3a7a5a':'#3b5c8f';}
+var EVENT_TYPES=[
+  {key:'measure',label:'Замер',ico:'📏',color:'#3b5c8f'},
+  {key:'remeasure',label:'Дозамер',ico:'📐',color:'#5b7fb8'},
+  {key:'install',label:'Монтаж',ico:'🔧',color:'#3a7a5a'},
+  {key:'delivery',label:'Доставка',ico:'🚚',color:'#a05c26'},
+  {key:'purchase',label:'Закупка',ico:'🛒',color:'#9d3668'}
+];
+function eventTypeInfo(t){return EVENT_TYPES.find(function(x){return x.key===t;})||EVENT_TYPES[0];}
+function eventTypeLabel(t){return eventTypeInfo(t).label;}
+function eventTypeIco(t){return eventTypeInfo(t).ico;}
+function eventTypeColor(t){return eventTypeInfo(t).color;}
 
 /* ============ ГЕОМЕТРИЯ ЗЕРКАЛА / НИШИ ============ */
 function mirrorSupportsNiche(d){return d&&d.type==='MIRROR'&&(d.shape==='RECT'||d.shape==='RECT4');}
@@ -1504,8 +1529,11 @@ function renderGlassChips(type,current){var list=type==='SHOWER'?SHOWER_GLASS_TY
 function currentCutVal(d){if(d.cutV&&d.cutH)return 'both';if(d.cutV)return 'vertical';if(d.cutH)return 'horizontal';return 'none';}
 
 /* ============ МОДАЛКИ ============ */
-function showModal(html){document.getElementById('modalRoot').innerHTML='<div class="modal-bg" onclick="if(event.target===this)closeModal()"><div class="modal" onclick="event.stopPropagation()">'+html+'</div></div>';initModalDrag();initModalScrollNav();}
-function closeModal(){document.getElementById('modalRoot').innerHTML='';window._refreshModalSecNav=null;}
+function showModal(html){window._modalDirty=false;document.getElementById('modalRoot').innerHTML='<div class="modal-bg" onclick="if(event.target===this)closeModalWithConfirm()"><div class="modal has-back" onclick="event.stopPropagation()"><button type="button" class="modal-back" onclick="closeModalWithConfirm()" title="Назад" aria-label="Назад">←</button>'+html+'</div></div>';initModalDrag();initModalScrollNav();bindModalDirtyTracking();}
+function bindModalDirtyTracking(){var m=document.querySelector('.modal');if(!m)return;function mark(){window._modalDirty=true;}m.addEventListener('input',function(e){var t=e.target;if(t&&(t.tagName==='INPUT'||t.tagName==='TEXTAREA'||t.tagName==='SELECT'))mark();},true);m.addEventListener('change',function(e){var t=e.target;if(t&&(t.tagName==='INPUT'||t.tagName==='TEXTAREA'||t.tagName==='SELECT'))mark();},true);m.addEventListener('click',function(e){if(e.target.closest('.chip,.frame-chip,.type-btn,.ref-corner-btn,.role-btn,.team-chip,.panno-chip,.shower-actions button'))mark();},true);}
+function hasUnsavedModal(){return !!window._modalDirty;}
+async function closeModalWithConfirm(){if(hasUnsavedModal()){haptic(8);var ok=await uiConfirm('Есть несохранённые изменения.\n\nВыйти без сохранения?','Выход',{danger:true,yesLabel:'Выйти',noLabel:'Остаться'});if(!ok)return;try{if(typeof clearDraft==='function')clearDraft();}catch(e){}}window._modalDirty=false;closeModal();}
+function closeModal(){document.getElementById('modalRoot').innerHTML='';window._refreshModalSecNav=null;window._modalDirty=false;}
 function initModalDrag(){var modal=document.querySelector('.modal');if(!modal)return;var h2=modal.querySelector('h2');if(!h2)return;var startY=0,curY=0,dragging=false,startTime=0;function onDown(e){var t=e.touches?e.touches[0]:e;startY=t.clientY;curY=startY;dragging=true;startTime=Date.now();modal.classList.add('dragging');modal.style.transition='none';document.addEventListener('mousemove',onMove);document.addEventListener('touchmove',onMove,{passive:false});document.addEventListener('mouseup',onUp);document.addEventListener('touchend',onUp);}function onMove(e){if(!dragging)return;var t=e.touches?e.touches[0]:e;curY=t.clientY;var dy=Math.max(0,curY-startY);modal.style.transform='translateY('+dy+'px)';e.preventDefault();}function onUp(){if(!dragging)return;dragging=false;var dy=curY-startY,dt=Date.now()-startTime;document.removeEventListener('mousemove',onMove);document.removeEventListener('touchmove',onMove);document.removeEventListener('mouseup',onUp);document.removeEventListener('touchend',onUp);modal.classList.remove('dragging');if(dy>120||(dy>40&&dt<250&&dy/dt>0.5)){modal.style.transform='translateY(120%)';setTimeout(function(){closeModal();},180);}else{modal.style.transform='translateY(0)';}}h2.style.cursor='grab';h2.addEventListener('mousedown',onDown);h2.addEventListener('touchstart',onDown,{passive:true});}
 function initModalScrollNav(){var modal=document.querySelector('.modal');if(!modal||modal.dataset.secnavReady)return;modal.dataset.secnavReady='1';var nav=document.createElement('div');nav.className='modal-sec-nav';nav.style.display='none';var anchor=modal.querySelector('.modal-crumbs')||modal.querySelector('h2');if(anchor)anchor.parentNode.insertBefore(nav,anchor.nextSibling);else modal.insertBefore(nav,modal.firstChild);var items=[];function rebuild(){var secs=[].slice.call(modal.querySelectorAll('[data-sec]')).filter(function(s){return s.offsetParent!==null;});var sig=secs.map(function(s){return s.getAttribute('data-sec');}).join('|');if(nav.dataset.sig===sig)return;nav.dataset.sig=sig;nav.innerHTML='';items=secs.map(function(sec){var label=(sec.getAttribute('data-sec')||'').trim();var btn=document.createElement('button');btn.type='button';btn.className='modal-sec-chip';btn.textContent=label;btn.onclick=function(){var mTop=modal.getBoundingClientRect().top,sTop=sec.getBoundingClientRect().top,y=modal.scrollTop+(sTop-mTop)-56;modal.scrollTo({top:Math.max(0,y),behavior:'smooth'});};nav.appendChild(btn);return {sec:sec,btn:btn};});nav.style.display=(secs.length>=2)?'flex':'none';}var ticking=false;function update(){if(ticking)return;ticking=true;requestAnimationFrame(function(){ticking=false;rebuild();if(items.length<2)return;var mTop=modal.getBoundingClientRect().top,probe=mTop+90,active=0;for(var i=0;i<items.length;i++){if(items[i].sec.getBoundingClientRect().top<=probe)active=i;else break;}items.forEach(function(it,i){it.btn.classList.toggle('active',i===active);});var ab=items[active].btn,navRect=nav.getBoundingClientRect(),bRect=ab.getBoundingClientRect();if(bRect.left<navRect.left+8)nav.scrollLeft+=bRect.left-navRect.left-16;else if(bRect.right>navRect.right-8)nav.scrollLeft+=bRect.right-navRect.right+16;});}modal.addEventListener('scroll',update,{passive:true});window._refreshModalSecNav=update;setTimeout(update,60);}
 
@@ -3320,7 +3348,7 @@ function renderClientsTab(){
   html+='</div>';
   html+='<div id="clientsList">'+renderClientsList()+'</div>';
   html+='<div class="footer-brand">'+LOGO_MARK(20)+'<span>Зерцало • клиенты</span></div>';
-  if(canManageClients())html+='<div style="height:76px"></div><button class="fab-wide" onclick="openClientForm(null)">+ Новый клиент</button>';
+  if(canManageClients()&&db.clients.filter(function(c){return !c.archived;}).length)html+='<button class="fab-top" onclick="openClientForm(null)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg><span class="fab-top-label">Новый клиент</span></button>';
   return html;
 }
 function renderCalendarTab(){
@@ -3350,7 +3378,7 @@ function renderCalendarTab(){
   if(calState.view==='month')html+=renderCalendarMonthGrid();
   else html+=renderCalendarList();
   html+='<div class="footer-brand">'+LOGO_MARK(20)+'<span>Зерцало • календарь</span></div>';
-  if(canManageEvents())html+='<button class="fab fab-always" onclick="openEventForm(null,null)">+ Событие</button>';
+  if(canManageEvents())html+='<button class="fab-top" onclick="openEventForm(null,null)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg><span class="fab-top-label">Событие</span></button>';
   return html;
 }
 function calSetSection(s){calState.section=(s==='routes')?'routes':'events';render();}
@@ -3383,7 +3411,7 @@ function renderMoreTab(){
 }
 function renderList(){
   var orders=visibleOrders();
-  if(!orders.length&&!orderFiltersActive()&&!searchQ)return '<div class="empty"><div class="empty-logo">'+LOGO_FULL(120)+'</div><div>Заказов пока нет.<br><br>Нажмите «+ Новый заказ», чтобы начать.</div></div>'+(canCreateOrder()?'<button class="fab fab-always" onclick="openNewOrder()">+ Новый заказ</button>':'');
+  if(!orders.length&&!orderFiltersActive()&&!searchQ)return '<div class="empty-cta"><span class="ec-ico">🏠</span><div class="ec-title">Заказов пока нет</div><div class="ec-sub">Создайте первый заказ — выберите клиента, адрес и добавьте позиции.</div>'+(canCreateOrder()?'<button class="btn btn-primary" onclick="openNewOrder()">+ Новый заказ</button>':'')+'</div>';
   var html='<div class="search-bar"><input type="search" id="searchInput" placeholder="🔍 Поиск" value="'+esc(searchQ)+'" oninput="onSearchInput(this.value)"></div>';
   html+='<div class="chips sort-chips" style="align-items:center">';
   html+='<button type="button" class="chip sort-chip'+(sortMode==='date-desc'?' active':'')+'" data-val="date-desc" onclick="setSortMode(\'date-desc\')">↓ Свежие</button>';
@@ -3400,7 +3428,7 @@ function renderList(){
   html+='<div class="filter-panel" id="orderFiltersPanel" hidden>'+renderOrderFiltersPanel()+'</div>';
   html+='<div id="orderList">'+renderOrderList()+'</div>';
   html+='<div class="footer-brand">'+LOGO_MARK(20)+'<span>Зерцало • замеры</span></div>';
-  if(canCreateOrder())html+='<div style="height:76px"></div><button class="fab-wide" onclick="openNewOrder()">+ Новый заказ</button>';
+  if(canCreateOrder())html+='<button class="fab-top" onclick="openNewOrder()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg><span class="fab-top-label">Новый заказ</span></button>';
   return html;
 }
 /* === ПАНЕЛЬ ФИЛЬТРОВ ЗАКАЗОВ (ЭТАП 2) === */
@@ -3528,7 +3556,8 @@ function renderDetail(){
   html+='</div>';
   html+=renderOrderEventsBlock(o);
   html+='<div class="summary"><div class="line">Позиций: '+items.length+' • Изделий: '+tq+' • Площадь: <span id="areaCounter">'+area.toFixed(3).replace('.',',')+'</span> м²</div>'+(bd?'<div class="breakdown">'+esc(bd)+'</div>':'')+'</div>';
-  if(!items.length)html+='<div class="empty">Добавьте первую позицию</div>';
+  if(!items.length&&canEditOrder(o))html+='<div class="empty-cta"><span class="ec-ico">📦</span><div class="ec-title">Позиций пока нет</div><div class="ec-sub">Добавьте зеркало, стекло, душевую, фартук или панно — с размерами и чертежом.</div><button class="btn btn-primary" onclick="openItem(null)">+ Добавить позицию</button></div>';
+  else if(!items.length)html+='<div class="empty">Позиций нет</div>';
   else items.forEach(function(i,idx){
     var t=typeInfo(i.type);
     var thumbSrc=drawingSrc(i.drawingIsoId)||i.drawingIso||drawingSrc(i.drawingId)||i.drawing;
@@ -3556,7 +3585,7 @@ function renderDetail(){
   html+='<button class="btn btn-secondary" onclick="openPhotoReport(\''+esc(o.id)+'\')" style="margin-top:10px">📷 Фотоотчёт</button>';
   if(canDeleteOrder(o))html+='<button class="btn btn-danger" onclick="deleteOrder('+o.id+')" style="margin-bottom:110px">Удалить заказ</button>';else html+='<div style="margin-bottom:110px"></div>';
   html+='<div class="footer-brand" style="margin-bottom:20px">'+LOGO_MARK(20)+'<span>Зерцало</span></div>';
-  if(canEditOrder(o))html+='<div style="height:76px"></div><button class="fab-wide" onclick="openItem(null)">+ Добавить позицию</button>';
+  if(canEditOrder(o))html+='<button class="fab-top" onclick="openItem(null)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg><span class="fab-top-label">Добавить позицию</span></button>';
   return html;
 }
 function saveMasterComment(id){var o=db.orders.find(function(x){return x.id===id;});if(!o)return;var ta=document.getElementById('master_comment_'+id);if(!ta)return;o.masterComment=(ta.value||'').trim();touch(o);save();haptic(8);var btn=ta.parentNode.querySelector('button');if(btn){var t=btn.textContent;btn.textContent='✓ Сохранено';setTimeout(function(){btn.textContent=t;},1200);}}
@@ -3569,6 +3598,10 @@ function openClientFromOrder(clientId){
   try{history.pushState({view:'client',clientId:clientId},'','#client-'+clientId);}catch(e){}
 }
 function goBack(){
+  if(document.querySelector('.modal-bg')){
+    closeModalWithConfirm();
+    return;
+  }
   if(activeTab==='clients'&&clientsView==='detail'){
     clientsView='list';currentClientId=null;
     withViewTransition(function(){render();window.scrollTo(0,0);});
@@ -3630,7 +3663,9 @@ function openNewOrder(presetClientId){
     paid:false,
     paidAmount:0,
     eventDate:'',
-    eventTime:''
+    eventTime:'',
+    customOrderNum:'',
+    customOrderNumChanged:false
   };
   if(presetClientId&&clientById(presetClientId)){
     newOrderWizard.clientId=presetClientId;
@@ -3745,11 +3780,12 @@ function renderOrderWizardStep3(){
     '<div class="section-title" style="margin-top:6px">Шаг 3 — Детали</div>'+
     '<div class="draft-notice">👤 '+esc(clientFullName(c)||'Без имени')+'</div>'+
     '<div class="draft-notice" style="margin-top:6px">📍 '+esc(addressFull(a)||addressShort(a))+'</div>'+
-    '<div style="margin-top:14px;padding:12px 16px;background:var(--accent-soft);border-radius:14px;display:flex;align-items:center;gap:10px">'+
-      '<span style="font-size:13px;color:var(--text-soft)">Номер:</span>'+
-      '<span class="order-num-lg" style="margin-bottom:0">'+esc(previewNextOrderNum())+'</span>'+
+    '<div style="margin-top:14px;padding:14px 16px;background:var(--accent-soft);border-radius:14px">'+
+      '<label style="margin-top:0;font-size:11px;color:var(--text-soft);text-transform:uppercase;letter-spacing:0.5px;font-weight:700">Номер заказа</label>'+
+      '<input id="wz_orderNum" type="text" maxlength="40" value="'+esc(s.customOrderNum||previewNextOrderNum())+'" oninput="wzSetCustomOrderNum(this.value)" style="margin-top:6px;font-weight:700">'+
+      '<div style="font-size:11px;color:var(--muted);margin-top:6px;line-height:1.4">По умолчанию автономер. Меняйте на свой — до 40 символов.</div>'+
     '</div>'+
-    '<div class="section-title">План замера</div>'+
+    '<div class="section-title">📅 Дата замера и план</div>'+
     '<div class="row2">'+
       '<div><label>Дата</label><input id="wz_eventDate" type="date" value="'+esc(s.eventDate)+'" onchange="wzSetEventDate(this.value)"></div>'+
       '<div><label>Время</label><input id="wz_eventTime" type="time" value="'+esc(s.eventTime)+'" onchange="wzSetEventTime(this.value)"></div>'+
@@ -3820,6 +3856,7 @@ function wzToggleTeam(uid){
   if(idx>=0)s.team.splice(idx,1);else s.team.push(uid);
   renderOrderWizardStep3();
 }
+function wzSetCustomOrderNum(v){var s=newOrderWizard;if(!s)return;s.customOrderNum=String(v==null?'':v);s.customOrderNumChanged=true;}
 function wzSetEventDate(v){newOrderWizard.eventDate=v||'';}
 function wzSetEventTime(v){newOrderWizard.eventTime=v||'';}
 function wzSetClientNote(v){newOrderWizard.clientNote=v||'';}
@@ -3839,13 +3876,16 @@ async function wzSave(){
   if(!a){await uiAlert('Адрес не найден');return;}
   haptic([15,40,15]);
   var id=db.nextOrder++,createdAt=Date.now(),dateKey=orderDateKey({createdAt:createdAt}),base=dayMonthBaseFromDate(createdAt);
+  var _finalNum,_manualNum=false;
+  if(s.customOrderNumChanged&&s.customOrderNum&&s.customOrderNum.trim()){_finalNum=s.customOrderNum.trim();_manualNum=true;}
+  else{_finalNum=base;}
   var snap={
     clientName:clientFullName(c),
     clientPhone:c.phone||c.phoneExtra||'',
     addressFull:addressFull(a)
   };
   db.orders.push({
-    id:id,orderNum:base,
+    id:id,orderNum:_finalNum,manualNum:_manualNum,measureDate:s.eventDate||null,
     lastName:c.lastName||'',firstName:c.firstName||'',middleName:c.middleName||'',phone:c.phone||'',
     city:a.city||'',street:a.street||'',house:a.house||'',building:a.building||'',entrance:a.entrance||'',floor:a.floor||'',apartment:a.apartment||'',intercom:a.intercom||'',
     liftNeeded:!!a.liftNeeded,liftFloor:a.liftFloor||0,parkingCarry:!!a.parkingCarry,needPass:!!a.needPass,
@@ -3881,12 +3921,12 @@ function openEditOrder(id){
     '<div class="checkbox-row"><input type="checkbox" id="e_parking" '+(o.parkingCarry?'checked':'')+'><label for="e_parking">Паркинг</label></div><div class="checkbox-row"><input type="checkbox" id="e_pass" '+(o.needPass?'checked':'')+'><label for="e_pass">Пропуск</label></div>'+
     '<div class="section-title" data-sec="Примечания">Примечания</div><label>📝 Для клиента</label><textarea id="e_clientNote" rows="2">'+esc(o.clientNote||'')+'</textarea><label>🔒 Внутреннее</label><textarea id="e_orderNote" rows="2">'+esc(o.orderNote||'')+'</textarea>'+
     '<div class="section-title" data-sec="Оплата">Оплата</div><div class="chips" id="chips_paid_edit"><button type="button" class="chip '+(o.paid?'':'active')+'" data-val="no">Не оплачен</button><button type="button" class="chip '+(o.paid?'active':'')+'" data-val="yes">Оплачен</button></div><div id="paid_amount_wrap_edit" style="display:'+(o.paid?'block':'none')+'"><label>Сумма, ₽</label><input id="e_paid_amount" type="text" inputmode="decimal" value="'+(o.paidAmount?numFmt(o.paidAmount):'')+'"></div>'+
-    '<div class="section-title" data-sec="Дата">Дата</div><label>Дата</label><input id="e_createdAt" type="date" value="'+localDateStr(o.createdAt)+'">'+
+    '<div class="section-title" data-sec="Дата">Дата</div><label>Дата заказа</label><input id="e_createdAt" type="date" value="'+localDateStr(o.createdAt)+'"><label>📅 Дата замера</label><input id="e_measureDate" type="date" value="'+esc(o.measureDate||'')+'">'+
     '<button class="btn btn-primary" onclick="saveEditOrder('+o.id+')">Сохранить</button><button class="btn btn-secondary" onclick="closeModal()">Отмена</button>');
   var lc=document.getElementById('e_lift'),lw=document.getElementById('lift_wrap_edit');if(lc)lc.onchange=function(){lw.style.display=lc.checked?'block':'none';};
   var mn=document.getElementById('e_manualNum'),mw=document.getElementById('manual_num_wrap');if(mn)mn.onchange=function(){mw.style.display=mn.checked?'block':'none';};
   var ni=document.getElementById('e_orderNum'),nm=document.getElementById('num_validate_msg');
-  if(ni)ni.oninput=function(){var r=validateOrderNum(ni.value);if(!ni.value.trim()){nm.style.display='none';return;}if(r.ok)nm.style.display='none';else{nm.style.display='block';nm.textContent='⚠ '+r.reason;}};
+  if(ni)ni.oninput=function(){var t=ni.value||'';if(t.length>40){nm.style.display='block';nm.textContent='⚠ Максимум 40 символов';}else{nm.style.display='none';}};
   var pc=document.getElementById('chips_paid_edit'),pw=document.getElementById('paid_amount_wrap_edit');
   pc.querySelectorAll('.chip').forEach(function(b){b.onclick=function(){pc.querySelectorAll('.chip').forEach(function(x){x.classList.remove('active');});b.classList.add('active');pw.style.display=(b.dataset.val==='yes')?'block':'none';haptic(8);};});
 }
@@ -3900,10 +3940,11 @@ async function saveEditOrder(id){
   var clientNote=v('e_clientNote'),orderNote=v('e_orderNote');
   var dateStr=v('e_createdAt'),newCreatedAt=o.createdAt;
   if(dateStr){var parts=dateStr.split('-');if(parts.length===3){var y=parseInt(parts[0],10),mm=parseInt(parts[1],10),dd=parseInt(parts[2],10);if(y>2000&&y<2100&&mm>=1&&mm<=12&&dd>=1&&dd<=31){var oldD=new Date(o.createdAt);newCreatedAt=new Date(y,mm-1,dd,oldD.getHours(),oldD.getMinutes(),oldD.getSeconds()).getTime();}}}
+  var measureDateStr=v('e_measureDate');
   var manualNum=document.getElementById('e_manualNum')&&document.getElementById('e_manualNum').checked===true,newOrderNum=o.orderNum;
-  if(manualNum){var typed=v('e_orderNum');if(!typed){await uiAlert('Введите номер');return;}var vr=validateOrderNum(typed);if(!vr.ok){await uiAlert('Неверный формат: '+vr.reason);return;}newOrderNum=typed;}
+  if(manualNum){var typed=v('e_orderNum');if(!typed){await uiAlert('Введите номер');return;}if(typed.length>40){await uiAlert('Номер слишком длинный (макс. 40)');return;}newOrderNum=typed;}
   var oldDateKey=orderDateKey(o);
-  Object.assign(o,{lastName:lastName,firstName:firstName,middleName:middleName,phone:phone,city:city,street:street,house:house,building:building,entrance:entrance,floor:floor,apartment:apartment,intercom:intercom,liftNeeded:liftNeeded,liftFloor:liftFloor,parkingCarry:parkingCarry,needPass:needPass,paid:paid,paidAmount:paidAmount,createdAt:newCreatedAt,manualNum:manualNum,orderNum:newOrderNum,clientNote:clientNote,orderNote:orderNote});
+  Object.assign(o,{lastName:lastName,firstName:firstName,middleName:middleName,phone:phone,city:city,street:street,house:house,building:building,entrance:entrance,floor:floor,apartment:apartment,intercom:intercom,liftNeeded:liftNeeded,liftFloor:liftFloor,parkingCarry:parkingCarry,needPass:needPass,paid:paid,paidAmount:paidAmount,createdAt:newCreatedAt,manualNum:manualNum,orderNum:newOrderNum,clientNote:clientNote,orderNote:orderNote,measureDate:measureDateStr||null});
   o.snapshot={clientName:[lastName,firstName,middleName].filter(function(x){return x&&String(x).trim();}).join(' '),clientPhone:phone||'',addressFull:o.snapshot&&o.snapshot.addressFull?o.snapshot.addressFull:''};
   if(o.clientId){var cc=clientById(o.clientId);if(cc){cc.lastName=lastName||cc.lastName;cc.firstName=firstName||cc.firstName;cc.middleName=middleName||cc.middleName;cc.phone=phone||cc.phone;touch(cc);}}
   if(o.addressId){var aa=addressById(o.addressId);if(aa){aa.city=city||aa.city;aa.street=street||aa.street;aa.house=house||aa.house;aa.building=building||aa.building;aa.entrance=entrance||aa.entrance;aa.floor=floor||aa.floor;aa.apartment=apartment||aa.apartment;aa.intercom=intercom||aa.intercom;aa.liftNeeded=liftNeeded;aa.liftFloor=liftFloor;aa.parkingCarry=parkingCarry;aa.needPass=needPass;o.snapshot.addressFull=addressFull(aa);touch(aa);}}
@@ -4060,7 +4101,7 @@ function renderClientsList(){
     var s=(clientFullName(c)+' '+(c.phone||'')+' '+(c.phoneExtra||'')+' '+(c.email||'')+' '+addrArr).toLowerCase();
     return s.indexOf(q)>=0;
   });
-  if(!list.length)return '<div class="empty">Клиентов пока нет.<br><br>Нажмите «+ Новый клиент», чтобы добавить.</div>';
+  if(!list.length)return '<div class="empty-cta"><span class="ec-ico">👥</span><div class="ec-title">Клиентов пока нет</div><div class="ec-sub">Создайте первого клиента — добавите ему адреса и заказы.</div>'+(canManageClients()?'<button class="btn btn-primary" onclick="openClientForm(null)">+ Новый клиент</button>':'')+'</div>';
   return list.map(renderClientCard).join('');
 }
 function renderClientCard(c){
@@ -4325,7 +4366,7 @@ function visibleEvents(){
 function filteredEvents(){
   var evs=visibleEvents();
   var f=calState.filter;
-  if(f==='measure')evs=evs.filter(function(e){return (e.type||'measure')==='measure';});
+  if(f==='measure')evs=evs.filter(function(e){var t=e.type||'measure';return t==='measure'||t==='remeasure';});
   else if(f==='install')evs=evs.filter(function(e){return e.type==='install';});
   else if(f==='mine'){var u=currentUser();if(u)evs=evs.filter(function(e){return Array.isArray(e.assignedUserIds)&&e.assignedUserIds.indexOf(u.id)>=0;});}
   return evs;
@@ -4358,10 +4399,12 @@ function renderCalendarMonthGrid(){
       isDim=true;
     }
     var dayEvs=byDate[dateYmd]||[];
-    var hasM=dayEvs.some(function(e){return (e.type||'measure')==='measure';});
-    var hasI=dayEvs.some(function(e){return e.type==='install';});
+    var typesSet={};
+    dayEvs.forEach(function(e){typesSet[e.type||'measure']=1;});
     var cls='cal-day'+(isDim?' dim':'')+(dateYmd===todayYmd?' today':'')+(dayEvs.length?' has-events':'');
-    var dots='<div class="cal-dots">'+(hasM?'<span class="cal-dot measure"></span>':'')+(hasI?'<span class="cal-dot install"></span>':'')+'</div>';
+    var dots='<div class="cal-dots">';
+    EVENT_TYPES.forEach(function(et){if(typesSet[et.key])dots+='<span class="cal-dot" style="background:'+et.color+'"></span>';});
+    dots+='</div>';
     cells.push('<div class="'+cls+'" onclick="openDayModal(\''+dateYmd+'\')"><div class="cal-num">'+dayNum+'</div>'+dots+'</div>');
   }
   var html='<div class="cal-weekdays"><div>Пн</div><div>Вт</div><div>Ср</div><div>Чт</div><div>Пт</div><div>Сб</div><div>Вс</div></div>';
@@ -4482,9 +4525,10 @@ function openEventForm(dateYmd,eventId,presetOrderId){
   });
   var html='<h2>'+LOGO_MARK(30)+' '+(e?'Правка события':'Новое событие')+'</h2>';
   html+='<label>Тип</label>';
-  html+='<div class="chips" id="ev_type_chips">';
-  html+='<button type="button" class="chip'+(d.type==='measure'?' active':'')+'" data-val="measure" onclick="window._evType=\'measure\';var p=this.parentNode;p.querySelectorAll(\'.chip\').forEach(function(c){c.classList.toggle(\'active\',c.dataset.val===window._evType);});">📏 Замер</button>';
-  html+='<button type="button" class="chip'+(d.type==='install'?' active':'')+'" data-val="install" onclick="window._evType=\'install\';var p=this.parentNode;p.querySelectorAll(\'.chip\').forEach(function(c){c.classList.toggle(\'active\',c.dataset.val===window._evType);});">🔧 Монтаж</button>';
+  html+='<div class="chips" id="ev_type_chips" style="flex-wrap:wrap">';
+  EVENT_TYPES.forEach(function(et){
+    html+='<button type="button" class="chip'+(d.type===et.key?' active':'')+'" data-val="'+et.key+'" onclick="window._evType=\''+et.key+'\';var p=this.parentNode;p.querySelectorAll(\'.chip\').forEach(function(c){c.classList.toggle(\'active\',c.dataset.val===window._evType);});">'+et.ico+' '+et.label+'</button>';
+  });
   html+='</div>';
   html+='<label>Заказ (необязательно)</label><select id="ev_order">'+orderOpts+'</select>';
   html+='<div class="row2"><div><label>Дата</label><input id="ev_date" type="date" value="'+esc(d.date)+'"></div><div><label>Время</label><input id="ev_time" type="time" value="'+esc(d.time)+'"></div></div>';
@@ -4630,7 +4674,7 @@ function renderRoutesList(){
   routes.sort(function(a,b){return String(a.date||'').localeCompare(String(b.date||''));});
   var html='';
   if(!routes.length){
-    html+='<div class="empty">Маршрутов пока нет.<br><br>Нажмите «+ Новый маршрут», чтобы создать.</div>';
+    html+='<div class="empty-cta"><span class="ec-ico">🚚</span><div class="ec-title">Маршрутов пока нет</div><div class="ec-sub">Создайте маршрут — добавьте точки: заказы, контрагенты, свободные адреса.</div>'+(canManageRoutes()?'<button class="btn btn-primary" onclick="openRouteForm(null)">+ Новый маршрут</button>':'')+'</div>';
   }else{
     var today=dateToYmd(new Date());
     var groups={};
@@ -4649,7 +4693,7 @@ function renderRoutesList(){
     });
   }
   html+='<div class="footer-brand">'+LOGO_MARK(20)+'<span>Зерцало • маршруты</span></div>';
-  if(canManageRoutes())html+='<button class="fab fab-always" onclick="openRouteForm(null)">+ Новый маршрут</button>';
+  if(canManageRoutes()&&routes.length)html+='<button class="fab-top" onclick="openRouteForm(null)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg><span class="fab-top-label">Новый маршрут</span></button>';
   return html;
 }
 function renderRouteCard(r){
@@ -4954,7 +4998,7 @@ function renderContractorsTab(){
   html+='</div>';
   html+='<div id="contractorsList">'+renderContractorsList()+'</div>';
   html+='<div class="footer-brand">'+LOGO_MARK(20)+'<span>Зерцало • контрагенты</span></div>';
-  if(canManageContractors())html+='<button class="fab fab-always" onclick="openContractorForm(null)">+ Новый контрагент</button>';
+  if(canManageContractors()&&db.contractors.filter(function(c){return !c.archived;}).length)html+='<button class="fab-top" onclick="openContractorForm(null)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg><span class="fab-top-label">Контрагент</span></button>';
   return html;
 }
 function renderContractorsList(){
@@ -4967,7 +5011,7 @@ function renderContractorsList(){
     var str=(c.name+' '+(c.contactName||'')+' '+(c.phone||'')+' '+(c.email||'')+' '+(addr?addressShort(addr)+' '+addressFull(addr):'')).toLowerCase();
     return str.indexOf(q)>=0;
   });
-  if(!list.length)return '<div class="empty">Контрагентов пока нет.<br><br>Нажмите «+ Новый контрагент», чтобы добавить.</div>';
+  if(!list.length)return '<div class="empty-cta"><span class="ec-ico">🏢</span><div class="ec-title">Контрагентов пока нет</div><div class="ec-sub">Добавьте поставщиков, партнёров и склады — их можно включать в маршруты.</div>'+(canManageContractors()?'<button class="btn btn-primary" onclick="openContractorForm(null)">+ Новый контрагент</button>':'')+'</div>';
   return list.map(renderContractorCard).join('');
 }
 function renderContractorCard(c){
@@ -5242,6 +5286,7 @@ function buildReceiptModel(o,items){
     orderNum:o.orderNum||'—',
     date:new Date(o.createdAt),
     createdAt:o.createdAt,
+    measureDate:o.measureDate||null,
     client:{
       fullName:orderClientName(o),phone:orderClientPhone(o),address:orderAddressFull(o),intercom:o.intercom||'',
       liftNeeded:!!o.liftNeeded,liftFloor:o.liftFloor||0,parkingCarry:!!o.parkingCarry,
@@ -5342,7 +5387,9 @@ function receiptToText(model){
 function receiptToHTML(model){
   var css='*{box-sizing:border-box}body{font-family:system-ui,-apple-system,sans-serif;color:#1a1a1a;margin:0;padding:24px;background:#fff}.wrap{max-width:800px;margin:0 auto}h1{font-size:22px;color:#3b5c8f;margin:0 0 4px}.sub{color:#667085;font-size:13px;margin-bottom:20px}.ord{background:#eaf1fb;padding:8px 14px;border-radius:8px;font-weight:700;color:#3b5c8f;margin-bottom:16px;display:inline-block;font-family:monospace}h2{font-size:15px;color:#3b5c8f;border-bottom:1px solid #e4e7ec;padding-bottom:6px;margin:20px 0 10px;text-transform:uppercase;letter-spacing:.5px}.row{display:flex;gap:8px;padding:4px 0;font-size:14px}.lbl{color:#667085;min-width:140px;font-weight:500}.item{border:1px solid #e4e7ec;border-radius:8px;padding:10px 12px;margin-bottom:10px;page-break-inside:avoid}.item h3{margin:0 0 6px;font-size:15px;color:#3b5c8f}.meta{font-size:14px;line-height:1.55;color:#475467}.meta .title{display:block;font-weight:700;color:#1a1a1a;margin-bottom:4px}.meta-row{position:relative;padding:4px 0 4px 22px}.meta-row::before{content:"—";position:absolute;left:0;top:4px;color:#98a2b3;font-weight:700}.meta-row .k{color:#667085;font-weight:500}.imgs{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}.imgs img{max-width:100%;border:1px solid #d0d5dd;border-radius:6px;max-height:400px;object-fit:contain}.foot{margin-top:24px;padding-top:12px;border-top:1px solid #e4e7ec;text-align:center;color:#667085;font-size:12px}@media print{body{padding:0}.no-print{display:none}}';
   var body='<div class="ord">Заказ № '+esc(model.orderNum)+'</div>';
-  body+='<div class="sub">Замер от '+model.date.toLocaleDateString('ru-RU')+'</div><h2>Клиент</h2>';
+  var _mD=model.measureDate?ymdToDate(model.measureDate):null;
+  var _mDs=_mD?_mD.toLocaleDateString('ru-RU'):model.date.toLocaleDateString('ru-RU');
+  body+='<div class="sub">Создан '+model.date.toLocaleDateString('ru-RU')+' • 📅 Дата замера: <b>'+_mDs+'</b></div><h2>Клиент</h2>';
   receiptClientRows(model).forEach(function(r){body+='<div class="row"><div class="lbl">'+esc(r[0])+':</div><div>'+esc(r[1])+'</div></div>';});
   if(model.client.notes)body+='<div style="background:#fdf7e6;border:1px solid #f2e0b6;border-radius:8px;padding:10px 12px;margin:10px 0;font-size:14px"><b style="color:#8a6a2c">📝 Примечание</b><br>'+esc(model.client.notes)+'</div>';
   model.items.forEach(function(it){
@@ -5412,6 +5459,7 @@ function buildPhotoReportModel(o){
   return {
     orderNum:o.orderNum||'—',
     date:new Date(o.createdAt),
+    measureDate:o.measureDate||null,
     client:orderClientName(o),
     address:orderAddressFull(o),
     rows:rows,
@@ -5421,7 +5469,9 @@ function buildPhotoReportModel(o){
 function photoReportToHTML(model){
   var css='*{box-sizing:border-box}body{font-family:system-ui,-apple-system,sans-serif;color:#1a1a1a;margin:0;padding:20px;background:#fff}.wrap{max-width:900px;margin:0 auto}h1{font-size:22px;color:#3b5c8f;margin:0 0 4px}.sub{color:#667085;font-size:13px;margin-bottom:16px}.ord{background:#eaf1fb;padding:8px 14px;border-radius:8px;font-weight:700;color:#3b5c8f;margin-bottom:12px;display:inline-block;font-family:monospace}h2{font-size:14px;color:#3b5c8f;border-bottom:1px solid #e4e7ec;padding-bottom:6px;margin:20px 0 10px;text-transform:uppercase}.meta{font-size:13px;color:#475467;margin-bottom:10px}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:10px}.card{border:1px solid #e4e7ec;border-radius:8px;overflow:hidden;page-break-inside:avoid}.card img{width:100%;height:auto;display:block;background:#f0f4fa}.cap{padding:6px 8px;background:#f8fafc;font-size:11.5px;color:#475467;border-top:1px solid #e4e7ec}.cap b{color:#1e4d7b}.foot{margin-top:24px;padding-top:12px;border-top:1px solid #e4e7ec;text-align:center;color:#667085;font-size:12px}@media print{body{padding:0}.no-print{display:none}.grid{grid-template-columns:repeat(2,1fr)}}';
   var body='<div class="ord">Фотоотчёт • Заказ № '+esc(model.orderNum)+'</div>';
-  body+='<div class="sub">Замер от '+model.date.toLocaleDateString('ru-RU')+'</div>';
+  var _mD2=model.measureDate?ymdToDate(model.measureDate):null;
+  var _mDs2=_mD2?_mD2.toLocaleDateString('ru-RU'):model.date.toLocaleDateString('ru-RU');
+  body+='<div class="sub">Создан '+model.date.toLocaleDateString('ru-RU')+' • 📅 Дата замера: <b>'+_mDs2+'</b></div>';
   var meta='';
   if(model.client)meta+='Клиент: '+esc(model.client);
   if(model.address)meta+=(meta?' • ':'')+'Адрес: '+esc(model.address);
@@ -6376,8 +6426,8 @@ function renderAuth(){
 (function(){if(!('serviceWorker' in navigator))return;if(location.protocol==='file:'||location.protocol==='content:')return;var swCode=["const CACHE='zerzalo-v3';","const SHELL=['./','./index.html'];","self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(SHELL)).then(()=>self.skipWaiting()).catch(()=>{}));});","self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()).catch(()=>{}));});","self.addEventListener('fetch',e=>{if(e.request.method!=='GET')return;const u=new URL(e.request.url);if(u.origin!==location.origin)return;e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request).then(resp=>{if(!resp||resp.status!==200||resp.type==='opaque')return resp;const cl=resp.clone();caches.open(CACHE).then(c=>c.put(e.request,cl)).catch(()=>{});return resp;}).catch(()=>caches.match('./index.html'))));});"].join('\n');window.addEventListener('load',function(){var urlsToTry=[];try{urlsToTry.push('./sw.js');}catch(e){}if(window.Blob&&window.URL&&URL.createObjectURL){try{var b=new Blob([swCode],{type:'application/javascript'}),blobUrl=URL.createObjectURL(b);urlsToTry.push(blobUrl);}catch(e){}}var tried=0;function tryNext(){if(tried>=urlsToTry.length)return;var u=urlsToTry[tried++];navigator.serviceWorker.register(u).then(function(reg){console.log('SW registered',reg.scope);}).catch(function(e){tryNext();});}tryNext();});})();
 
 /* ============ ВЕРСИЯ / BOOT ============ */
-var APP_VERSION='2.1.3';
-var SCHEMA_BUILD='17/notifications/roles/sync/auto-token/rounded/backlight-facet';
+var APP_VERSION='2.1.5';
+var SCHEMA_BUILD='17/notifications/roles/sync/auto-token/rounded/backlight-facet/manual-num/measure-date/event-types/fab-top/cta/back-guard';
 
 function boot(){
   applyTheme(getSavedTheme());
