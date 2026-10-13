@@ -884,6 +884,7 @@ function migrateItem(i){
   if(!Array.isArray(i.socketsList))i.socketsList=[];
   i.socketsList.forEach(function(s){if(s.step==null)s.step=7.1;if(s.distX==null)s.distX=30;if(s.distY==null)s.distY=110;if(s.edgeX!=='right')s.edgeX='left';if(s.edgeY!=='top')s.edgeY='bottom';if(!s.count)s.count=1;});
   if(i.shape==='FIGURED'&&i.cornerRadius==null)i.cornerRadius=50;
+  if(i.roundedCorners==null)i.roundedCorners=false;
   if(i.type==='SHOWER'||i.type==='APRON'){i.edge='';i.facetWidth=0;}
   if(i.type==='MIRROR')i.tempered=false;
   if(i.type==='SHOWER'){i.plinthMount=false;i.plinthHeight=0;i.isNiche=false;i.nicheDepth=0;i.socketsMount=false;i.socketsList=[];i.cutoutEnabled=false;i.cutoutW=0;i.cutoutH=0;}
@@ -1486,8 +1487,9 @@ function shapeLabel(i){
   }
   if(i.type==='SHELF'){var gS=glassDimensions(i);return 'Полка Ш'+numFmt(gS.w)+'×В'+numFmt(gS.h)+' см • гл. '+numFmt(i.shelfDepth||15)+' см • ст. '+i.th+' мм';}
   if(i.type==='PANNO'){var gP=glassDimensions(i);return 'Панно Ш'+numFmt(gP.w)+'×В'+numFmt(gP.h)+' см • '+(pannoLabel(i)||'рамка')+' • ст. '+i.th+' мм';}
-  if(i.shape==='RECT4')return '4 стороны: Верх '+numFmt(i.T||0)+', Низ '+numFmt(i.B||0)+', Лево '+numFmt(i.L||0)+', Право '+numFmt(i.R||0)+' см, ст. '+i.th+' мм';
-  if(i.shape==='RECT')return 'Прямоуг. Ш'+numFmt(i.w)+'×В'+numFmt(i.h)+' см, ст. '+i.th+' мм';
+  var _rcSuffix=(i.type==='MIRROR'&&i.roundedCorners&&Number(i.cornerRadius)>0)?(', ⭕ R'+numFmt(i.cornerRadius)+' мм'):'';
+  if(i.shape==='RECT4')return '4 стороны: Верх '+numFmt(i.T||0)+', Низ '+numFmt(i.B||0)+', Лево '+numFmt(i.L||0)+', Право '+numFmt(i.R||0)+' см, ст. '+i.th+' мм'+_rcSuffix;
+  if(i.shape==='RECT')return 'Прямоуг. Ш'+numFmt(i.w)+'×В'+numFmt(i.h)+' см, ст. '+i.th+' мм'+_rcSuffix;
   if(i.shape==='FIGURED')return 'Фигурное Ш'+numFmt(i.w)+'×В'+numFmt(i.h)+' см, R'+numFmt(i.cornerRadius!=null?i.cornerRadius:50)+' мм, ст. '+i.th+' мм';
   if(i.shape==='TEMPLATE')return 'По шаблону, ст. '+i.th+' мм';
   if(i.shape==='CIRCLE')return 'Круг Ø'+numFmt(i.w)+' см, ст. '+i.th+' мм';
@@ -1726,7 +1728,10 @@ function drawTechIso(ctx,x,y,w,h,dims,scale,d){
   var sc3=Math.min((w-80)/Math.max(gd.w||1,1),(h-60)/Math.max(gd.h||1,1));
   var pxW=gd.w*sc3,pxH=gd.h*sc3,x0=cx-pxW/2,y0=cy-pxH/2;
   ctx.fillStyle='rgba(200,221,240,0.55)';ctx.strokeStyle=accent;ctx.lineWidth=2.5;
-  ctx.beginPath();ctx.rect(x0,y0,pxW,pxH);ctx.fill();ctx.stroke();
+  var _rMm=(d.roundedCorners&&d.type==='MIRROR'&&(d.shape==='RECT'||d.shape==='RECT4'))?(Number(d.cornerRadius)||0):0;
+  var _rPx=_rMm/10*sc3;
+  ctx.beginPath();canvasRoundRect(ctx,x0,y0,pxW,pxH,_rPx);ctx.fill();ctx.stroke();
+  if(_rMm>0){ctx.fillStyle=red;ctx.font='700 12px "PT Sans Narrow",Arial';ctx.textAlign='left';ctx.textBaseline='top';ctx.fillText('R'+numFmt(_rMm),x0+_rPx+6,y0+_rPx+2);}
   ctx.strokeStyle=red;ctx.lineWidth=1;ctx.setLineDash([3,3]);
   ctx.beginPath();ctx.moveTo(x0,y0-24);ctx.lineTo(x0+pxW,y0-24);ctx.stroke();
   ctx.beginPath();ctx.moveTo(x0-24,y0);ctx.lineTo(x0-24,y0+pxH);ctx.stroke();ctx.setLineDash([]);
@@ -1843,7 +1848,11 @@ function drawTechFront(ctx,x,y,w,h,d){
   var gd=glassDimensions(d);
   var sc3=Math.min((w-80)/Math.max(gd.w||1,1),(h-60)/Math.max(gd.h||1,1));
   var pxW=gd.w*sc3,pxH=gd.h*sc3;
-  ctx.strokeStyle=accent;ctx.lineWidth=2.5;ctx.beginPath();ctx.rect(cx-pxW/2,cy-pxH/2,pxW,pxH);ctx.stroke();
+  ctx.strokeStyle=accent;ctx.lineWidth=2.5;
+  var _rMm2=(d.roundedCorners&&d.type==='MIRROR'&&(d.shape==='RECT'||d.shape==='RECT4'))?(Number(d.cornerRadius)||0):0;
+  var _rPx2=_rMm2/10*sc3;
+  ctx.beginPath();canvasRoundRect(ctx,cx-pxW/2,cy-pxH/2,pxW,pxH,_rPx2);ctx.stroke();
+  if(_rMm2>0){ctx.fillStyle=red;ctx.font='700 12px "PT Sans Narrow",Arial';ctx.textAlign='left';ctx.textBaseline='top';ctx.fillText('R'+numFmt(_rMm2),cx-pxW/2+_rPx2+4,cy-pxH/2+_rPx2+2);}
   ctx.strokeStyle=red;ctx.lineWidth=1;ctx.setLineDash([3,3]);
   ctx.beginPath();ctx.moveTo(cx-pxW/2,cy-pxH/2-24);ctx.lineTo(cx+pxW/2,cy-pxH/2-24);ctx.stroke();
   ctx.beginPath();ctx.moveTo(cx-pxW/2-24,cy-pxH/2);ctx.lineTo(cx-pxW/2-24,cy+pxH/2);ctx.stroke();ctx.setLineDash([]);
@@ -1997,7 +2006,8 @@ pl.forEach(function(p){
   ctx.beginPath();ctx.rect(cx-pxW/2,cy-pxH/2,pxW,pxH);ctx.stroke();
   ctx.fillStyle='rgba(200,221,240,0.4)';ctx.fill();
   ctx.fillStyle=red;ctx.font='700 14px "PT Sans Narrow",Arial';ctx.textAlign='center';ctx.textBaseline='bottom';
-  ctx.fillText('Вид сверху: '+numFmt(gd.w)+' см × '+numFmt(d.th||4)+' мм',cx,cy-pxH/2-10);
+  var _rTxt10=(d.roundedCorners&&d.type==='MIRROR'&&(d.shape==='RECT'||d.shape==='RECT4')&&Number(d.cornerRadius)>0)?(' • R'+numFmt(d.cornerRadius)+' мм'):'';
+  ctx.fillText('Вид сверху: '+numFmt(gd.w)+' см × '+numFmt(d.th||4)+' мм'+_rTxt10,cx,cy-pxH/2-10);
   ctx.restore();
 }
 
@@ -2066,7 +2076,7 @@ function openItem(id){
 
   var d=i?JSON.parse(JSON.stringify(i)):{
     type:'MIRROR',shape:'RECT',w:0,h:0,th:4,L:0,R:0,T:0,B:0,
-    glass:GLASS_TYPES[0],edge:EDGE_TYPES[0],facetWidth:0,qty:1,cornerRadius:50,
+    glass:GLASS_TYPES[0],edge:EDGE_TYPES[0],facetWidth:0,qty:1,cornerRadius:50,roundedCorners:false,
     mirrorColorNumber:'',mirrorMeasureMode:'glass',mirrorInset:MIRROR_DEFAULT_INSET_MM,
     mirrorNicheCutMode:'min',mirrorNicheRefCorner:'TL',
     backlightOffset:2,backlightWidth:2,plinthMount:false,plinthHeight:0,
@@ -2106,6 +2116,10 @@ function openItem(id){
 
     /* ФОРМА */
     '<div id="form_block"><label>Форма</label><div class="chips" id="chips_shape">'+chip('RECT','Прямоугольник',d.shape)+chip('RECT4','4 стороны',d.shape)+chip('CIRCLE','Круг',d.shape)+chip('OVAL','Овал',d.shape)+chip('FIGURED','Фигурное',d.shape)+chip('TEMPLATE','По шаблону',d.shape)+'</div></div>'+
+    '<div id="rounding_block" style="display:none;margin-top:14px;padding:14px 16px;background:linear-gradient(180deg,rgba(123,160,221,0.08),rgba(123,160,221,0.03));border-radius:14px;border:1.5px solid var(--accent-line)">'+
+      '<div class="checkbox-row" style="margin-top:0;background:transparent;border:none;padding:0"><input type="checkbox" id="e_rounded" '+(d.roundedCorners?'checked':'')+'><label for="e_rounded">⭕️ Скруглённые углы</label></div>'+
+      '<div id="rounding_wrap" style="display:'+(d.roundedCorners?'block':'none')+';margin-top:10px"><label style="margin-top:0">Радиус скругления, мм</label><input id="f_cornerRadiusRounded" type="text" inputmode="decimal" value="'+numFmt(d.cornerRadius!=null?d.cornerRadius:50)+'"></div>'+
+    '</div>'+
 
     /* ФАРТУК */
     '<div class="shower-builder" id="apron_block" data-sec="Фартук" style="display:none">'+
@@ -2341,7 +2355,7 @@ function openItem(id){
     if(d.type==='SHOWER'){d.plinthMount=false;d.plinthHeight=0;d.isNiche=false;d.nicheDepth=0;d.socketsMount=false;d.socketsList=[];d.cutoutEnabled=false;d.cutoutW=0;d.cutoutH=0;}
     if(d.type==='MIRROR')d.tempered=false;
     var gc=document.getElementById('chips_glass');if(gc)gc.innerHTML=renderGlassChips(d.type,d.glass);
-    updateElectricVisibility(d);updatePannoVisibility(d);updateShowerVisibility(d);updateCutVisibility(d);
+    updateElectricVisibility(d);updatePannoVisibility(d);updateShowerVisibility(d);updateCutVisibility(d);updateRoundingVisibility(d);
     renderSizeFields(d);renderMirrorModeUI(d);renderApronBuilder();renderShowerBuilder();renderShowerHandle();calcPreview(d);saveDraft();
   };
 
@@ -2352,12 +2366,14 @@ function openItem(id){
     if(d.shape==='FIGURED'&&d.cornerRadius==null)d.cornerRadius=50;
     if(d.type==='MIRROR'&&!mirrorSupportsNiche(d))d.mirrorMeasureMode='glass';
     refreshChips('chips_shape',d.shape);
-    renderSizeFields(d);renderMirrorModeUI(d);calcPreview(d);updatePannoVisibility(d);saveDraft();
+    renderSizeFields(d);renderMirrorModeUI(d);calcPreview(d);updatePannoVisibility(d);updateRoundingVisibility(d);saveDraft();
   };
 
   document.getElementById('chips_th').onclick=function(e){var c=e.target.closest('.chip');if(!c)return;d.th=parseInt(c.dataset.val);refreshChips('chips_th',d.th);calcPreview(d);saveDraft();};
 
   var tmpChk=document.getElementById('e_tempered');if(tmpChk)tmpChk.onchange=function(){d.tempered=tmpChk.checked;calcPreview(d);saveDraft();};
+  var rChk=document.getElementById('e_rounded');if(rChk)rChk.onchange=function(){d.roundedCorners=rChk.checked;var rw=document.getElementById('rounding_wrap');if(rw)rw.style.display=d.roundedCorners?'block':'none';calcPreview(d);saveDraft();};
+  var rInp=document.getElementById('f_cornerRadiusRounded');if(rInp)rInp.oninput=function(){setRoundedRadius(rInp.value);};
 
   document.getElementById('chips_glass').onclick=function(e){var c=e.target.closest('.chip');if(!c)return;d.glass=c.dataset.val;refreshChips('chips_glass',d.glass);var mcw=document.getElementById('mirror_color_number_wrap');if(mcw)mcw.style.display=(d.type==='MIRROR'&&d.glass==='Состаренное')?'block':'none';calcPreview(d);saveDraft();};
   var mcInp=document.getElementById('f_mirrorColorNumber');if(mcInp)mcInp.oninput=function(){d.mirrorColorNumber=mcInp.value.trim();calcPreview(d);saveDraft();};
@@ -2416,7 +2432,7 @@ function openItem(id){
 
   /* Инициализация */
   renderSizeFields(d);renderFrameExtra(d);renderMirrorModeUI(d);
-  updateElectricVisibility(d);updatePannoVisibility(d);updateShowerVisibility(d);updateCutVisibility(d);
+  updateElectricVisibility(d);updatePannoVisibility(d);updateShowerVisibility(d);updateCutVisibility(d);updateRoundingVisibility(d);
   calcPreview(d);
 
   var pi=document.getElementById('photoInput');if(pi)pi.onchange=function(e){var fs=e.target.files;if(fs&&fs.length)addPhotos(fs);e.target.value='';};
@@ -2826,6 +2842,7 @@ function collectDraft(d){
   if(r.type==='SHOWER'||r.type==='APRON'){r.edge='';r.facetWidth=0;}
   if(r.type==='MIRROR')r.tempered=false;
   if(r.type==='SHOWER'){r.plinthMount=false;r.plinthHeight=0;r.isNiche=false;r.nicheDepth=0;r.socketsMount=false;r.socketsList=[];r.cutoutEnabled=false;r.cutoutW=0;r.cutoutH=0;}
+  if(r.type!=='MIRROR'||(r.shape!=='RECT'&&r.shape!=='RECT4'))r.roundedCorners=false;
   return r;
 }
 function calcPreview(d){
@@ -2858,6 +2875,7 @@ function calcPreview(d){
   var ml=mountLabel(it);if(ml)row('Крепление: <b>'+esc(ml)+'</b>');
   if(it.cutV||it.cutH)row('✂️ Разрез: <b>'+esc(cutSummary(it))+'</b>');
   if(it.shape==='FIGURED')row('R = <b>'+numFmt(it.cornerRadius!=null?it.cornerRadius:50)+' мм</b>');
+  if(it.type==='MIRROR'&&it.roundedCorners&&(it.shape==='RECT'||it.shape==='RECT4'))row('⭕ Скругление: <b>R'+numFmt(it.cornerRadius||0)+' мм</b>');
   if(it.isNiche)row('В нишу: <b>'+(it.nicheDepth?('глубина '+numFmt(it.nicheDepth)+' мм'):'не указана')+'</b>');
   if(it.socketsMount){var s2=socketSummary(it);row('🔌 Розетки'+(s2?': <b>'+esc(s2)+'</b>':''));}
   if(it.cutoutEnabled&&it.cutoutW&&it.cutoutH)row('✂️ Вырез: <b>'+numFmt(it.cutoutW)+'×'+numFmt(it.cutoutH)+'</b>');
@@ -2877,6 +2895,10 @@ function validateDraft(d){var errors=[],MAX=500,MIN=5;if(d.type==='APRON'){if(!d
   if(d.plinthMount&&(!d.plinthHeight||d.plinthHeight<=0))errors.push('Укажите H плинтуса');
   if(d.isNiche&&(!d.nicheDepth||d.nicheDepth<=0))errors.push('Укажите глубину ниши');
   if(d.type==='MIRROR'&&d.glass==='Состаренное'&&(!d.mirrorColorNumber||!d.mirrorColorNumber.trim()))errors.push('Укажите номер цвета');
+  if(d.type==='MIRROR'&&d.roundedCorners&&(d.shape==='RECT'||d.shape==='RECT4')){
+    var crv=Number(d.cornerRadius)||0;
+    if(crv<=0)errors.push('Укажите радиус скругления > 0');
+  }
   return errors;
 }
 async function saveItem(id){
@@ -2900,6 +2922,16 @@ async function saveItem(id){
   clearDraft();save();closeModal();render();
 }
 function setPannoLayout(key){_pannoKey=key;if(window._editDraft)window._editDraft.pannoLayout=key;var g=document.getElementById('chips_panno');if(g)g.querySelectorAll('.panno-chip').forEach(function(x){x.classList.toggle('active',x.getAttribute('data-val')===key);});saveDraft();}
+function setRoundedRadius(v){var d=window._editDraft;if(!d)return;var n=parseFloat(String(v).replace(',','.'))||0;if(n<0)n=0;if(n>500)n=500;d.cornerRadius=n;calcPreview(d);saveDraft();}
+function updateRoundingVisibility(d){
+  var block=document.getElementById('rounding_block');if(!block)return;
+  var show=(d&&d.type==='MIRROR'&&(d.shape==='RECT'||d.shape==='RECT4'));
+  block.style.display=show?'block':'none';
+  var chk=document.getElementById('e_rounded');if(chk)chk.checked=!!d.roundedCorners;
+  var wrap=document.getElementById('rounding_wrap');if(wrap)wrap.style.display=(d.roundedCorners?'block':'none');
+  var inp=document.getElementById('f_cornerRadiusRounded');if(inp&&document.activeElement!==inp)inp.value=numFmt(d.cornerRadius!=null?d.cornerRadius:50);
+}
+function canvasRoundRect(ctx,x,y,w,h,r){r=Math.min(Number(r)||0,w/2,h/2);if(r<=0){ctx.rect(x,y,w,h);return;}if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x,y,w,h,r);return;}ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
 /* ============ ФОТО ============ */
 var PHOTO_PLACEHOLDER='data:image/svg+xml;utf8,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60"><rect width="60" height="60" fill="#e4e7ec"/><text x="30" y="36" text-anchor="middle" font-family="Arial" font-size="18" fill="#98a2b3">📷</text></svg>');
 var idb=null,photoCache={},drawingCache={};
@@ -5097,6 +5129,7 @@ function buildReceiptModel(o,items){
     if(i.type==='APRON'){R.push({k:'Материал',v:apronMaterialFullLabel(i)});var shp=(i.apronShape==='L')?'Г-образная':(i.apronShape==='U')?'П-образная':'Прямая';R.push({k:'Форма',v:shp});var modLbl=(i.apronMeasureMode==='glass')?'стекло':(i.apronMeasureMode==='both'?'ниша + стекло':('ниша − '+numFmt(i.apronInset||1.5)+' мм'));R.push({k:'Замер',v:modLbl});(i.apronSections||[]).forEach(function(s,si){var nm=(i.apronShape==='straight')?'Ниша':('Секция '+(si+1));R.push({k:nm,v:'В'+numFmt(s.top!=null?s.top:s.bottom)+' / Н'+numFmt(s.bottom)+' / Л'+numFmt(s.left)+' / П'+numFmt(s.right)});});}
     else{
       R.push({k:'Стекло',v:mirrorColorFullLabel(i)+(i.tempered?' (закалённое)':'')});
+      if(i.type==='MIRROR'&&i.roundedCorners&&(i.shape==='RECT'||i.shape==='RECT4')&&Number(i.cornerRadius)>0)R.push({k:'⭕ Скругление',v:'R'+numFmt(i.cornerRadius)+' мм'});
       if(edgeLabel(i))R.push({k:'Кромка',v:edgeLabel(i)});
       if(hasFrame(i))R.push({k:'Рама',v:frameLabel(i)});
       if(i.type==='PANNO')R.push({k:'Разбивка',v:pannoLabel(i)});
@@ -6209,8 +6242,8 @@ function renderAuth(){
 (function(){if(!('serviceWorker' in navigator))return;if(location.protocol==='file:'||location.protocol==='content:')return;var swCode=["const CACHE='zerzalo-v3';","const SHELL=['./','./index.html'];","self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(SHELL)).then(()=>self.skipWaiting()).catch(()=>{}));});","self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()).catch(()=>{}));});","self.addEventListener('fetch',e=>{if(e.request.method!=='GET')return;const u=new URL(e.request.url);if(u.origin!==location.origin)return;e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request).then(resp=>{if(!resp||resp.status!==200||resp.type==='opaque')return resp;const cl=resp.clone();caches.open(CACHE).then(c=>c.put(e.request,cl)).catch(()=>{});return resp;}).catch(()=>caches.match('./index.html'))));});"].join('\n');window.addEventListener('load',function(){var urlsToTry=[];try{urlsToTry.push('./sw.js');}catch(e){}if(window.Blob&&window.URL&&URL.createObjectURL){try{var b=new Blob([swCode],{type:'application/javascript'}),blobUrl=URL.createObjectURL(b);urlsToTry.push(blobUrl);}catch(e){}}var tried=0;function tryNext(){if(tried>=urlsToTry.length)return;var u=urlsToTry[tried++];navigator.serviceWorker.register(u).then(function(reg){console.log('SW registered',reg.scope);}).catch(function(e){tryNext();});}tryNext();});})();
 
 /* ============ ВЕРСИЯ / BOOT ============ */
-var APP_VERSION='2.1.1';
-var SCHEMA_BUILD='17/notifications/roles/sync/auto-token';
+var APP_VERSION='2.1.2';
+var SCHEMA_BUILD='17/notifications/roles/sync/auto-token/rounded';
 
 function boot(){
   applyTheme(getSavedTheme());
