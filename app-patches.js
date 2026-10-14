@@ -15,7 +15,8 @@
     '04-docs.js',
     '05-ui.js',
     '06-nav.js',
-    '08-order-num.js'
+    '08-order-num.js',
+    '10-statuses.js'
   ];
 
   /* Защита от повторного запуска */
