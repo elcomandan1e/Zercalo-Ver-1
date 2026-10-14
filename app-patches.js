@@ -1,11 +1,20 @@
-/* app-patches.js — динамические патчи «Зерцало» v4.4.1
-   Фичи: [все предыдущие] + v4.4.1:
-   - openTechDraw берёт данные ИЗ ФОРМЫ (а не из базы)
-   - поля для отступа выреза X/Y
-   - более заметная подпись фацета
+/* app-patches.js — динамические патчи «Зерцало» v4.4.2
+   Фичи:
+     v4.2.1 — скрыть OSRM.
+     v4.2.3 — типографика v1.
+     v4.2.4 — цвета фурнитуры.
+     v4.2.5 — конфетти, пульс, пружина.
+     v4.2.6 — усиленный ripple.
+     v4.2.7 — болты для зеркал и фартуков.
+     v4.2.8 — защита базы.
+     v4.2.9 — документация + подпись автора.
+     v4.3.x — размеры розеток, бра, болтов (выноски).
+     v4.4.0 — размеры вырезов, фацета, скруглений + типографика v2.
+     v4.4.2 — вырез: размеры внутри зеркала. Фацет: только рамка.
+              Фикс openTechDraw — берёт данные из формы.
 */
 (function(){
-  var PATCH_VERSION = '4.4.1';
+  var PATCH_VERSION = '4.4.2';
   var AUTHOR_NAME = 'Лютиков А.С.';
   var AUTHOR_TG = '@el_c0mandan1e';
   var _lock = false;
@@ -117,7 +126,7 @@
     }, true);
   }
 
-  /* ─── общие ─── */
+  /* ─── размерная линия с выносками ─── */
   var DIM_COLOR = '#c14d4d';
   function _zrzDimLineFull(ctx, obj1, obj2, dimP1, dimP2, label, color){
     color = color || DIM_COLOR;
@@ -169,6 +178,46 @@
       ctx.strokeRect(-tw/2, -9, tw, 18);
       ctx.fillStyle = color;
       ctx.fillText(label, 0, 0);
+      ctx.restore();
+    }
+    ctx.restore();
+  }
+
+  /* ─── компактная размерная линия (для внутренних размеров выреза) ─── */
+  function _zrzDimInline(ctx, x1, y1, x2, y2, label, color){
+    var dx=x2-x1, dy=y2-y1, len=Math.hypot(dx,dy);
+    if(len < 6){ return; }
+    var ux=dx/len, uy=dy/len, nx=-uy, ny=ux;
+    ctx.save();
+    ctx.strokeStyle=color; ctx.fillStyle=color; ctx.lineWidth=1.3;
+    ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+    var tick=5;
+    ctx.beginPath();
+    ctx.moveTo(x1-nx*tick,y1-ny*tick); ctx.lineTo(x1+nx*tick,y1+ny*tick);
+    ctx.moveTo(x2-nx*tick,y2-ny*tick); ctx.lineTo(x2+nx*tick,y2+ny*tick);
+    ctx.stroke();
+    var arr=5, aw=2.5;
+    ctx.beginPath();
+    ctx.moveTo(x1,y1);
+    ctx.lineTo(x1+ux*arr-nx*aw,y1+uy*arr-ny*aw);
+    ctx.lineTo(x1+ux*arr+nx*aw,y1+uy*arr+ny*aw);
+    ctx.closePath(); ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(x2,y2);
+    ctx.lineTo(x2-ux*arr-nx*aw,y2-uy*arr-ny*aw);
+    ctx.lineTo(x2-ux*arr+nx*aw,y2-uy*arr+ny*aw);
+    ctx.closePath(); ctx.fill();
+    if(label){
+      ctx.font='800 12px "PT Sans Narrow",Arial';
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      var mx=(x1+x2)/2, my=(y1+y2)/2;
+      var tw=ctx.measureText(label).width+8;
+      ctx.save();
+      ctx.translate(mx,my);
+      if(Math.abs(uy)>0.7) ctx.rotate(-Math.PI/2);
+      ctx.fillStyle='#fff'; ctx.fillRect(-tw/2,-8,tw,16);
+      ctx.strokeStyle=color; ctx.lineWidth=0.8; ctx.strokeRect(-tw/2,-8,tw,16);
+      ctx.fillStyle=color; ctx.fillText(label,0,0);
       ctx.restore();
     }
     ctx.restore();
@@ -324,13 +373,12 @@
     }
   }
 
-  /* ═══ v4.4.1: ВЫРЕЗ С ОТСТУПОМ ═══ */
+  /* ═══ вырез ═══ */
   var DIM_CUT_COLOR  = '#c95a1e';
   var DIM_FACET_COLOR= '#c95a1e';
   var DIM_ROUND_COLOR= '#c14d4d';
 
   function _zrzCutoutRect(d, x0, y0, pxW, pxH, sc3){
-    /* Возвращает {x, y, w, h} в пикселях — позиция выреза */
     var w = Number(d.cutoutW)||0;
     if(w<=0) return null;
     var shape = (d.cutoutShape==='circle') ? 'circle' : 'rect';
@@ -358,9 +406,10 @@
     var cx = r.x + r.w/2;
     var cy = r.y + r.h/2;
 
+    /* Контур выреза — пунктир */
     ctx.save();
     ctx.strokeStyle = DIM_CUT_COLOR;
-    ctx.lineWidth = 1.6;
+    ctx.lineWidth = 1.7;
     ctx.setLineDash([5,3]);
     ctx.beginPath();
     if(r.shape === 'circle'){ ctx.arc(cx, cy, r.w/2, 0, Math.PI*2); }
@@ -369,28 +418,38 @@
     ctx.setLineDash([]);
     ctx.restore();
 
-    /* Размеры от края до выреза */
-    var isCenter = (d.cutoutCenter!==false);
-    if(!isCenter || d.cutoutDistX!=null || d.cutoutDistY!=null){
-      /* X — от края до ближайшей стороны выреза */
-      var edgeX = (d.cutoutEdgeX==='right') ? (x0 + pxW) : x0;
-      var refX = (d.cutoutEdgeX==='right') ? (r.x + r.w) : r.x;
-      _zrzDimLineFull(ctx, {x:edgeX, y:r.y - 6}, {x:refX, y:r.y - 6}, {x:edgeX, y:r.y - 32}, {x:refX, y:r.y - 32}, numFmt(d.cutoutDistX||0)+' см', DIM_CUT_COLOR);
-      /* Y — от края до ближайшей стороны выреза */
-      var edgeY = (d.cutoutEdgeY==='bottom') ? (y0 + pxH) : y0;
-      var refY = (d.cutoutEdgeY==='bottom') ? (r.y + r.h) : r.y;
-      _zrzDimLineFull(ctx, {x:r.x - 6, y:edgeY}, {x:r.x - 6, y:refY}, {x:r.x - 32, y:edgeY}, {x:r.x - 32, y:refY}, numFmt(d.cutoutDistY||0)+' см', DIM_CUT_COLOR);
+    /* Ширина — под вырезом внутри зеркала (или над, если снизу мало) */
+    var gapBelow = (y0 + pxH) - (r.y + r.h);
+    var dimY = (gapBelow >= 24) ? (r.y + r.h + 14) : (r.y - 14);
+    var labelW = (r.shape === 'circle')
+      ? ('Ø '+numFmt(r.wCm)+' см')
+      : (numFmt(r.wCm)+' см');
+    _zrzDimInline(ctx, r.x, dimY, r.x + r.w, dimY, labelW, DIM_CUT_COLOR);
+
+    /* Высота — только для rect, справа (или слева) */
+    if(r.shape === 'rect' && r.hCm !== r.wCm){
+      var gapRight = (x0 + pxW) - (r.x + r.w);
+      var dimX = (gapRight >= 24) ? (r.x + r.w + 14) : (r.x - 14);
+      _zrzDimInline(ctx, dimX, r.y, dimX, r.y + r.h, numFmt(r.hCm)+' см', DIM_CUT_COLOR);
     }
 
-    /* Размер ширины */
-    _zrzDimLineFull(ctx, {x:r.x, y:r.y + r.h + 6}, {x:r.x + r.w, y:r.y + r.h + 6}, {x:r.x, y:r.y + r.h + 30}, {x:r.x + r.w, y:r.y + r.h + 30}, r.shape === 'circle' ? ('Ø '+numFmt(r.wCm)+' см') : (numFmt(r.wCm)+' см'), DIM_CUT_COLOR);
-    /* Размер высоты — только для rect */
-    if(r.shape === 'rect'){
-      _zrzDimLineFull(ctx, {x:r.x + r.w + 6, y:r.y}, {x:r.x + r.w + 6, y:r.y + r.h}, {x:r.x + r.w + 30, y:r.y}, {x:r.x + r.w + 30, y:r.y + r.h}, numFmt(r.hCm)+' см', DIM_CUT_COLOR);
+    /* Отступы от краёв (если вырез не по центру) */
+    if(d.cutoutCenter === false){
+      var edgeX = (d.cutoutEdgeX === 'right') ? (x0 + pxW) : x0;
+      var refX  = (d.cutoutEdgeX === 'right') ? (r.x + r.w) : r.x;
+      var yX = cy - 24;
+      if(yX < y0 + 8) yX = cy + 24;
+      _zrzDimInline(ctx, edgeX, yX, refX, yX, numFmt(d.cutoutDistX||0)+' см', DIM_CUT_COLOR);
+
+      var edgeY = (d.cutoutEdgeY === 'bottom') ? (y0 + pxH) : y0;
+      var refY  = (d.cutoutEdgeY === 'bottom') ? (r.y + r.h) : r.y;
+      var xY = cx - 24;
+      if(xY < x0 + 8) xY = cx + 24;
+      _zrzDimInline(ctx, xY, edgeY, xY, refY, numFmt(d.cutoutDistY||0)+' см', DIM_CUT_COLOR);
     }
   }
 
-  /* ═══ v4.4.1: фацет с крупной подписью ═══ */
+  /* ═══ фацет ═══ */
   function _zrzDrawFacetDims(ctx, x0, y0, pxW, pxH, sc3, d){
     if(d.type !== 'MIRROR') return;
     if(d.edge !== 'Фацет') return;
@@ -400,7 +459,6 @@
     if(fwPx <= 2) return;
     if(fwPx*2 >= pxW || fwPx*2 >= pxH) return;
 
-    /* Рисуем жирную внутреннюю рамку (дублирует родную, но ярче) */
     ctx.save();
     ctx.strokeStyle = DIM_FACET_COLOR;
     ctx.lineWidth = 1.6;
@@ -410,28 +468,9 @@
     ctx.stroke();
     ctx.setLineDash([]);
     ctx.restore();
-
-    /* Размер ширины фацета — сверху от левого верхнего угла */
-    _zrzDimLineFull(ctx,
-      {x:x0 + 4, y:y0 - 4}, {x:x0 + fwPx, y:y0 - 4},
-      {x:x0 + 4, y:y0 - 26}, {x:x0 + fwPx, y:y0 - 26},
-      numFmt(fwMm)+' мм', DIM_FACET_COLOR);
-
-    /* Крупная подпись сверху справа */
-    ctx.save();
-    ctx.font = '800 14px "PT Sans Narrow",Arial';
-    ctx.textAlign = 'right'; ctx.textBaseline = 'top';
-    var label = '✂️ Фацет '+numFmt(fwMm)+' мм';
-    var tw = ctx.measureText(label).width + 16;
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(x0 + pxW - tw, y0 + pxH - 26, tw, 20);
-    ctx.strokeStyle = DIM_FACET_COLOR; ctx.lineWidth = 1.2;
-    ctx.strokeRect(x0 + pxW - tw, y0 + pxH - 26, tw, 20);
-    ctx.fillStyle = DIM_FACET_COLOR;
-    ctx.fillText(label, x0 + pxW - 6, y0 + pxH - 23);
-    ctx.restore();
   }
 
+  /* ═══ скругления ═══ */
   function _zrzDrawRoundedCorners(ctx, x0, y0, pxW, pxH, sc3, d){
     if(d.type !== 'MIRROR') return;
     if(!d.roundedCorners) return;
@@ -594,39 +633,30 @@
     }
   }
 
-  /* ═══ v4.4.1: фикс openTechDraw — из формы, а не из базы ═══ */
+  /* ═══ фикс openTechDraw — данные из формы ═══ */
   function wrapOpenTechDraw(){
     if(window._zrzOpenTechDrawWrapped) return;
     if(typeof window.openTechDraw !== 'function') return;
     var orig = window.openTechDraw;
     window.openTechDraw = function(itemId){
-      /* Если открыт чертёж для сохранённой позиции, и та же позиция сейчас в форме —
-         берём данные ИЗ ФОРМЫ, а не из базы. */
       try{
         var numId = parseInt(itemId,10)||0;
         if(numId>0 && window._editId===numId && window._editDraft && typeof collectDraft==='function'){
-          /* Подменяем данные в db временно — чтобы оригинальная openTechDraw взяла свежак */
+          var fresh = collectDraft(window._editDraft);
+          if(fresh && fresh.id==null) fresh.id = numId;
           var idx = -1;
           for(var i=0;i<db.items.length;i++){ if(db.items[i].id===numId){ idx=i; break; } }
           if(idx>=0){
-            var backup = JSON.parse(JSON.stringify(db.items[idx]));
-            var fresh = collectDraft(window._editDraft);
-            /* Копируем свежие поля в db.items[idx] */
-            for(var k in fresh){
-              if(Object.prototype.hasOwnProperty.call(fresh,k)) db.items[idx][k] = fresh[k];
-            }
+            var backup = db.items[idx];
+            db.items[idx] = fresh;
             try{
-              var res = orig.apply(this, arguments);
-              return res;
+              return orig.call(this, itemId);
             } finally {
-              /* Восстанавливаем (чтобы не пушить в базу случайно) */
-              for(var k2 in backup){
-                if(Object.prototype.hasOwnProperty.call(backup,k2)) db.items[idx][k2] = backup[k2];
-              }
+              db.items[idx] = backup;
             }
           }
         }
-      }catch(e){ try{console.warn('[patch] openTechDraw wrapper', e);}catch(_){} }
+      }catch(e){ try{console.warn('[patch] wrapOpenTechDraw', e);}catch(_){} }
       return orig.apply(this, arguments);
     };
     window._zrzOpenTechDrawWrapped = true;
@@ -718,7 +748,6 @@
     }
   }
 
-  /* ═══ v4.4.1: UI отступа выреза ═══ */
   function injectCutoutUI(){
     var m = document.querySelector('.modal');
     if(!m) return;
@@ -726,9 +755,7 @@
     if(d.type !== 'MIRROR') return;
     var wrap = document.getElementById('cutout_wrap');
     if(!wrap) return;
-    /* Уже вставлен */
     if(document.getElementById('zrz_cutout_ui')) return;
-    /* Вырез включён? */
     var chk = document.getElementById('e_cutout');
     if(!chk || !chk.checked) return;
 
@@ -1133,7 +1160,6 @@
     window._zrzOpenSettings2Wrapped = true;
   }
 
-  /* ─── CSS ─── */
   function injectCss(){
     var old = document.getElementById('zrz-patch-css');
     if(old) old.remove();
