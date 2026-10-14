@@ -2362,3 +2362,244 @@
 
   try{console.log('[palette v5.1.0] Command Palette — активен. Долгий тап по логотипу или свайп 2 пальцами вниз');}catch(_){}
 })();
+/* ============================================================
+   v5.2.0 · Видимая точка входа в Command Palette
+   • Иконка ⌘ рядом с логотипом в шапке (тап → палитра)
+   • Подсказка при первом входе (один раз)
+   • Пульсирующая подсветка логотипа при показе подсказки
+   ============================================================ */
+(function(){
+  if(window._zrzPaletteHintApplied) return;
+  window._zrzPaletteHintApplied = true;
+
+  var HINT_KEY = 'zrz_palette_hint_seen_v1';
+  var _hintShown = false;
+
+  function hasSeenHint(){
+    try { return localStorage.getItem(HINT_KEY) === '1'; } catch(e){ return false; }
+  }
+  function markHintSeen(){
+    try { localStorage.setItem(HINT_KEY, '1'); } catch(e){}
+    _hintShown = true;
+  }
+  function markHintSeenSilent(){
+    try { localStorage.setItem(HINT_KEY, '1'); } catch(e){}
+  }
+
+  /* ---------- CSS ---------- */
+
+  function injectHintCss(){
+    if(document.getElementById('zrz-palette-hint-css')) return;
+    var css = ''
+      /* Иконка ⌘ в шапке */
+      + '#zrz-cmd-btn{display:inline-flex;align-items:center;justify-content:center;'
+      +   'width:32px;height:32px;border-radius:10px;border:none;cursor:pointer;'
+      +   'background:var(--accent-soft);color:var(--accent-deep);'
+      +   'margin-left:8px;flex-shrink:0;padding:0;'
+      +   'transition:transform .12s ease,background .15s ease;'
+      +   'font-family:inherit;-webkit-tap-highlight-color:transparent}'
+      + '#zrz-cmd-btn:hover{background:var(--accent-line)}'
+      + '#zrz-cmd-btn:active{transform:scale(0.92);background:var(--accent-line)}'
+      + '#zrz-cmd-btn svg{display:block;width:18px;height:18px;stroke:currentColor;'
+      +   'fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}'
+      + '@media (max-width:380px){#zrz-cmd-btn{width:28px;height:28px;margin-left:6px}'
+      +   '#zrz-cmd-btn svg{width:16px;height:16px}}'
+      + '#headerLogo.zrz-hint-pulse svg{animation:zrz-logo-hint-pulse 1.4s ease-in-out infinite}'
+      + '@keyframes zrz-logo-hint-pulse{0%,100%{transform:scale(1);filter:none}'
+      +   '50%{transform:scale(1.08);filter:drop-shadow(0 0 12px rgba(91,127,184,0.55))}}'
+      /* Подсказка */
+      + '#zrz-palette-hint{position:fixed;inset:0;z-index:1300;'
+      +   'background:rgba(20,32,52,0.55);backdrop-filter:blur(16px);'
+      +   '-webkit-backdrop-filter:blur(16px);display:flex;align-items:center;'
+      +   'justify-content:center;padding:20px;animation:zrz-hint-in .25s ease both}'
+      + '@keyframes zrz-hint-in{from{opacity:0}to{opacity:1}}'
+      + '#zrz-palette-hint .zrz-hint-card{background:var(--surface);'
+      +   'border-radius:24px;padding:28px 24px 22px;max-width:360px;width:100%;'
+      +   'box-shadow:0 24px 64px rgba(0,0,0,0.35);text-align:center;'
+      +   'animation:zrz-hint-pop .32s cubic-bezier(.2,.85,.3,1) both}'
+      + '@keyframes zrz-hint-pop{from{transform:translateY(20px) scale(0.94);opacity:0}'
+      +   'to{transform:none;opacity:1}}'
+      + '#zrz-palette-hint .zrz-hint-ico{display:inline-flex;align-items:center;'
+      +   'justify-content:center;width:64px;height:64px;border-radius:20px;'
+      +   'background:linear-gradient(135deg,#8badd8 0%,#5b7fb8 100%);'
+      +   'color:#fff;margin-bottom:18px;'
+      +   'box-shadow:0 10px 26px rgba(91,127,184,0.42)}'
+      + '#zrz-palette-hint .zrz-hint-ico svg{width:32px;height:32px;stroke:currentColor;'
+      +   'fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}'
+      + '#zrz-palette-hint .zrz-hint-title{font-size:19px;font-weight:800;'
+      +   'color:var(--text);line-height:1.25;margin-bottom:10px}'
+      + '#zrz-palette-hint .zrz-hint-text{font-size:14px;color:var(--text-soft);'
+      +   'line-height:1.55;margin-bottom:22px}'
+      + '#zrz-palette-hint .zrz-hint-text b{color:var(--accent-deep);font-weight:800}'
+      + '#zrz-palette-hint .zrz-hint-kbd{display:inline-flex;align-items:center;'
+      +   'justify-content:center;min-width:26px;height:26px;padding:0 6px;'
+      +   'background:var(--accent-soft);color:var(--accent-deep);'
+      +   'border-radius:7px;font-weight:800;font-size:13px;'
+      +   'vertical-align:-4px;margin:0 2px;font-family:inherit}'
+      + '#zrz-palette-hint .zrz-hint-btn{display:block;width:100%;'
+      +   'padding:15px 20px;border:none;border-radius:16px;font-family:inherit;'
+      +   'font-size:16px;font-weight:700;cursor:pointer;'
+      +   'background:linear-gradient(135deg,#8badd8 0%,#5b7fb8 100%);'
+      +   'color:#fff;box-shadow:0 10px 26px rgba(91,127,184,0.34);'
+      +   'transition:transform .12s ease}'
+      + '#zrz-palette-hint .zrz-hint-btn:active{transform:scale(0.97)}'
+      ;
+    var st = document.createElement('style');
+    st.id = 'zrz-palette-hint-css';
+    st.textContent = css;
+    document.head.appendChild(st);
+  }
+
+  /* ---------- SVG иконка ⌘ ---------- */
+
+  function cmdSvg(size){
+    var s = size || 18;
+    return '<svg viewBox="0 0 24 24" width="'+s+'" height="'+s+'" aria-hidden="true">'
+      + '<path d="M18 3a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3H6a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3V6a3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3h12a3 3 0 0 0 3-3 3 3 0 0 0-3-3z"/>'
+      + '</svg>';
+  }
+
+  /* ---------- Кнопка ⌘ в шапке ---------- */
+
+  function injectCmdButton(){
+    var logo = document.getElementById('headerLogo');
+    if(!logo) return;
+    if(document.getElementById('zrz-cmd-btn')) return;
+    /* Не вставляем, пока пользователь не вошёл */
+    var u = (typeof currentUser === 'function') ? currentUser() : null;
+    if(!u) return;
+    /* Не вставляем в момент, когда открыт authScreen */
+    if(document.getElementById('authScreen')) return;
+
+    var btn = document.createElement('button');
+    btn.id = 'zrz-cmd-btn';
+    btn.type = 'button';
+    btn.setAttribute('aria-label', 'Открыть палитру команд');
+    btn.setAttribute('title', 'Команды и поиск');
+    btn.innerHTML = cmdSvg(18);
+    btn.onclick = function(e){
+      e.stopPropagation();
+      markHintSeenSilent();
+      if(typeof window.zrzOpenPalette === 'function'){
+        window.zrzOpenPalette();
+      }
+    };
+    logo.appendChild(btn);
+  }
+
+  /* ---------- Подсказка при первом входе ---------- */
+
+  function showHint(){
+    if(_hintShown) return;
+    if(hasSeenHint()) return;
+    if(document.getElementById('zrz-palette-hint')) return;
+    /* Не показываем, если пользователь не вошёл */
+    var u = (typeof currentUser === 'function') ? currentUser() : null;
+    if(!u) return;
+    /* Не показываем, если открыт authScreen */
+    if(document.getElementById('authScreen')) return;
+    /* Не показываем, если открыта другая модалка/палитра */
+    if(document.querySelector('.modal-bg')) return;
+    if(document.getElementById('zrz-palette')) return;
+
+    _hintShown = true;
+
+    var bg = document.createElement('div');
+    bg.id = 'zrz-palette-hint';
+    bg.innerHTML =
+      '<div class="zrz-hint-card">'
+      +   '<div class="zrz-hint-ico">'+cmdSvg(32)+'</div>'
+      +   '<div class="zrz-hint-title">Быстрый доступ ко всему</div>'
+      +   '<div class="zrz-hint-text">'
+      +     'Нажмите <span class="zrz-hint-kbd">⌘</span> рядом с логотипом или <b>удерживайте логотип</b> — '
+      +     'откроется палитра команд и поиска.'
+      +   '</div>'
+      +   '<button type="button" class="zrz-hint-btn" id="zrz-hint-ok">Понятно</button>'
+      + '</div>';
+    document.body.appendChild(bg);
+
+    /* Пульсирующая подсветка логотипа */
+    var logo = document.getElementById('headerLogo');
+    if(logo) logo.classList.add('zrz-hint-pulse');
+
+    function close(){
+      var el = document.getElementById('zrz-palette-hint');
+      if(el) el.remove();
+      if(logo) logo.classList.remove('zrz-hint-pulse');
+      markHintSeen();
+    }
+
+    document.getElementById('zrz-hint-ok').onclick = close;
+    bg.addEventListener('click', function(e){
+      if(e.target === bg) close();
+    });
+    document.addEventListener('keydown', function onKey(e){
+      if(e.key === 'Escape' || e.key === 'Enter'){
+        close();
+        document.removeEventListener('keydown', onKey);
+      }
+    });
+  }
+
+  /* ---------- Обёртка zrzOpenPalette — если открыли сами, подсказку не показываем ---------- */
+
+  function wrapOpenPalette(){
+    if(window._zrzHintOpenWrapped) return;
+    if(typeof window.zrzOpenPalette !== 'function') return;
+    var orig = window.zrzOpenPalette;
+    window.zrzOpenPalette = function(){
+      markHintSeenSilent();
+      var hint = document.getElementById('zrz-palette-hint');
+      if(hint) hint.remove();
+      var logo = document.getElementById('headerLogo');
+      if(logo) logo.classList.remove('zrz-hint-pulse');
+      return orig.apply(this, arguments);
+    };
+    window._zrzHintOpenWrapped = true;
+  }
+
+  /* ---------- Запуск ---------- */
+
+  function applyHint(){
+    try { injectHintCss(); } catch(e){}
+    try { wrapOpenPalette(); } catch(e){}
+    try { injectCmdButton(); } catch(e){}
+  }
+
+  if(document.body) applyHint();
+  else document.addEventListener('DOMContentLoaded', applyHint, {once:true});
+
+  /* Проверяем появление логотипа и логина периодически */
+  var _iv = setInterval(function(){
+    applyHint();
+  }, 1200);
+
+  /* Останавливаем через 90 секунд — к этому моменту всё уже отрисовано */
+  setTimeout(function(){ clearInterval(_iv); }, 90000);
+
+  /* Показ подсказки — через 2 секунды после того, как пользователь вошёл */
+  function tryShowHint(){
+    var u = (typeof currentUser === 'function') ? currentUser() : null;
+    if(!u) return false;
+    if(hasSeenHint()) return true;
+    /* Ждём появления логотипа в шапке */
+    var logo = document.getElementById('headerLogo');
+    if(!logo) return false;
+    var btn = document.getElementById('zrz-cmd-btn');
+    if(!btn) return false;
+    showHint();
+    return true;
+  }
+  setTimeout(tryShowHint, 2000);
+  setTimeout(tryShowHint, 4000);
+  setTimeout(tryShowHint, 7000);
+
+  /* Ручной вызов на всякий случай */
+  window.zrzShowPaletteHint = function(){
+    try { localStorage.removeItem(HINT_KEY); } catch(e){}
+    _hintShown = false;
+    showHint();
+  };
+
+  try{console.log('[palette-hint v5.2.0] Иконка ⌘ + подсказка — активны');}catch(_){}
+})();
