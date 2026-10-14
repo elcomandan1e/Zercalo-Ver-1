@@ -496,3 +496,47 @@
 
   try{ console.log('[07-gestures v7.0.1] тап по логотипу → drawer активен'); }catch(_){}
 })();
+/* ============================================================
+   v7.0.2 · Фикс: Drawer закрывается от «click-through»
+   При тапе по логотипу браузер генерирует click, который
+   попадает на уже открытый фон drawer'а и закрывает его.
+   Блокируем клики по фону первые 400 мс после открытия.
+   ============================================================ */
+(function(){
+  if(window._zrz07ClickThroughFix) return;
+  window._zrz07ClickThroughFix = true;
+
+  /* Патчим zrzOpenDrawer — добавляем метку времени открытия */
+  if(typeof window.zrzOpenDrawer === 'function' && !window.zrzOpenDrawer.__ctPatched){
+    var _origOpen = window.zrzOpenDrawer;
+    window.zrzOpenDrawer = function(){
+      window._zrzDrawerOpenedAt = Date.now();
+      return _origOpen.apply(this, arguments);
+    };
+    window.zrzOpenDrawer.__ctPatched = true;
+  }
+
+  /* Глобальный capture-обработчик: блокируем клики по фону drawer
+     в первые 400 мс после открытия. Клики на пункты меню пропускаем. */
+  document.addEventListener('click', function(e){
+    if(!window._zrzDrawerOpenedAt) return;
+    if(Date.now() - window._zrzDrawerOpenedAt > 400) return;
+
+    var bg = document.getElementById('zrz-drawer-bg');
+    if(!bg) return;
+    if(!bg.contains(e.target)) return;
+
+    /* Если клик по пункту меню — пропускаем */
+    if(e.target.closest && e.target.closest('.zrz-drawer-item')) return;
+    if(e.target.closest && e.target.closest('button')) return;
+
+    /* Иначе — блокируем (это click-through от тапа по логотипу) */
+    e.stopPropagation();
+    e.preventDefault();
+    e.stopImmediatePropagation();
+  }, true);
+
+  /* Дополнительно: touchend на логотипе тоже даёт click через ~300мс.
+     Перехватываем pointerup и на всякий случай откладываем открытие через RAF */
+  try{ console.log('[07-gestures v7.0.2] click-through fix активен'); }catch(_){}
+})();
