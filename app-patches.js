@@ -1,6 +1,10 @@
-/* app-patches.js — загрузчик модулей «Зерцало» v6.1.0 */
+/* app-patches.js — загрузчик модулей «Зерцало» v6.1.1
+   · Прелоадер: модули грузятся за занавесом
+   · Ожидание загрузки шрифта Onest перед показом
+   · Версионирование модулей — HTTP-кеш работает
+*/
 (function(){
-  var PATCH_VERSION = '6.1.0';
+  var PATCH_VERSION = '6.1.1';
   var BASE = 'https://raw.githubusercontent.com/elcomandan1e/Zercalo-Ver-1/main/patches/';
 
   var MODULES = [
@@ -124,6 +128,21 @@
       });
   }
 
+  /* Ждём загрузку шрифта Onest — 3 сек максимум */
+  function waitForFonts(){
+    return new Promise(function(resolve){
+      if(!document.fonts || !document.fonts.load){ resolve(); return; }
+      var done = false;
+      var finish = function(){ if(!done){ done = true; resolve(); } };
+      Promise.all([
+        document.fonts.load('400 16px Onest'),
+        document.fonts.load('700 16px Onest'),
+        document.fonts.load('800 16px Onest')
+      ]).then(finish).catch(finish);
+      setTimeout(finish, 3000);
+    });
+  }
+
   function boot(){
     var tasks = MODULES.map(loadOne);
     Promise.all(tasks).then(function(){
@@ -131,9 +150,14 @@
       if(typeof window._zrzPatchInit === 'function'){
         try { window._zrzPatchInit(); } catch(e){}
       }
-      setTimeout(hidePreloader, 450);
+      /* Перед скрытием ждём шрифт */
+      waitForFonts().then(function(){
+        setTimeout(hidePreloader, 300);
+      });
+    }).catch(function(){
+      setTimeout(hidePreloader, 200);
     });
-    setTimeout(hidePreloader, 4000);
+    setTimeout(hidePreloader, 5000);
   }
 
   showPreloaderNow();
