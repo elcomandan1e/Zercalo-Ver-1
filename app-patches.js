@@ -1,10 +1,4 @@
-/* app-patches.js — динамические патчи «Зерцало» v5.1.0
-   v4.2.x–4.4.x — базовые фичи патчей.
-   v4.5.0 — обновлённая документация (7 вкладок).
-   v4.6.0 — SVG-иконки вместо эмодзи.
-   v5.0.0 — Волна 1 навигации: ролевой таббар, крошки, уведомления-вкладка.
-   v5.1.0 — Волна 2: Command Palette (⌘K).
-*/
+/* app-patches.js — динамические патчи «Зерцало» v5.1.0 */
 (function(){
   var PATCH_VERSION = '5.1.0';
   var AUTHOR_NAME = 'Лютиков А.С.';
@@ -855,7 +849,6 @@
     window._zrzReceiptWrapped = true;
   }
 
-  /* ─── защита базы ─── */
   window._zrzStartTime = Date.now();
   var _zrzFirstPullDone = false;
   var _zrzServerEmpty = false;
@@ -1102,12 +1095,8 @@
     document.head.appendChild(st);
   }
 
-  /* ═══════════════════════════════════════════════════════════
-     v4.5.0 — ДОКУМЕНТАЦИЯ (7 вкладок)
-     ═══════════════════════════════════════════════════════════ */
   function buildDocs(){
     var d = {};
-
     d.README = { title:'📘 README', content:[
 '# Зерцало — управление замерами и заказами',
 '',
@@ -1117,26 +1106,30 @@
 '## Возможности',
 '▸ Заказы и позиции (5 типов изделий × 6 форм).',
 '▸ Чертёж A4: изометрия, вид спереди, вид сверху.',
-'▸ Размерные линии: розетки, светильники, болты, вырезы, фацет, скругления.',
-'▸ Декоративные болты (4 / 6 / 8 шт) с настраиваемым отступом.',
+'▸ Размерные линии: розетки, светильники, болты, вырезы.',
+'▸ Декоративные болты (4 / 6 / 8 шт).',
 '▸ Розетки с ориентацией: вертикально / горизонтально.',
-'▸ Вырезы: круглый (Ø) или прямоугольный с отступом от края.',
+'▸ Вырезы: круглый (Ø) или прямоугольный.',
 '▸ Календарь событий (10 типов) и маршруты водителей.',
 '▸ Клиенты, расширенные адреса (DaData), контрагенты.',
 '▸ Прайс-лист: 7 групп, ~70 позиций, авторасчёт.',
-'▸ Предзаказ (заявка) → полный заказ одним переключателем.',
+'▸ Предзаказ (заявка) → полный заказ.',
 '▸ Оплата замера и оплата заказа с конфетти.',
-'▸ Синхронизация Firebase + защита базы от затирания.',
+'▸ Синхронизация Firebase + защита базы.',
 '',
 '## Роли',
 'Администратор, Менеджер, Мастер, Замерщик-монтажник, Водитель.',
 '',
 '## Навигация',
-'🏠 Сегодня · 👥 Клиенты · 📅 Календарь · 🔔 Уведомления · ☰ Ещё.',
-'Ролевой таббар: свой набор вкладок под каждую роль.',
+'▸ Ролевой таббар — свой набор вкладок под каждую роль.',
+'▸ Хлебные крошки в модалках — путь «откуда пришёл».',
+'▸ Уведомления — отдельная вкладка.',
+'▸ Command Palette — долгий тап по логотипу.',
 '',
-'## Command Palette',
-'Долгий тап по логотипу или свайп 2 пальцами вниз — палитра команд.',
+'## Установка',
+'1. Открыть адрес приложения в браузере.',
+'2. «Добавить на главный экран» (PWA).',
+'3. Войти: admin / PIN 0000.',
 '',
 '## Разработчик',
 'AUTHOR_NAME_PLACEHOLDER · AUTHOR_TG_PLACEHOLDER',
@@ -1146,30 +1139,28 @@
     d.CHANGELOG = { title:'📋 CHANGELOG', content:[
 '# История версий',
 '',
-'## v5.1.0 — Волна 2: Command Palette',
-'▸ ⌘K-палитра команд.',
-'▸ Открытие: долгий тап по логотипу или свайп 2 пальцами вниз.',
+'## v5.1.0 — Command Palette',
+'▸ Долгий тап по логотипу → палитра команд.',
+'▸ Свайп двумя пальцами сверху вниз.',
 '▸ Живой поиск по заказам, клиентам, контрагентам.',
 '▸ Быстрые переходы и действия.',
 '',
-'## v5.0.0 — Волна 1 навигации',
-'▸ Ролевой таббар: свой набор вкладок под каждую роль.',
+'## v5.0.0 — Навигация, Волна 1',
+'▸ Ролевой таббар.',
 '▸ Хлебные крошки в модалках.',
 '▸ Уведомления — отдельная вкладка.',
 '',
 '## v4.6.0 — SVG-иконки вместо эмодзи',
-'▸ Все эмодзи заменяются на контурные SVG (runtime).',
 '',
 '## v4.5.0 — Обновление документации',
-'▸ 7 вкладок, новая «🛠 Техдокументация».',
 '',
-'## v4.4.2 — Вырез с отступом, фацет как рамка',
+'## v4.4.2 — Вырез с отступом, фацет',
 '',
-'## v4.4.0 — Размеры вырезов, фацета, скруглений',
+'## v4.4.0 — Размеры вырезов, фацета',
 '',
 '## v4.3.7 — Выноска для болтов',
 '',
-'## v4.3.0–4.3.2 — Размеры розеток и бра',
+'## v4.3.0 — Размеры розеток и бра',
 '',
 '## v4.2.8 — Защита базы',
 '',
@@ -1186,144 +1177,74 @@
     d.DATA_MODEL = { title:'🗂 DATA_MODEL', content:[
 '# Модель данных',
 '',
-'Объект db (localStorage, ключ mirror_orders_v2).',
-'Синхронизация: Firebase RTDB, ветка zerzalo.',
-'Конфликт: last-write-wins по updatedAt.',
+'Объект db (localStorage, mirror_orders_v2).',
+'Firebase RTDB, ветка zerzalo. LWW по updatedAt.',
 '',
 '## db.orders',
 'id, orderNum, manualNum, clientId, addressId.',
-'snapshot {clientName, clientPhone, addressFull}.',
-'Статус: lead|new|work|ready|installed|declined|cancelled.',
+'snapshot{clientName,clientPhone,addressFull}.',
+'lead|new|work|ready|installed|declined|cancelled.',
 'createdAt, updatedAt, measureDate.',
 'orderTotal, orderPaid, measurePaid, measurePaidAmount.',
 'isDraft, estimatedTotal, estimateLines[].',
 'assignedUserIds[], clientNote, orderNote, masterComment, createdBy.',
 '',
 '## db.items',
-'id, orderId, type (MIRROR|SHOWER|APRON|SHELF|PANNO),',
-'shape (RECT|RECT4|CIRCLE|OVAL|FIGURED|TEMPLATE).',
+'id, orderId, type(MIRROR|SHOWER|APRON|SHELF|PANNO),',
+'shape(RECT|RECT4|CIRCLE|OVAL|FIGURED|TEMPLATE).',
 'w, h, T, B, L, R (см), th (мм), qty.',
 'glass, edge, facetWidth, frameColor, frameThickness.',
-'mountType, mountCustom.',
-'boltMount, boltCount (4|6|8), boltOffset (см).',
+'boltMount, boltCount, boltOffset.',
 'cutoutEnabled, cutoutShape, cutoutW, cutoutH, cutoutCenter,',
 'cutoutDistX, cutoutDistY, cutoutEdgeX, cutoutEdgeY.',
 'socketsMount, socketsList[{count,step,distX,distY,edgeX,edgeY,orientation}].',
 'lightsMount, lightsList[{distX,distY,edgeX,edgeY}].',
-'cutV, cutVPos, cutH, cutHPos.',
 'mirrorMeasureMode, mirrorInset, mirrorNicheCutMode, mirrorNicheRefCorner.',
-'showerH, showerPanels, showerProfiles, showerHandle,',
-'hingeCount, showerFitting, sillType.',
-'apronMaterial, apronShape, apronDirection, apronSections,',
-'apronMeasureMode, apronInset.',
-'pannoLayout, shelfDepth.',
-'photos[photoId], drawingIsoId, drawingFrontId, note.',
-'roundedCorners, cornerRadius (мм).',
+'showerH, showerPanels, showerProfiles, showerHandle.',
+'apronMaterial, apronShape, apronSections.',
+'pannoLayout, photos[], note.',
 '',
-'## db.clients',
-'id, lastName, firstName, middleName, phone, phoneExtra,',
-'email, note, tags[], archived.',
+'## db.clients / db.addresses / db.events / db.routes',
+'См. раздел «Документация» в приложении.',
 '',
-'## db.addresses',
-'id, clientId, label, region, district, settlement, city,',
-'street, house, building, postalCode, entrance, floor,',
-'apartment, intercom, liftNeeded, liftFloor, parkingCarry,',
-'needPass, objectType, complexName, accessNote, geoLat, geoLon, geoNote.',
-'',
-'## db.events',
-'id, type (10 типов), orderId, date, time, duration,',
-'assignedUserIds[], note, status, legFromPrev{km,minutes}.',
-'',
-'## db.routes',
-'id, title, date, assignedUserId,',
-'points[{kind,refId,addressId,label,note,time,legFromPrev}].',
-'',
-'## db.contractors',
-'id, name, category, contactName, phone, email, addressId, note, archived.',
-'',
-'## db.notifications',
-'id, userId, type, title, body, linkOrderId, linkEventId, linkRouteId,',
-'createdAt, readAt.',
-'',
-'## db.users',
-'id, name, role (admin|manager|master|surveyor|driver),',
-'login, phone, pinHash, active, mustChangePassword, permsOverride.',
-'',
-'## db.roles',
-'{roleKey:{permKey:bool}} или null.',
-'',
-'## db.settings',
-'phone, email, website, telegram, slogan, baseAddress.',
-'prices (legacy), priceBook, morningDigest, appCheckSiteKey.',
-'',
-'## Счётчики',
-'nextOrder, nextItem, nextUser, nextClient, nextAddress,',
-'nextEvent, nextContractor, nextRoute, nextNotification.'
+'## db.users / db.roles / db.settings / db.sync',
+'См. раздел «Документация» в приложении.'
     ].join('\n') };
 
     d.PRIVACY = { title:'🔒 PRIVACY', content:[
-'# Приватность и данные',
+'# Приватность',
 '',
 '## Локально',
-'▸ Вся база приложения.',
-'▸ Фото и чертежи (IndexedDB).',
-'▸ Черновики (sessionStorage, 24 ч).',
+'Вся база, фото и чертежи (IndexedDB), черновики.',
 '',
 '## В Firebase',
-'▸ Заказы, позиции, клиенты, адреса, события.',
-'▸ Маршруты, контрагенты, уведомления.',
-'▸ Оплата заказа и замера.',
-'▸ Пользователи и роли (PIN не уходит).',
-'▸ Прайс и настройки.',
-'',
-'Фото и чертежи в Firebase не уходят.',
+'Заказы, позиции, клиенты, адреса, события,',
+'маршруты, контрагенты, уведомления, пользователи.',
+'PIN не уходит.',
 '',
 '## Внешние сервисы',
-'▸ Firebase Realtime Database (Google).',
-'▸ Google Fonts, DaData, Nominatim, OSRM.',
-'▸ Яндекс.Карты / Apple Maps (по тапу).',
+'Firebase RTDB, Google Fonts, DaData, Nominatim, OSRM.',
+'Яндекс.Карты/Apple Maps — только по тапу.',
 '',
 '## Доступ',
-'▸ apiKey публичный — норма для веба.',
-'▸ Security Rules: auth != null.',
-'▸ PIN — SHA-256 с солью user.id.',
+'apiKey публичный — норма для веба.',
+'Security Rules: auth != null.',
+'PIN — SHA-256 с солью user.id.',
 '',
-'## Чего нет',
-'▸ Куки для трекинга.',
-'▸ Аналитики.',
-'▸ Передачи данных третьим лицам.',
-'',
-'## Отзыв данных',
-'▸ Настройки → Экспорт (JSON).',
-'▸ Настройки → Удалить все данные.'
+'## Отзыв',
+'Настройки → Экспорт / Удалить все данные.'
     ].join('\n') };
 
     d.BACKUP = { title:'💾 BACKUP', content:[
-'# Резервное копирование',
+'# Бэкап',
 '',
-'## Экспорт',
-'Настройки → 📥 Экспорт (JSON).',
+'Экспорт: Настройки → Экспорт (JSON).',
+'Импорт: только admin.',
 '',
-'## Импорт',
-'Только для admin.',
-'Настройки → 📤 Импорт → JSON.',
-'Полностью заменяет текущую базу.',
+'Защита (v4.2.8): до первого pull метаданные не уходят.',
+'Кнопки: «📥 Только подтянуть», «📤 Отправить сейчас».',
 '',
-'## Синхронизация',
-'▸ Изменения уходят в облако за ~1,5 сек.',
-'▸ Свежие данные подтягиваются при запуске.',
-'▸ last-write-wins по updatedAt.',
-'',
-'## Защита (v4.2.8)',
-'▸ До первого pull метаданные не уходят.',
-'▸ Первый pull заменяет их серверными.',
-'▸ Кнопки: «📥 Только подтянуть», «📤 Отправить сейчас».',
-'',
-'## Сценарии восстановления',
-'1. Потеря телефона → новый + синхронизация.',
-'2. Случайное удаление → JSON-бэкап.',
-'3. Сломана база → Firebase Backups (30 дней).',
-''
+'Рекомендации: экспорт раз в неделю, бэкапы в трёх местах.'
     ].join('\n') };
 
     d.AUTHOR = { title:'👤 Об авторе', content:[
@@ -1336,73 +1257,34 @@
 '',
 'Telegram: AUTHOR_TG_PLACEHOLDER',
 '',
-'© 2026. Все права у заказчика.'
+'© 2026.'
     ].join('\n').replace('AUTHOR_NAME_PLACEHOLDER', AUTHOR_NAME).replace('AUTHOR_TG_PLACEHOLDER', AUTHOR_TG) };
 
     d.TECH = { title:'🛠 Техдокументация', content:[
-'# Техническая документация',
+'# Техдокументация',
 '',
 '## Архитектура',
-'index.html — ядро (HTML+CSS+JS, без сборки).',
-'app-patches.js — динамические патчи (fetch с GitHub).',
-'',
-'## Репозиторий',
-'github.com/elcomandan1e/Zercalo-Ver-1',
+'index.html — ядро. app-patches.js — патчи.',
 '',
 '## Стек',
-'HTML5, CSS3, JavaScript ES2017, Firebase v10 (compat),',
+'HTML5, CSS3, JS ES2017, Firebase v10 (compat),',
 'Anonymous Auth, IndexedDB, Service Worker, PWA.',
 '',
-'## Внешние сервисы',
-'Firebase RTDB, DaData, Nominatim, OSRM, Google Fonts.',
-'',
-'## Схема синхронизации',
-'push — debounce 1500 мс при каждом save().',
-'pull — .on("value") + фолбэк .once() при возврате.',
-'merge — last-write-wins по updatedAt.',
-'',
-'## Патчи — как работает',
-'1. В конце index.html загрузчик app-patches.js.',
-'2. fetch с ?t=Date.now() — обход кэша.',
+'## Патчи',
+'1. Загрузчик в конце index.html.',
+'2. fetch с ?t=Date.now().',
 '3. new Function() → выполнение.',
-'4. window._zrzPatchInit() — отрисовка после патча.',
+'4. window._zrzPatchInit() после загрузки.',
 '',
-'## Маркеры состояний',
-'window._zrzCardRippleBound, _zrzTechDrawWrapped,',
+'## Маркеры',
+'_zrzCardRippleBound, _zrzTechDrawWrapped,',
 '_zrzOpenTechDrawWrapped, _zrzOpenItemWrapped,',
-'_zrzOpenSettingsWrapped, _zrzSvgIcons, _zrzShowModalWrapped,',
-'_zrzRenderWrapped, _zrzNavApplied, _zrzPaletteApplied.',
-'',
-'## v5.0.0 — Навигация',
-'· renderTabs переопределён — ролевой таббар.',
-'· showModal обёрнут — вставляет хлебные крошки.',
-'· render обёрнут — поддержка вкладки «Уведомления».',
-'',
-'## v5.1.0 — Command Palette',
-'· Долгий тап по логотипу → openPalette().',
-'· Свайп 2 пальцами вниз → openPalette().',
-'· Живой поиск по db.orders / db.clients / db.contractors.',
-'· Escape и тап на фон закрывают палитру.',
-'',
-'## CSS-классы патча',
-'zrz-card-ripple, zrz-orientation-chips, zrz-cutout-ui,',
-'zrz-ic, zrz-crumbs, zrz-crumb, zrz-crumb-cur,',
-'zrz-palette, zrz-palette-bg, zrz-palette-item.',
-'',
-'## Отладка',
-'?debug=1 — красная полоса ошибок.',
-'zrzOpenPalette(), zrzClosePalette() — вручную.',
-'zrzPullOnly(), zrzPushNow() — синхронизация.',
-'',
-'## Хранилище',
-'localStorage — mirror_orders_v2.',
-'sessionStorage — черновики.',
-'IndexedDB — zerzalo_photos_v1.',
+'_zrzOpenSettingsWrapped, _zrzSvgIcons,',
+'_zrzShowModalWrapped, _zrzRenderWrapped,',
+'_zrzPaletteApplied, _zrzNavApplied.',
 '',
 '## Версии',
-'SCHEMA_VERSION — схема.',
-'APP_VERSION — ядро.',
-'PATCH_VERSION — активный патч.'
+'PATCH_VERSION — в начале app-patches.js.'
     ].join('\n') };
 
     return d;
@@ -1718,7 +1600,6 @@
   if (document.body) boot();
   else document.addEventListener('DOMContentLoaded', boot, {once:true});
 })();
-
 /* ============================================================
    v5.0.0 · НАВИГАЦИЯ — Волна 1
    • Ролевой таббар
@@ -1728,8 +1609,6 @@
 (function(){
   if(window._zrzNavApplied) return;
   window._zrzNavApplied = true;
-
-  /* ---------- 1. РОЛЕВОЙ ТАББАР ---------- */
 
   function tabsForRole(u){
     if(!u) return [];
@@ -1849,8 +1728,6 @@
 
   window.renderTabs = renderRoleTabs;
 
-  /* ---------- 2. УВЕДОМЛЕНИЯ КАК ВКЛАДКА ---------- */
-
   function renderNotificationsTab(){
     var u = (typeof currentUser === 'function') ? currentUser() : null;
     if(!u) return '';
@@ -1919,8 +1796,6 @@
     };
     window._zrzRenderWrapped = true;
   }
-
-  /* ---------- 3. ХЛЕБНЫЕ КРОШКИ ---------- */
 
   function buildCrumbsForModal(){
     var crumbs = [];
@@ -1992,8 +1867,6 @@
     window._zrzShowModalWrapped = true;
   }
 
-  /* ---------- 4. CSS ---------- */
-
   function injectNavCss(){
     if(document.getElementById('zrz-nav-css')) return;
     var css = ''
@@ -2060,10 +1933,9 @@
 
 /* ============================================================
    v5.1.0 · COMMAND PALETTE — Волна 2
-   • Долгий тап по логотипу → палитра команд
-   • Свайп двумя пальцами сверху вниз → то же
-   • Живой поиск по заказам, клиентам, контрагентам
-   • Быстрые переходы и действия
+   • Долгий тап по логотипу → палитра (Pointer Events + fix)
+   • Свайп двумя пальцами сверху вниз
+   • Живой поиск + быстрые действия
    ============================================================ */
 (function(){
   if(window._zrzPaletteApplied) return;
@@ -2087,9 +1959,6 @@
     } catch(e){}
     try { if(typeof canManageRoutes === 'function' && canManageRoutes())
       cmds.push({k:'act', ico:'🚚', label:'Новый маршрут', hint:'Добавить точки', act:'openRouteFormNull'});
-    } catch(e){}
-    try { if(typeof canManageContractors === 'function' && canManageContracts())
-      cmds.push({k:'act', ico:'🏢', label:'Новый контрагент', hint:'Поставщик / партнёр', act:'openContractorFormNull'});
     } catch(e){}
     try { if(typeof canManageContractors === 'function' && canManageContractors())
       cmds.push({k:'act', ico:'🏢', label:'Новый контрагент', hint:'Поставщик / партнёр', act:'openContractorFormNull'});
@@ -2337,26 +2206,77 @@
     }, 80);
   }
 
+  /* ---------- Долгий тап по логотипу — ФИКС через Pointer Events ---------- */
   function bindLogoLongPress(){
     var logo = document.getElementById('headerLogo');
     if(!logo || logo.dataset.paletteBound) return;
     logo.dataset.paletteBound = '1';
+
+    logo.style.userSelect = 'none';
+    logo.style.webkitUserSelect = 'none';
+    logo.style.webkitTouchCallout = 'none';
+    logo.style.touchAction = 'manipulation';
+    logo.style.cursor = 'pointer';
+
+    logo.addEventListener('contextmenu', function(e){ e.preventDefault(); }, false);
+
     var timer = null;
-    function start(e){
-      if(e.target && e.target.closest && e.target.closest('button')) return;
+    var startX = 0, startY = 0;
+    var moved = false;
+    var MOVE_TOLERANCE = 12;
+
+    function begin(x, y){
       clearTimeout(timer);
+      startX = x; startY = y; moved = false;
       timer = setTimeout(function(){
+        if(moved) return;
         try { if(typeof haptic === 'function') haptic([10, 40, 10]); } catch(_){}
+        try { if(typeof haptic === 'function') setTimeout(function(){ haptic(15); }, 100); } catch(_){}
         openPalette();
-      }, 700);
+      }, 650);
     }
-    function stop(){ clearTimeout(timer); }
-    logo.addEventListener('touchstart', start, {passive:true});
-    logo.addEventListener('touchend', stop);
-    logo.addEventListener('touchcancel', stop);
-    logo.addEventListener('mousedown', start);
-    logo.addEventListener('mouseup', stop);
-    logo.addEventListener('mouseleave', stop);
+    function move(x, y){
+      if(!timer) return;
+      var dx = x - startX, dy = y - startY;
+      if(Math.hypot(dx, dy) > MOVE_TOLERANCE){
+        moved = true;
+        clearTimeout(timer);
+        timer = null;
+      }
+    }
+    function end(){
+      if(timer){ clearTimeout(timer); timer = null; }
+    }
+
+    if(window.PointerEvent){
+      logo.addEventListener('pointerdown', function(e){
+        if(e.button && e.button !== 0) return;
+        begin(e.clientX, e.clientY);
+      });
+      logo.addEventListener('pointermove', function(e){
+        move(e.clientX, e.clientY);
+      });
+      logo.addEventListener('pointerup', end);
+      logo.addEventListener('pointercancel', end);
+      logo.addEventListener('pointerleave', end);
+      return;
+    }
+
+    logo.addEventListener('touchstart', function(e){
+      if(e.touches.length !== 1) return;
+      begin(e.touches[0].clientX, e.touches[0].clientY);
+    }, {passive:true});
+    logo.addEventListener('touchmove', function(e){
+      if(e.touches.length !== 1) return;
+      move(e.touches[0].clientX, e.touches[0].clientY);
+    }, {passive:true});
+    logo.addEventListener('touchend', end);
+    logo.addEventListener('touchcancel', end);
+
+    logo.addEventListener('mousedown', function(e){ begin(e.clientX, e.clientY); });
+    logo.addEventListener('mousemove', function(e){ move(e.clientX, e.clientY); });
+    logo.addEventListener('mouseup', end);
+    logo.addEventListener('mouseleave', end);
   }
 
   function bindTwoFingerSwipe(){
