@@ -13,7 +13,8 @@
     '08-order-num.js',
     '10-statuses.js',
     '11-status-picker.js',
-    '12-statuses-extra.js'
+    '12-statuses-extra.js',
+    '13-dashboard.js'
   ];
 
   if(window._zrzLoaderRunning) return;
