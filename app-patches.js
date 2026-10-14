@@ -12,7 +12,8 @@
     '06-nav.js',
     '08-order-num.js',
     '10-statuses.js',
-    '11-status-picker.js'
+    '11-status-picker.js',
+    '12-statuses-extra.js'
   ];
 
   if(window._zrzLoaderRunning) return;
@@ -58,7 +59,5 @@
     document.addEventListener('DOMContentLoaded', boot, {once:true});
   }
 
-  window.zrzReloadPatches = function(){
-    MODULES.forEach(loadOne);
-  };
+  window.zrzReloadPatches = function(){ MODULES.forEach(loadOne); };
 })();
