@@ -1,14 +1,12 @@
-/* app-patches.js — динамические патчи «Зерцало» v5.0.0
+/* app-patches.js — динамические патчи «Зерцало» v5.1.0
    v4.2.x–4.4.x — базовые фичи патчей.
    v4.5.0 — обновлённая документация (7 вкладок).
    v4.6.0 — SVG-иконки вместо эмодзи.
-   v5.0.0 — Волна 1 навигации:
-     • Ролевой таббар (свой набор вкладок под каждую роль).
-     • Хлебные крошки в модалках (откуда пришли).
-     • Уведомления — отдельная вкладка для админа/менеджера/мастера.
+   v5.0.0 — Волна 1 навигации: ролевой таббар, крошки, уведомления-вкладка.
+   v5.1.0 — Волна 2: Command Palette (⌘K).
 */
 (function(){
-  var PATCH_VERSION = '5.0.0';
+  var PATCH_VERSION = '5.1.0';
   var AUTHOR_NAME = 'Лютиков А.С.';
   var AUTHOR_TG = '@el_c0mandan1e';
   var _lock = false;
@@ -1119,8 +1117,7 @@
 '## Возможности',
 '▸ Заказы и позиции (5 типов изделий × 6 форм).',
 '▸ Чертёж A4: изометрия, вид спереди, вид сверху.',
-'▸ Размерные линии: розетки, светильники, болты, вырезы,',
-'   фацет, скругления — всё отражено на чертеже.',
+'▸ Размерные линии: розетки, светильники, болты, вырезы, фацет, скругления.',
 '▸ Декоративные болты (4 / 6 / 8 шт) с настраиваемым отступом.',
 '▸ Розетки с ориентацией: вертикально / горизонтально.',
 '▸ Вырезы: круглый (Ø) или прямоугольный с отступом от края.',
@@ -1134,16 +1131,12 @@
 '## Роли',
 'Администратор, Менеджер, Мастер, Замерщик-монтажник, Водитель.',
 '',
-'## Разделы',
-'🏠 Сегодня — дашборд.',
-'👥 Клиенты — база клиентов и адресов.',
-'📅 Календарь — события и маршруты.',
-'☰ Ещё — контрагенты, отчёты, пользователи, настройки.',
+'## Навигация',
+'🏠 Сегодня · 👥 Клиенты · 📅 Календарь · 🔔 Уведомления · ☰ Ещё.',
+'Ролевой таббар: свой набор вкладок под каждую роль.',
 '',
-'## Установка',
-'1. Открыть адрес приложения в браузере.',
-'2. «Добавить на главный экран» (PWA).',
-'3. Войти: admin / PIN 0000 (сменить при первом входе).',
+'## Command Palette',
+'Долгий тап по логотипу или свайп 2 пальцами вниз — палитра команд.',
 '',
 '## Разработчик',
 'AUTHOR_NAME_PLACEHOLDER · AUTHOR_TG_PLACEHOLDER',
@@ -1153,18 +1146,22 @@
     d.CHANGELOG = { title:'📋 CHANGELOG', content:[
 '# История версий',
 '',
-'## v5.0.0 — Навигация, Волна 1',
-'▸ Ролевой таббар: своя навигация под каждую роль.',
-'▸ Хлебные крошки в модалках (откуда открыли).',
-'▸ Уведомления — отдельная вкладка (админ/менеджер/мастер).',
+'## v5.1.0 — Волна 2: Command Palette',
+'▸ ⌘K-палитра команд.',
+'▸ Открытие: долгий тап по логотипу или свайп 2 пальцами вниз.',
+'▸ Живой поиск по заказам, клиентам, контрагентам.',
+'▸ Быстрые переходы и действия.',
+'',
+'## v5.0.0 — Волна 1 навигации',
+'▸ Ролевой таббар: свой набор вкладок под каждую роль.',
+'▸ Хлебные крошки в модалках.',
+'▸ Уведомления — отдельная вкладка.',
 '',
 '## v4.6.0 — SVG-иконки вместо эмодзи',
 '▸ Все эмодзи заменяются на контурные SVG (runtime).',
-'▸ Единый стиль: stroke 1.75, размер 24×24, currentColor.',
 '',
 '## v4.5.0 — Обновление документации',
-'▸ Полностью переписаны все вкладки.',
-'▸ Новая вкладка «🛠 Техдокументация».',
+'▸ 7 вкладок, новая «🛠 Техдокументация».',
 '',
 '## v4.4.2 — Вырез с отступом, фацет как рамка',
 '',
@@ -1190,7 +1187,7 @@
 '# Модель данных',
 '',
 'Объект db (localStorage, ключ mirror_orders_v2).',
-'Синхронизация: Firebase Realtime Database, ветка zerzalo.',
+'Синхронизация: Firebase RTDB, ветка zerzalo.',
 'Конфликт: last-write-wins по updatedAt.',
 '',
 '## db.orders',
@@ -1259,9 +1256,6 @@
 'phone, email, website, telegram, slogan, baseAddress.',
 'prices (legacy), priceBook, morningDigest, appCheckSiteKey.',
 '',
-'## db.trash / db.sync',
-'Корзина и состояние синхронизации.',
-'',
 '## Счётчики',
 'nextOrder, nextItem, nextUser, nextClient, nextAddress,',
 'nextEvent, nextContractor, nextRoute, nextNotification.'
@@ -1286,9 +1280,7 @@
 '',
 '## Внешние сервисы',
 '▸ Firebase Realtime Database (Google).',
-'▸ Google Fonts.',
-'▸ DaData Suggestions.',
-'▸ Nominatim, OSRM.',
+'▸ Google Fonts, DaData, Nominatim, OSRM.',
 '▸ Яндекс.Карты / Apple Maps (по тапу).',
 '',
 '## Доступ',
@@ -1325,16 +1317,13 @@
 '## Защита (v4.2.8)',
 '▸ До первого pull метаданные не уходят.',
 '▸ Первый pull заменяет их серверными.',
-'▸ Кнопки в Настройках: «📥 Только подтянуть», «📤 Отправить сейчас».',
+'▸ Кнопки: «📥 Только подтянуть», «📤 Отправить сейчас».',
 '',
 '## Сценарии восстановления',
 '1. Потеря телефона → новый + синхронизация.',
 '2. Случайное удаление → JSON-бэкап.',
 '3. Сломана база → Firebase Backups (30 дней).',
-'',
-'## Рекомендации',
-'▸ Экспорт раз в неделю.',
-'▸ Бэкапы в трёх местах.'
+''
     ].join('\n') };
 
     d.AUTHOR = { title:'👤 Об авторе', content:[
@@ -1359,8 +1348,6 @@
 '',
 '## Репозиторий',
 'github.com/elcomandan1e/Zercalo-Ver-1',
-'· index.html — ядро.',
-'· app-patches.js — активные патчи.',
 '',
 '## Стек',
 'HTML5, CSS3, JavaScript ES2017, Firebase v10 (compat),',
@@ -1384,21 +1371,28 @@
 'window._zrzCardRippleBound, _zrzTechDrawWrapped,',
 '_zrzOpenTechDrawWrapped, _zrzOpenItemWrapped,',
 '_zrzOpenSettingsWrapped, _zrzSvgIcons, _zrzShowModalWrapped,',
-'_zrzRenderWrapped.',
+'_zrzRenderWrapped, _zrzNavApplied, _zrzPaletteApplied.',
 '',
 '## v5.0.0 — Навигация',
 '· renderTabs переопределён — ролевой таббар.',
 '· showModal обёрнут — вставляет хлебные крошки.',
 '· render обёрнут — поддержка вкладки «Уведомления».',
 '',
+'## v5.1.0 — Command Palette',
+'· Долгий тап по логотипу → openPalette().',
+'· Свайп 2 пальцами вниз → openPalette().',
+'· Живой поиск по db.orders / db.clients / db.contractors.',
+'· Escape и тап на фон закрывают палитру.',
+'',
 '## CSS-классы патча',
 'zrz-card-ripple, zrz-orientation-chips, zrz-cutout-ui,',
-'zrz-ic, zrz-crumbs, zrz-crumb, zrz-crumb-cur.',
+'zrz-ic, zrz-crumbs, zrz-crumb, zrz-crumb-cur,',
+'zrz-palette, zrz-palette-bg, zrz-palette-item.',
 '',
 '## Отладка',
 '?debug=1 — красная полоса ошибок.',
-'Консоль: [app-patches] vX.Y.Z активен.',
-'zrzPullOnly(), zrzPushNow() — вручную.',
+'zrzOpenPalette(), zrzClosePalette() — вручную.',
+'zrzPullOnly(), zrzPushNow() — синхронизация.',
 '',
 '## Хранилище',
 'localStorage — mirror_orders_v2.',
@@ -1406,7 +1400,7 @@
 'IndexedDB — zerzalo_photos_v1.',
 '',
 '## Версии',
-'SCHEMA_VERSION — схема (миграции).',
+'SCHEMA_VERSION — схема.',
 'APP_VERSION — ядро.',
 'PATCH_VERSION — активный патч.'
     ].join('\n') };
@@ -1766,7 +1760,6 @@
         {key:'more',             ico:'☰', label:'Ещё'}
       ];
     }
-    /* admin / manager */
     return [
       {key:'orders',           ico:'🏠', label:'Сегодня'},
       {key:'clients',          ico:'👥', label:'Клиенты'},
@@ -1795,7 +1788,6 @@
     el.style.display = 'flex';
     var tabs = tabsForRole(u);
     var activeKey = normalizeActiveTab();
-    /* 5 вкладок — на телефоне они сжимаются, добавим компактный вид */
     if(tabs.length >= 5) el.classList.add('zrz-tabs-5');
     else el.classList.remove('zrz-tabs-5');
     el.innerHTML = tabs.map(function(t){
@@ -1855,7 +1847,6 @@
     }catch(e){ try{console.warn('[nav] switchTab', e);}catch(_){} }
   };
 
-  /* Переопределяем ядровую renderTabs */
   window.renderTabs = renderRoleTabs;
 
   /* ---------- 2. УВЕДОМЛЕНИЯ КАК ВКЛАДКА ---------- */
@@ -1900,20 +1891,18 @@
   }
   window.renderNotificationsTab = renderNotificationsTab;
 
-  /* Обёртка render() для поддержки activeTab === 'notifications' */
   function wrapRender(){
     if(window._zrzRenderWrapped) return;
     if(typeof window.render !== 'function') return;
     var orig = window.render;
     window.render = function(){
       var isNotif = (typeof activeTab !== 'undefined' && activeTab === 'notifications');
-      if(isNotif) activeTab = 'more'; /* временно подменяем, чтобы ядро отрисовало что-то валидное */
+      if(isNotif) activeTab = 'more';
       var res = orig.apply(this, arguments);
       if(isNotif){
         activeTab = 'notifications';
         var appEl = document.getElementById('app');
         if(appEl) appEl.innerHTML = renderNotificationsTab();
-        /* Скрываем кнопки шапки, которые не нужны на этой вкладке */
         var backBtn = document.getElementById('backBtn');
         var shareBtn = document.getElementById('shareBtn');
         var settingsBtn = document.getElementById('settingsBtn');
@@ -1931,12 +1920,11 @@
     window._zrzRenderWrapped = true;
   }
 
-  /* ---------- 3. ХЛЕБНЫЕ КРОШКИ В МОДАЛКАХ ---------- */
+  /* ---------- 3. ХЛЕБНЫЕ КРОШКИ ---------- */
 
   function buildCrumbsForModal(){
     var crumbs = [];
     var curTab = (typeof activeTab !== 'undefined') ? activeTab : 'orders';
-    /* Корень */
     var rootLabel = 'Назад';
     if(curTab === 'orders') rootLabel = 'Заказы';
     else if(curTab === 'clients') rootLabel = 'Клиенты';
@@ -1947,7 +1935,6 @@
     else if(curTab === 'more') rootLabel = 'Ещё';
     else if(curTab === 'notifications') rootLabel = 'Уведомления';
     crumbs.push({label:rootLabel, closable:true});
-    /* Промежуточные контексты */
     if(curTab === 'orders' && typeof currentOrderId !== 'undefined' && currentOrderId){
       try {
         var o = db.orders.find(function(x){return x.id === currentOrderId;});
@@ -2010,14 +1997,12 @@
   function injectNavCss(){
     if(document.getElementById('zrz-nav-css')) return;
     var css = ''
-      /* Крошки */
       + '.zrz-crumbs{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:4px 0 10px;margin-bottom:4px;font-size:12px;color:var(--muted);font-weight:600}'
       + '.zrz-crumb{padding:3px 9px;background:var(--accent-soft);border-radius:8px;color:var(--accent-deep);transition:background .15s ease}'
       + '.zrz-crumb[onclick]{cursor:pointer}'
       + '.zrz-crumb[onclick]:active{background:var(--accent-line)}'
       + '.zrz-crumb-cur{background:transparent !important;color:var(--muted) !important;font-weight:800;padding-left:0}'
       + '.zrz-crumbs .bc-sep{color:var(--muted-2);font-weight:700}'
-      /* Компактный таббар при 5 вкладках */
       + '.tabbar.zrz-tabs-5 .tabbar-btn{padding:8px 2px 6px;font-size:10px}'
       + '.tabbar.zrz-tabs-5 .tabbar-btn .tb-ico{font-size:20px}'
       + '.tabbar.zrz-tabs-5 .tabbar-btn span:last-child{font-size:9.5px;letter-spacing:-0.2px}'
@@ -2028,36 +2013,28 @@
     document.head.appendChild(st);
   }
 
-  /* ---------- 5. Запуск ---------- */
-
   function navApply(){
     try { injectNavCss(); } catch(e){}
     try { wrapShowModal(); } catch(e){}
     try { wrapRender(); } catch(e){}
     try {
-      /* Перерисовать таббар — если приложение уже залогинено */
       if(typeof currentUser === 'function' && currentUser()){
         renderRoleTabs();
       }
     } catch(e){}
   }
 
-  /* Хук: сразу после загрузки + небольшой интервал для случая,
-     когда ядро ещё не успело отрисовать шапку/таббар */
   if(document.body) navApply();
   else document.addEventListener('DOMContentLoaded', navApply, {once:true});
   setTimeout(navApply, 400);
   setTimeout(navApply, 1200);
 
-  /* Также вызываем при каждом открытии модалки — обрабатывается отдельно
-     через wrapShowModal. И при перерисовке страницы — обновляем таббар. */
   var _navInterval = setInterval(function(){
     try {
       var el = document.getElementById('tabbar');
       if(!el) return;
       var u = (typeof currentUser === 'function') ? currentUser() : null;
       if(!u) return;
-      /* Если таббар пустой или показывает старые 4 вкладки — перерисуем */
       var wantRole = tabsForRole(u).length;
       var haveCount = el.querySelectorAll('.tabbar-btn').length;
       if(haveCount !== wantRole){
@@ -2067,13 +2044,11 @@
   }, 1500);
   setTimeout(function(){ clearInterval(_navInterval); }, 60000);
 
-  /* Клики по старым кнопкам ядра (если они ещё остались) — перехватываем */
   document.addEventListener('click', function(e){
     var btn = e.target.closest && e.target.closest('.tabbar-btn');
     if(!btn) return;
     var tab = btn.getAttribute('data-tab');
     if(!tab) return;
-    /* Если это уже наш обработчик — не мешаем */
     if(btn.getAttribute('onclick') && btn.getAttribute('onclick').indexOf('zrzSwitchTab') >= 0) return;
     e.preventDefault();
     e.stopPropagation();
@@ -2081,4 +2056,389 @@
   }, true);
 
   try{console.log('[nav v5.0.0] Ролевой таббар + крошки + уведомления — активны');}catch(_){}
+})();
+
+/* ============================================================
+   v5.1.0 · COMMAND PALETTE — Волна 2
+   • Долгий тап по логотипу → палитра команд
+   • Свайп двумя пальцами сверху вниз → то же
+   • Живой поиск по заказам, клиентам, контрагентам
+   • Быстрые переходы и действия
+   ============================================================ */
+(function(){
+  if(window._zrzPaletteApplied) return;
+  window._zrzPaletteApplied = true;
+
+  var _paletteOpen = false;
+
+  function getCommands(){
+    var cmds = [];
+    var u = (typeof currentUser === 'function') ? currentUser() : null;
+    if(!u) return cmds;
+
+    try { if(typeof canCreateOrder === 'function' && canCreateOrder())
+      cmds.push({k:'act', ico:'📋', label:'Новый заказ', hint:'Создать заказ', act:'openNewOrder'});
+    } catch(e){}
+    try { if(typeof canManageClients === 'function' && canManageClients())
+      cmds.push({k:'act', ico:'👤', label:'Новый клиент', hint:'Добавить в базу', act:'openClientFormNull'});
+    } catch(e){}
+    try { if(typeof canManageEvents === 'function' && canManageEvents())
+      cmds.push({k:'act', ico:'📅', label:'Новое событие', hint:'Замер / монтаж', act:'openEventFormNull'});
+    } catch(e){}
+    try { if(typeof canManageRoutes === 'function' && canManageRoutes())
+      cmds.push({k:'act', ico:'🚚', label:'Новый маршрут', hint:'Добавить точки', act:'openRouteFormNull'});
+    } catch(e){}
+    try { if(typeof canManageContractors === 'function' && canManageContracts())
+      cmds.push({k:'act', ico:'🏢', label:'Новый контрагент', hint:'Поставщик / партнёр', act:'openContractorFormNull'});
+    } catch(e){}
+    try { if(typeof canManageContractors === 'function' && canManageContractors())
+      cmds.push({k:'act', ico:'🏢', label:'Новый контрагент', hint:'Поставщик / партнёр', act:'openContractorFormNull'});
+    } catch(e){}
+
+    cmds.push({k:'go', ico:'🏠', label:'Сегодня', hint:'Главный экран', act:'goOrders'});
+    cmds.push({k:'go', ico:'👥', label:'Клиенты', hint:'База клиентов', act:'goClients'});
+    cmds.push({k:'go', ico:'📅', label:'Календарь', hint:'События', act:'goCalendar'});
+    cmds.push({k:'go', ico:'🔔', label:'Уведомления', hint:'Что нового', act:'goNotifications'});
+    cmds.push({k:'go', ico:'☰', label:'Ещё', hint:'Все разделы', act:'goMore'});
+
+    try { if(typeof userCan === 'function' && userCan('orders.pricing'))
+      cmds.push({k:'go', ico:'📋', label:'Прайс-лист', hint:'Цены и позиции', act:'openPriceBook'});
+    } catch(e){}
+    try { if(typeof canViewReports === 'function' && canViewReports())
+      cmds.push({k:'go', ico:'📊', label:'Отчёты', hint:'Статистика', act:'openReports'});
+    } catch(e){}
+    try { if(typeof canViewTrash === 'function' && canViewTrash())
+      cmds.push({k:'go', ico:'🗑', label:'Корзина', hint:'Удалённое', act:'openTrash'});
+    } catch(e){}
+    try { if(typeof canManageSync === 'function' && canManageSync())
+      cmds.push({k:'go', ico:'☁️', label:'Синхронизация', hint:'Облако', act:'openSyncPanel'});
+    } catch(e){}
+    try { if(typeof canManageUsers === 'function' && canManageUsers()){
+      cmds.push({k:'go', ico:'👥', label:'Пользователи', hint:'Команда', act:'openUsers'});
+      cmds.push({k:'go', ico:'⚙️', label:'Роли и права', hint:'Доступы', act:'openRolesSettings'});
+    }} catch(e){}
+    cmds.push({k:'go', ico:'⚙️', label:'Настройки', hint:'Реквизиты, тема', act:'openSettings'});
+    try { if(typeof canViewHelp === 'function' && canViewHelp()){
+      cmds.push({k:'go', ico:'📖', label:'Помощь', hint:'Инструкция', act:'openHelp'});
+      cmds.push({k:'go', ico:'📚', label:'Документация', hint:'Техдок', act:'openDocs'});
+    }} catch(e){}
+
+    return cmds;
+  }
+
+  function searchData(q){
+    q = String(q || '').trim().toLowerCase();
+    if(q.length < 2) return [];
+    var res = [];
+
+    try {
+      var orders = (typeof visibleOrders === 'function') ? visibleOrders() : [];
+      var orderHits = 0;
+      orders.forEach(function(o){
+        if(orderHits >= 5) return;
+        var nm = (typeof orderClientName === 'function') ? orderClientName(o) : '';
+        var num = o.orderNum || '';
+        var addr = (typeof orderAddressShort === 'function') ? orderAddressShort(o) : '';
+        var s = (nm + ' ' + num + ' ' + addr).toLowerCase();
+        if(s.indexOf(q) >= 0){
+          res.push({
+            k:'find', ico:'🏠',
+            label:'№ ' + (num || '—') + ' · ' + (nm || 'Без имени'),
+            hint:addr || 'Заказ',
+            act:'openOrder', id:o.id
+          });
+          orderHits++;
+        }
+      });
+    } catch(e){}
+
+    try {
+      var clients = db.clients.filter(function(c){ return !c.archived; });
+      var clientHits = 0;
+      clients.forEach(function(c){
+        if(clientHits >= 5) return;
+        var nm = (typeof clientFullName === 'function') ? clientFullName(c) : '';
+        var ph = c.phone || '';
+        var s = (nm + ' ' + ph).toLowerCase();
+        if(s.indexOf(q) >= 0){
+          res.push({
+            k:'find', ico:'👤',
+            label:nm || 'Без имени',
+            hint:ph ? (typeof formatPhone === 'function' ? formatPhone(ph) : ph) : 'Клиент',
+            act:'openClient', id:c.id
+          });
+          clientHits++;
+        }
+      });
+    } catch(e){}
+
+    try {
+      var cos = db.contractors.filter(function(c){ return !c.archived; });
+      var coHits = 0;
+      cos.forEach(function(c){
+        if(coHits >= 5) return;
+        var nm = c.name || '';
+        var ph = c.phone || '';
+        var s = (nm + ' ' + ph).toLowerCase();
+        if(s.indexOf(q) >= 0){
+          res.push({
+            k:'find', ico:'🏢',
+            label:nm || 'Без названия',
+            hint:ph ? (typeof formatPhone === 'function' ? formatPhone(ph) : ph) : 'Контрагент',
+            act:'openContractorForm', id:c.id
+          });
+          coHits++;
+        }
+      });
+    } catch(e){}
+
+    return res;
+  }
+
+  function esc2(s){
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+
+  function renderBody(query){
+    var body = document.getElementById('zrz-palette-body');
+    if(!body) return;
+    var q = String(query || '').trim();
+    var qLow = q.toLowerCase();
+
+    var html = '';
+    var results = searchData(q);
+    var cmds = getCommands();
+
+    if(!q){
+      html += renderSection('⚡ Действия', cmds.filter(function(c){ return c.k === 'act'; }));
+      html += renderSection('🧭 Перейти', cmds.filter(function(c){ return c.k === 'go'; }));
+    } else {
+      var cmdHits = cmds.filter(function(c){
+        return (c.label + ' ' + (c.hint||'')).toLowerCase().indexOf(qLow) >= 0;
+      });
+      var acts = cmdHits.filter(function(c){ return c.k === 'act'; });
+      var goes = cmdHits.filter(function(c){ return c.k === 'go'; });
+
+      if(results.length) html += renderSection('🔎 Найти', results);
+      if(acts.length) html += renderSection('⚡ Действия', acts);
+      if(goes.length) html += renderSection('🧭 Перейти', goes);
+
+      if(!html){
+        html = '<div class="zrz-palette-empty">Ничего не найдено<br><span>Попробуйте другой запрос</span></div>';
+      }
+    }
+    body.innerHTML = html;
+  }
+
+  function renderSection(title, items){
+    if(!items || !items.length) return '';
+    var html = '<div class="zrz-palette-sec"><div class="zrz-palette-sec-title">' + title + '</div>';
+    items.forEach(function(it){
+      var idAttr = it.id != null ? ' data-id="' + it.id + '"' : '';
+      html += '<button type="button" class="zrz-palette-item" data-act="' + esc2(it.act) + '"' + idAttr + '>'
+        + '<span class="zrz-palette-item-ico">' + it.ico + '</span>'
+        + '<span class="zrz-palette-item-text">'
+        + '<span class="zrz-palette-item-label">' + esc2(it.label) + '</span>'
+        + (it.hint ? '<span class="zrz-palette-item-hint">' + esc2(it.hint) + '</span>' : '')
+        + '</span>'
+        + '</button>';
+    });
+    html += '</div>';
+    return html;
+  }
+
+  function openPalette(){
+    if(_paletteOpen) return;
+    if(document.getElementById('zrz-palette')) return;
+    _paletteOpen = true;
+    try { if(typeof haptic === 'function') haptic(8); } catch(e){}
+
+    var bg = document.createElement('div');
+    bg.id = 'zrz-palette';
+    bg.className = 'zrz-palette-bg';
+    bg.innerHTML =
+      '<div class="zrz-palette">'
+      + '<div class="zrz-palette-head">'
+      +   '<span class="zrz-palette-ico">🔍</span>'
+      +   '<input id="zrz-palette-input" class="zrz-palette-input" type="text" placeholder="Что нужно сделать или найти?" autocomplete="off" spellcheck="false">'
+      +   '<button type="button" class="zrz-palette-close" id="zrz-palette-close" aria-label="Закрыть">✕</button>'
+      + '</div>'
+      + '<div class="zrz-palette-body" id="zrz-palette-body"></div>'
+      + '</div>';
+    document.body.appendChild(bg);
+
+    var input = document.getElementById('zrz-palette-input');
+    var closeBtn = document.getElementById('zrz-palette-close');
+    var bodyEl = document.getElementById('zrz-palette-body');
+
+    input.addEventListener('input', function(){ renderBody(input.value); });
+    input.addEventListener('keydown', function(e){
+      if(e.key === 'Escape'){ closePalette(); }
+    });
+    closeBtn.addEventListener('click', closePalette);
+    bg.addEventListener('click', function(e){
+      if(e.target === bg) closePalette();
+    });
+
+    bodyEl.addEventListener('click', function(e){
+      var btn = e.target.closest('.zrz-palette-item');
+      if(!btn) return;
+      var act = btn.getAttribute('data-act');
+      var idAttr = btn.getAttribute('data-id');
+      var id = idAttr != null ? parseInt(idAttr, 10) : null;
+      runAction(act, id);
+    });
+
+    renderBody('');
+    setTimeout(function(){ try{ input.focus(); }catch(e){} }, 60);
+  }
+
+  function closePalette(){
+    if(!_paletteOpen) return;
+    _paletteOpen = false;
+    var el = document.getElementById('zrz-palette');
+    if(el) el.remove();
+  }
+  window.zrzClosePalette = closePalette;
+  window.zrzOpenPalette = openPalette;
+
+  function runAction(act, id){
+    closePalette();
+    setTimeout(function(){
+      try {
+        if(act === 'openNewOrder'){ if(typeof openNewOrder === 'function') openNewOrder(); return; }
+        if(act === 'openClientFormNull'){ if(typeof openClientForm === 'function') openClientForm(null); return; }
+        if(act === 'openEventFormNull'){ if(typeof openEventForm === 'function') openEventForm(null, null); return; }
+        if(act === 'openRouteFormNull'){ if(typeof openRouteForm === 'function') openRouteForm(null); return; }
+        if(act === 'openContractorFormNull'){ if(typeof openContractorForm === 'function') openContractorForm(null); return; }
+
+        if(act === 'goOrders'){ if(typeof window.zrzSwitchTab === 'function') window.zrzSwitchTab('orders'); return; }
+        if(act === 'goClients'){ if(typeof window.zrzSwitchTab === 'function') window.zrzSwitchTab('clients'); return; }
+        if(act === 'goCalendar'){ if(typeof window.zrzSwitchTab === 'function') window.zrzSwitchTab('calendar'); return; }
+        if(act === 'goNotifications'){ if(typeof window.zrzSwitchTab === 'function') window.zrzSwitchTab('notifications'); return; }
+        if(act === 'goMore'){ if(typeof window.zrzSwitchTab === 'function') window.zrzSwitchTab('more'); return; }
+
+        if(act === 'openSettings'){ if(typeof openSettings === 'function') openSettings(); return; }
+        if(act === 'openPriceBook'){ if(typeof openPriceBook === 'function') openPriceBook(); return; }
+        if(act === 'openReports'){ if(typeof openReports === 'function') openReports(); return; }
+        if(act === 'openTrash'){ if(typeof openTrash === 'function') openTrash(); return; }
+        if(act === 'openSyncPanel'){ if(typeof openSyncPanel === 'function') openSyncPanel(); return; }
+        if(act === 'openUsers'){ if(typeof openUsers === 'function') openUsers(); return; }
+        if(act === 'openRolesSettings'){ if(typeof openRolesSettings === 'function') openRolesSettings(); return; }
+        if(act === 'openHelp'){ if(typeof openHelp === 'function') openHelp(); return; }
+        if(act === 'openDocs'){ if(typeof openDocs === 'function') openDocs(); return; }
+
+        if(act === 'openOrder' && id != null){ if(typeof openOrder === 'function') openOrder(id); return; }
+        if(act === 'openClient' && id != null){ if(typeof openClient === 'function') openClient(id); return; }
+        if(act === 'openContractorForm' && id != null){ if(typeof openContractorForm === 'function') openContractorForm(id); return; }
+      }catch(e){ try{console.warn('[palette] action', act, e);}catch(_){} }
+    }, 80);
+  }
+
+  function bindLogoLongPress(){
+    var logo = document.getElementById('headerLogo');
+    if(!logo || logo.dataset.paletteBound) return;
+    logo.dataset.paletteBound = '1';
+    var timer = null;
+    function start(e){
+      if(e.target && e.target.closest && e.target.closest('button')) return;
+      clearTimeout(timer);
+      timer = setTimeout(function(){
+        try { if(typeof haptic === 'function') haptic([10, 40, 10]); } catch(_){}
+        openPalette();
+      }, 700);
+    }
+    function stop(){ clearTimeout(timer); }
+    logo.addEventListener('touchstart', start, {passive:true});
+    logo.addEventListener('touchend', stop);
+    logo.addEventListener('touchcancel', stop);
+    logo.addEventListener('mousedown', start);
+    logo.addEventListener('mouseup', stop);
+    logo.addEventListener('mouseleave', stop);
+  }
+
+  function bindTwoFingerSwipe(){
+    if(window._zrzPaletteSwipeBound) return;
+    window._zrzPaletteSwipeBound = true;
+    var startY = null;
+    var startT = 0;
+    document.addEventListener('touchstart', function(e){
+      if(e.touches.length === 2){
+        startY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+        startT = Date.now();
+      } else { startY = null; }
+    }, {passive:true});
+    document.addEventListener('touchmove', function(e){
+      if(startY == null) return;
+      if(e.touches.length !== 2){ startY = null; return; }
+      var y = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+      var dy = y - startY;
+      if(dy > 90 && (Date.now() - startT) < 500){
+        if(!document.querySelector('.modal-bg') && !document.getElementById('authScreen')){
+          startY = null;
+          try { if(typeof haptic === 'function') haptic([10, 40, 10]); } catch(_){}
+          openPalette();
+        }
+      }
+    }, {passive:true});
+    document.addEventListener('touchend', function(){ startY = null; }, {passive:true});
+  }
+
+  function injectPaletteCss(){
+    if(document.getElementById('zrz-palette-css')) return;
+    var css = ''
+      + '.zrz-palette-bg{position:fixed;inset:0;z-index:1200;background:rgba(20,32,52,0.45);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);display:flex;align-items:flex-start;justify-content:center;padding:max(env(safe-area-inset-top),18px) 12px 12px;animation:zrz-palette-in .18s ease both}'
+      + '@keyframes zrz-palette-in{from{opacity:0}to{opacity:1}}'
+      + '.zrz-palette{width:100%;max-width:560px;background:var(--surface);border-radius:20px;box-shadow:0 20px 60px rgba(20,32,52,0.35);overflow:hidden;display:flex;flex-direction:column;max-height:calc(100vh - 60px);animation:zrz-palette-pop .22s cubic-bezier(.2,.85,.3,1) both}'
+      + '@keyframes zrz-palette-pop{from{transform:translateY(-14px) scale(0.98);opacity:0.6}to{transform:none;opacity:1}}'
+      + '.zrz-palette-head{display:flex;align-items:center;gap:10px;padding:14px 14px 14px 18px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,var(--surface),rgba(91,127,184,0.04))}'
+      + '.zrz-palette-ico{font-size:18px;line-height:1;flex-shrink:0;opacity:0.8}'
+      + '.zrz-palette-input{flex:1;border:none !important;background:transparent !important;padding:6px 0 !important;font-size:16px !important;font-weight:600;color:var(--text);margin:0 !important;box-shadow:none !important;outline:none !important}'
+      + '.zrz-palette-input::placeholder{color:var(--muted);font-weight:500}'
+      + '.zrz-palette-close{width:36px;height:36px;border-radius:50%;border:none;background:var(--accent-soft);color:var(--accent-deep);font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0}'
+      + '.zrz-palette-close:active{background:var(--accent-line);transform:scale(0.94)}'
+      + '.zrz-palette-body{flex:1;overflow-y:auto;padding:6px 6px 12px;-webkit-overflow-scrolling:touch}'
+      + '.zrz-palette-sec{margin-top:6px}'
+      + '.zrz-palette-sec-title{font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:1px;padding:10px 14px 6px}'
+      + '.zrz-palette-item{display:flex;align-items:center;gap:14px;width:100%;padding:12px 14px;border:none;background:transparent;font-family:inherit;cursor:pointer;text-align:left;border-radius:12px;color:var(--text);transition:background .12s ease}'
+      + '.zrz-palette-item:hover{background:var(--accent-soft)}'
+      + '.zrz-palette-item:active{background:var(--accent-line);transform:scale(0.99)}'
+      + '.zrz-palette-item-ico{font-size:20px;line-height:1;flex-shrink:0;width:26px;text-align:center;opacity:0.9}'
+      + '.zrz-palette-item-text{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}'
+      + '.zrz-palette-item-label{font-size:15px;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}'
+      + '.zrz-palette-item-hint{font-size:12px;color:var(--muted);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}'
+      + '.zrz-palette-empty{padding:50px 20px;text-align:center;color:var(--muted);font-size:14px;font-weight:600}'
+      + '.zrz-palette-empty span{font-size:12px;font-weight:500;display:block;margin-top:4px;opacity:0.7}'
+      + '@media (max-width:420px){.zrz-palette-head{padding:12px 10px 12px 14px}.zrz-palette-item{padding:11px 12px;gap:12px}.zrz-palette-item-ico{font-size:18px;width:22px}.zrz-palette-item-label{font-size:14.5px}}'
+      ;
+    var st = document.createElement('style');
+    st.id = 'zrz-palette-css';
+    st.textContent = css;
+    document.head.appendChild(st);
+  }
+
+  function paletteApply(){
+    try { injectPaletteCss(); } catch(e){}
+    try { bindLogoLongPress(); } catch(e){}
+    try { bindTwoFingerSwipe(); } catch(e){}
+  }
+
+  if(document.body) paletteApply();
+  else document.addEventListener('DOMContentLoaded', paletteApply, {once:true});
+
+  var _paletteIv = setInterval(function(){
+    try {
+      var logo = document.getElementById('headerLogo');
+      if(logo && !logo.dataset.paletteBound) bindLogoLongPress();
+    } catch(e){}
+  }, 1500);
+  setTimeout(function(){ clearInterval(_paletteIv); }, 60000);
+
+  document.addEventListener('keydown', function(e){
+    if(e.key === 'Escape' && _paletteOpen) closePalette();
+  });
+
+  try{console.log('[palette v5.1.0] Command Palette — активен. Долгий тап по логотипу или свайп 2 пальцами вниз');}catch(_){}
 })();
