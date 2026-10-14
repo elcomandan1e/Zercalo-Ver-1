@@ -764,3 +764,649 @@
 
   try{ console.log('[14 p1] автоотметка + внимание + напоминание 19:00 — активны'); }catch(_){}
 })();
+/* patches/14-attention.js — Часть 2/2 · Оплата через событие
+   · Флаг «Взять оплату» + сумма в форме события
+   · Забрать у клиента / Передать поставщику (для Закупки и Встречи)
+   · Кнопка «Забрал N ₽» у замерщика и водителя
+   · Частичный приём → уведомление менеджеру
+   · Отмена приёма денег
+   · Сумма хранится в событии, заказ не трогаем
+*/
+(function(){
+  if(window._zrz14PaymentP2) return;
+  window._zrz14PaymentP2 = true;
+
+  function esc2(s){
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+  function fmtMoney(n){
+    return Math.round(Number(n)||0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  }
+  function numVal(v){
+    return parseFloat(String(v==null?'':v).replace(',', '.')) || 0;
+  }
+  function clientName(o){
+    try { return (typeof orderClientName === 'function') ? (orderClientName(o) || '') : ''; }catch(e){ return ''; }
+  }
+
+  /* Типы событий, где доступно «Взять оплату» (по ролям) */
+  var PAYMENT_TYPES = {
+    driver:    ['delivery', 'return', 'purchase', 'meeting'],
+    surveyor:  ['measure', 'remeasure', 'install', 'demontage', 'meeting']
+  };
+
+  /* Двусторонний обмен — для этих типов можно и «Забрать», и «Передать» */
+  var BIDIRECTIONAL_TYPES = ['purchase', 'meeting'];
+
+  /* ============================================================
+     1. РАСЧЁТ «ПОЛУЧЕНО / ОСТАТОК»
+     ============================================================ */
+
+  function calcPaymentState(e){
+    if(!e) return null;
+    if(!e.paymentEnabled) return null;
+
+    var want = numVal(e.paymentAmount);           /* сколько забрать у клиента */
+    var give = numVal(e.paymentGiveAmount);       /* сколько передать поставщику */
+    var got  = numVal(e.paymentReceivedAmount);   /* сколько фактически получили */
+
+    return {
+      want: want,
+      give: give,
+      got: got,
+      received: !!e.paymentReceived,
+      receivedAt: e.paymentReceivedAt || 0,
+      receivedBy: e.paymentReceivedBy || null,
+      short: (want > 0 && got < want) ? (want - got) : 0,
+      isBi: BIDIRECTIONAL_TYPES.indexOf(e.type) >= 0
+    };
+  }
+
+  /* ============================================================
+     2. ФОРМА СОБЫТИЯ — добавляем секцию «💰 Оплата»
+     ============================================================ */
+
+  function injectPaymentUI(){
+    var modal = document.querySelector('.modal');
+    if(!modal) return;
+    if(modal.querySelector('#zrz_pay_block')) return;
+
+    /* Ищем форму события по полю ev_type_chips */
+    if(!modal.querySelector('#ev_type_chips')) return;
+
+    /* Тип события и роль — от текущего пользователя */
+    var u = (typeof currentUser === 'function') ? currentUser() : null;
+    if(!u) return;
+
+    var editor = window._evType || 'measure';  /* текущий выбранный тип в форме */
+    var orderEl = document.getElementById('ev_order');
+    var orderId = orderEl ? parseInt(orderEl.value, 10) || null : null;
+
+    /* Находим блок «Заметка» — вставим перед ним */
+    var noteEl = document.getElementById('ev_note');
+    if(!noteEl) return;
+    var noteLabel = noteEl.previousElementSibling;
+    if(!noteLabel || noteLabel.tagName !== 'LABEL') return;
+
+    var insertBefore = noteLabel;
+
+    var html = '';
+    html += '<div id="zrz_pay_block" class="zrz-pay-block" style="display:none;margin-top:14px">';
+    html +=   '<div class="section-title" style="margin-top:0">💰 Оплата</div>';
+
+    /* Чекбокс «Взять оплату» */
+    html +=   '<div class="checkbox-row" style="background:linear-gradient(180deg,rgba(217,146,74,0.10),rgba(217,146,74,0.03));border:1.5px solid rgba(217,146,74,0.30)">';
+    html +=     '<input type="checkbox" id="zrz_pay_chk"><label for="zrz_pay_chk">Взять оплату по этому событию</label>';
+    html +=   '</div>';
+
+    /* Поля оплаты — появятся при включении */
+    html +=   '<div id="zrz_pay_fields" style="display:none;margin-top:12px">';
+
+    /* Двусторонний обмен — Забрать + Передать */
+    html +=     '<div id="zrz_pay_bi" style="display:none">';
+    html +=       '<div class="row2">';
+    html +=         '<div><label style="margin-top:0">Забрать у клиента, ₽</label>';
+    html +=           '<input id="zrz_pay_recv" type="text" inputmode="decimal" placeholder="0"></div>';
+    html +=         '<div><label style="margin-top:0">Передать поставщику, ₽</label>';
+    html +=           '<input id="zrz_pay_give" type="text" inputmode="decimal" placeholder="0"></div>';
+    html +=       '</div>';
+    html +=     '</div>';
+
+    /* Односторонний — только Забрать */
+    html +=     '<div id="zrz_pay_single" style="display:none">';
+    html +=       '<label style="margin-top:0">Забрать у клиента, ₽</label>';
+    html +=       '<input id="zrz_pay_single_amt" type="text" inputmode="decimal" placeholder="0">';
+    html +=     '</div>';
+
+    /* Подсказка */
+    html +=     '<div class="draft-notice" style="margin-top:12px;font-size:12px;line-height:1.5">';
+    html +=       'Сумма сохраняется в событии. В заказ не уходит — менеджер вносит вручную.';
+    html +=     '</div>';
+
+    html +=   '</div>';
+    html += '</div>';
+
+    insertBefore.insertAdjacentHTML('beforebegin', html);
+
+    /* --- Логика отображения --- */
+    var block  = document.getElementById('zrz_pay_block');
+    var chk    = document.getElementById('zrz_pay_chk');
+    var fields = document.getElementById('zrz_pay_fields');
+    var biBox  = document.getElementById('zrz_pay_bi');
+    var oneBox = document.getElementById('zrz_pay_single');
+
+    /* Проверяем: доступен ли тип события для оплаты у этой роли */
+    function typeAvailable(type, role){
+      var allowed = PAYMENT_TYPES[role] || [];
+      if(allowed.length) return allowed.indexOf(type) >= 0;
+      /* Если роль не в списке — показываем всем (админ/менеджер) */
+      return true;
+    }
+
+    function updateVisibility(){
+      /* Тип события поменялся? */
+      var t = window._evType || 'measure';
+      var role = u.role;
+      var canPay = typeAvailable(t, role);
+
+      block.style.display = canPay ? 'block' : 'none';
+
+      /* Двусторонний или односторонний? */
+      var isBi = BIDIRECTIONAL_TYPES.indexOf(t) >= 0;
+      biBox.style.display  = isBi ? 'block' : 'none';
+      oneBox.style.display = isBi ? 'none'  : 'block';
+
+      /* Поля видимы? */
+      fields.style.display = chk.checked ? 'block' : 'none';
+    }
+
+    /* Загружаем существующие значения (если правим событие) */
+    var currentEventId = window._zrz14EditingEventId || null;
+    var curEvent = null;
+    if(currentEventId){
+      try { curEvent = db.events.find(function(x){ return x.id === currentEventId; }); }catch(e){}
+    }
+    if(curEvent && curEvent.paymentEnabled){
+      chk.checked = true;
+      var recvEl = document.getElementById('zrz_pay_recv');
+      var giveEl = document.getElementById('zrz_pay_give');
+      var singleEl = document.getElementById('zrz_pay_single_amt');
+      if(recvEl && curEvent.paymentAmount) recvEl.value = fmtMoney(curEvent.paymentAmount);
+      if(giveEl && curEvent.paymentGiveAmount) giveEl.value = fmtMoney(curEvent.paymentGiveAmount);
+      if(singleEl && curEvent.paymentAmount) singleEl.value = fmtMoney(curEvent.paymentAmount);
+    }
+
+    chk.onchange = updateVisibility;
+    updateVisibility();
+
+    /* Слушаем смену типа события — через интервал, т.к. чипы перерисовываются ядром */
+    var lastType = window._evType;
+    var iv = setInterval(function(){
+      var t = window._evType;
+      if(t !== lastType){
+        lastType = t;
+        updateVisibility();
+      }
+      /* Если модалка закрылась — остановить */
+      if(!document.getElementById('zrz_pay_block')) clearInterval(iv);
+    }, 300);
+  }
+
+  /* Запоминаем id редактируемого события */
+  function wrapOpenEventForm(){
+    if(window._zrz14EventFormWrapped) return;
+    if(typeof window.openEventForm !== 'function') return;
+    var orig = window.openEventForm;
+    window.openEventForm = function(dateYmd, eventId, presetOrderId){
+      window._zrz14EditingEventId = eventId || null;
+      var res = orig.apply(this, arguments);
+      setTimeout(injectPaymentUI, 130);
+      return res;
+    };
+    window._zrz14EventFormWrapped = true;
+  }
+
+  /* Также — сохраняем значения оплаты при сохранении события */
+  function wrapSaveEventForm(){
+    if(window._zrz14EventSaveWrapped) return;
+    if(typeof window.saveEventForm !== 'function') return;
+    var orig = window.saveEventForm;
+    window.saveEventForm = function(eventId){
+      /* Собираем значения ДО того как ядро закроет модалку */
+      var payEnabled = false;
+      var payAmount = 0;
+      var payGive = 0;
+      try {
+        var chk = document.getElementById('zrz_pay_chk');
+        if(chk) payEnabled = !!chk.checked;
+        if(payEnabled){
+          var t = window._evType || 'measure';
+          var isBi = BIDIRECTIONAL_TYPES.indexOf(t) >= 0;
+          if(isBi){
+            payAmount = numVal((document.getElementById('zrz_pay_recv')||{}).value);
+            payGive   = numVal((document.getElementById('zrz_pay_give')||{}).value);
+          } else {
+            payAmount = numVal((document.getElementById('zrz_pay_single_amt')||{}).value);
+            payGive = 0;
+          }
+        }
+      }catch(e){ try{console.warn('[14 p2] save collect', e);}catch(_){} }
+
+      var res = orig.apply(this, arguments);
+
+      /* Пишем значения в событие отложенно — ядро уже сохранило, теперь дополняем */
+      setTimeout(function(){
+        try {
+          var targetId = eventId;
+          if(!targetId){
+            /* Новое событие — последнее в массиве (обычно так) */
+            var evs = db.events || [];
+            if(evs.length) targetId = evs[evs.length - 1].id;
+          }
+          if(!targetId) return;
+          var e = db.events.find(function(x){ return x.id === targetId; });
+          if(!e) return;
+          e.paymentEnabled = !!payEnabled;
+          e.paymentAmount = payAmount || 0;
+          e.paymentGiveAmount = payGive || 0;
+          e.updatedAt = Date.now();
+          if(typeof touch === 'function') touch(e);
+          if(typeof save === 'function') save();
+        }catch(err){ try{console.warn('[14 p2] save write', err);}catch(_){} }
+      }, 80);
+
+      return res;
+    };
+    window._zrz14EventSaveWrapped = true;
+  }
+
+  /* ============================================================
+     3. БЛОК ОПЛАТЫ В КАРТОЧКЕ СОБЫТИЯ (для замерщика/водителя)
+     ============================================================ */
+
+  /* Строим HTML блока оплаты — для вставки в календарь и в карточку заказа */
+  function buildPaymentBlock(e){
+    var p = calcPaymentState(e);
+    if(!p) return '';
+
+    var u = (typeof currentUser === 'function') ? currentUser() : null;
+    var canReceive = false;
+    if(u && (u.role === 'surveyor' || u.role === 'driver')){
+      if(Array.isArray(e.assignedUserIds) && e.assignedUserIds.indexOf(u.id) >= 0) canReceive = true;
+    }
+    /* Админ/менеджер тоже могут отметить */
+    if(u && (u.role === 'admin' || u.role === 'manager')) canReceive = true;
+
+    var html = '<div class="zrz-pay-card">';
+    html += '<div class="zrz-pay-card-title">💰 Оплата</div>';
+
+    /* Строки с суммами */
+    if(p.isBi){
+      if(p.want > 0){
+        html += '<div class="zrz-pay-card-row"><span>Забрать у клиента:</span><b>' + fmtMoney(p.want) + ' ₽</b></div>';
+      }
+      if(p.give > 0){
+        html += '<div class="zrz-pay-card-row"><span>Передать поставщику:</span><b>' + fmtMoney(p.give) + ' ₽</b></div>';
+      }
+    } else {
+      if(p.want > 0){
+        html += '<div class="zrz-pay-card-row"><span>Сумма к получению:</span><b>' + fmtMoney(p.want) + ' ₽</b></div>';
+      }
+    }
+
+    /* Состояние приёма */
+    if(p.received){
+      var byName = '';
+      try {
+        if(p.receivedBy && Array.isArray(db.users)){
+          var uu = db.users.find(function(x){ return x.id === p.receivedBy; });
+          if(uu) byName = uu.name.split(' ')[0];
+        }
+      }catch(e){}
+
+      html += '<div class="zrz-pay-card-status zrz-pay-card-ok">';
+      html +=   '<span>✓ Получено:</span><b>' + fmtMoney(p.got) + ' ₽</b>';
+      if(byName) html += '<span class="zrz-pay-card-by">' + esc2(byName) + '</span>';
+      html += '</div>';
+
+      if(p.short > 0){
+        html += '<div class="zrz-pay-card-status zrz-pay-card-warn">';
+        html +=   '<span>⚠ Остаток:</span><b>' + fmtMoney(p.short) + ' ₽</b>';
+        html += '</div>';
+      }
+
+      if(canReceive){
+        html += '<button type="button" class="zrz-pay-card-btn zrz-pay-card-btn-cancel" onclick="zrz14CancelReceive(' + e.id + ')">Отменить приём денег</button>';
+      }
+    } else {
+      if(canReceive){
+        html += '<button type="button" class="zrz-pay-card-btn" onclick="zrz14ReceiveMoney(' + e.id + ')">💰 Забрал</button>';
+      } else {
+        html += '<div class="zrz-pay-card-hint">Отметить может исполнитель события или менеджер</div>';
+      }
+    }
+
+    html += '</div>';
+    return html;
+  }
+
+  /* ============================================================
+     4. МОДАЛКА «ЗАБРАЛ N ₽»
+     ============================================================ */
+
+  window.zrz14ReceiveMoney = function(eventId){
+    var e = null;
+    try { e = db.events.find(function(x){ return x.id === eventId; }); }catch(err){}
+    if(!e) return;
+    var p = calcPaymentState(e);
+    if(!p) return;
+
+    var suggested = p.want || 0;
+    var bi = p.isBi;
+    var o = e.orderId ? db.orders.find(function(x){ return x.id === e.orderId; }) : null;
+
+    var html = '';
+    html += '<h2>' + (typeof LOGO_MARK === 'function' ? LOGO_MARK(30) : '') + ' Забрал деньги</h2>';
+    html += '<div class="modal-crumbs"><span>' + ((typeof eventTypeLabel==='function')?eventTypeLabel(e.type||'measure'):'Событие') + '</span><span class="bc-sep">/</span><span class="bc-cur">Оплата</span></div>';
+
+    if(o){
+      html += '<div class="draft-notice">Заказ №' + esc2(o.orderNum||'—') + ' · ' + esc2(clientName(o)||'') + '</div>';
+    }
+    if(bi){
+      html += '<div class="draft-notice" style="margin-top:6px">Двусторонний обмен — уточни, сколько забрал и сколько отдал.</div>';
+    }
+
+    /* Поле «Забрал» */
+    html += '<label>' + (bi ? 'Забрал у клиента, ₽' : 'Сколько получено, ₽') + '</label>';
+    html += '<input id="zrz_recv_amt" type="text" inputmode="decimal" value="' + (suggested ? fmtMoney(suggested) : '') + '" placeholder="0">';
+
+    /* Для двустороннего — поле «Передал» */
+    if(bi){
+      html += '<label>Передал поставщику, ₽ (если есть)</label>';
+      html += '<input id="zrz_give_amt" type="text" inputmode="decimal" value="' + (p.give ? fmtMoney(p.give) : '') + '" placeholder="0">';
+    }
+
+    /* Подсказка про остаток */
+    html += '<div id="zrz_recv_hint" class="draft-notice" style="margin-top:12px;font-size:12px;line-height:1.5">';
+    if(suggested > 0){
+      html += 'Ожидалось: <b>' + fmtMoney(suggested) + ' ₽</b>. Если взял меньше — менеджер получит уведомление.';
+    } else {
+      html += 'Сумма не задана в событии. Впиши фактически полученную.';
+    }
+    html += '</div>';
+
+    html += '<button class="btn btn-primary" style="margin-top:14px" onclick="zrz14ConfirmReceive(' + eventId + ')">✓ Забрал</button>';
+    html += '<button class="btn btn-secondary" onclick="closeModal()">Отмена</button>';
+
+    try {
+      if(typeof showModal === 'function') showModal(html);
+    }catch(err){ return; }
+
+    setTimeout(function(){
+      var inp = document.getElementById('zrz_recv_amt');
+      if(inp){ try{ inp.focus(); inp.select(); }catch(e){} }
+    }, 150);
+  };
+
+  window.zrz14ConfirmReceive = function(eventId){
+    var e = null;
+    try { e = db.events.find(function(x){ return x.id === eventId; }); }catch(err){}
+    if(!e) return;
+
+    var inp = document.getElementById('zrz_recv_amt');
+    var got = inp ? numVal(inp.value) : 0;
+    var give = 0;
+    var giveInp = document.getElementById('zrz_give_amt');
+    if(giveInp) give = numVal(giveInp.value);
+
+    if(got < 0){ got = 0; }
+
+    e.paymentReceived = true;
+    e.paymentReceivedAmount = got;
+    e.paymentReceivedAt = Date.now();
+    e.paymentReceivedBy = (db.currentUserId) || null;
+    if(give > 0) e.paymentGivenAmount = give;
+    e.updatedAt = Date.now();
+    if(typeof touch === 'function') touch(e);
+
+    if(typeof save === 'function') save();
+    try { if(typeof haptic === 'function') haptic([15, 40, 15]); }catch(_){}
+
+    /* Частичная оплата? → уведомление менеджеру */
+    var p = calcPaymentState(e);
+    if(p && p.short > 0){
+      notifyManagerPartial(e, p);
+    }
+
+    try { if(typeof closeModal === 'function') closeModal(); }catch(_){}
+    setTimeout(function(){
+      try { if(typeof render === 'function') render(); }catch(_){}
+    }, 100);
+  };
+
+  window.zrz14CancelReceive = async function(eventId){
+    var e = null;
+    try { e = db.events.find(function(x){ return x.id === eventId; }); }catch(err){}
+    if(!e) return;
+
+    var ok = false;
+    try {
+      ok = await uiConfirm(
+        'Отменить приём денег по этому событию?\n\nДанные о приёме будут удалены.',
+        'Отмена',
+        { danger:true, yesLabel:'Отменить' }
+      );
+    }catch(err){ ok = false; }
+    if(!ok) return;
+
+    e.paymentReceived = false;
+    e.paymentReceivedAmount = 0;
+    e.paymentReceivedAt = 0;
+    e.paymentReceivedBy = null;
+    e.paymentGivenAmount = 0;
+    e.updatedAt = Date.now();
+    if(typeof touch === 'function') touch(e);
+
+    if(typeof save === 'function') save();
+    try { if(typeof haptic === 'function') haptic(8); }catch(_){}
+    setTimeout(function(){
+      try { if(typeof render === 'function') render(); }catch(_){}
+    }, 100);
+  };
+
+  /* ============================================================
+     5. УВЕДОМЛЕНИЕ МЕНЕДЖЕРУ О ЧАСТИЧНОЙ ОПЛАТЕ
+     ============================================================ */
+
+  function notifyManagerPartial(e, p){
+    try {
+      if(!Array.isArray(db.users)) return;
+      var recips = db.users.filter(function(u){
+        return u.active && (u.role === 'admin' || u.role === 'manager');
+      }).map(function(u){ return u.id; });
+      /* Не уведомляем того, кто сам отмечал */
+      var me = db.currentUserId;
+      recips = recips.filter(function(uid){ return uid !== me; });
+      if(!recips.length) return;
+
+      var o = e.orderId ? db.orders.find(function(x){ return x.id === e.orderId; }) : null;
+      var title = '💰 Оплата получена частично';
+      var body = '';
+      if(o){
+        body += '№' + (o.orderNum||'—') + ' · ' + (clientName(o)||'') + '\n';
+      }
+      body += 'Ожидалось: ' + fmtMoney(p.want) + ' ₽ · Получено: ' + fmtMoney(p.got) + ' ₽\n';
+      body += 'Остаток: ' + fmtMoney(p.short) + ' ₽ — надо решить с клиентом';
+
+      if(typeof createNotificationsFor === 'function'){
+        createNotificationsFor(recips, {
+          type: 'info',
+          title: title,
+          body: body,
+          linkEventId: e.id,
+          linkOrderId: e.orderId || null
+        });
+      }
+    }catch(err){ try{console.warn('[14 p2] notify', err);}catch(_){} }
+  }
+
+  /* ============================================================
+     6. ПОДМЕНА БЛОКА ОПЛАТЫ В КАРТОЧКЕ СОБЫТИЯ
+     Нам нужно вставить блок .zrz-pay-card в места, где показывается событие.
+     ============================================================ */
+
+  /* Открытие события через openEventFromCalendar — оборачиваем */
+  function wrapOpenEventFromCalendar(){
+    if(window._zrz14OpenEventWrapped) return;
+    if(typeof window.openEventFromCalendar !== 'function') return;
+    var orig = window.openEventFromCalendar;
+    window.openEventFromCalendar = function(evId){
+      var e = null;
+      try { e = db.events.find(function(x){ return x.id === evId; }); }catch(err){}
+      /* Если оплата включена и есть что показать — предложим сначала карточку с оплатой */
+      if(e && e.paymentEnabled){
+        /* Вызываем оригинал — откроется форма редактирования события */
+        var res = orig.apply(this, arguments);
+        /* Через время — вставляем блок оплаты в форму */
+        setTimeout(function(){
+          try { injectPaymentCardIntoForm(e); }catch(err){}
+        }, 250);
+        return res;
+      }
+      return orig.apply(this, arguments);
+    };
+    window._zrz14OpenEventWrapped = true;
+  }
+
+  /* Вставляем блок оплаты в модалку редактирования события */
+  function injectPaymentCardIntoForm(e){
+    var modal = document.querySelector('.modal');
+    if(!modal) return;
+    if(modal.querySelector('.zrz-pay-card')) return;
+    var html = buildPaymentBlock(e);
+    if(!html) return;
+
+    /* Находим блок «Заметка» — вставим после */
+    var noteEl = document.getElementById('ev_note');
+    if(!noteEl) return;
+
+    /* Найдём контейнер */
+    var anchor = noteEl.parentNode;
+    if(!anchor) return;
+
+    var wrap = document.createElement('div');
+    wrap.innerHTML = html;
+    /* Вставляем после textarea заметки */
+    if(noteEl.nextSibling) anchor.insertBefore(wrap.firstChild, noteEl.nextSibling);
+    else anchor.appendChild(wrap.firstChild);
+  }
+
+  /* Также — при открытии события из карточки заказа (список событий) */
+  function wrapRenderOrderEventsBlock(){
+    if(window._zrz14OrderEventsWrapped) return;
+    if(typeof window.renderOrderEventsBlock !== 'function') return;
+    var orig = window.renderOrderEventsBlock;
+    window.renderOrderEventsBlock = function(o){
+      var html = orig.apply(this, arguments);
+      try {
+        /* Найдём события с оплатой для этого заказа и добавим их блоки */
+        var evs = (db.events || []).filter(function(e){
+          return e.orderId === o.id && e.paymentEnabled;
+        });
+        if(!evs.length) return html;
+        var blocks = evs.map(function(e){
+          return buildPaymentBlock(e);
+        }).join('');
+        if(!blocks) return html;
+        /* Вставляем после блока событий — просто добавляем к HTML */
+        html += blocks;
+      }catch(err){ try{console.warn('[14 p2] renderOrderEvents', err);}catch(_){} }
+      return html;
+    };
+    window._zrz14OrderEventsWrapped = true;
+  }
+
+  /* ============================================================
+     7. CSS
+     ============================================================ */
+
+  function injectCss(){
+    if(document.getElementById('zrz-pay-css')) return;
+    var css = ''
+      /* Блок оплаты в форме события */
+      + '.zrz-pay-block .section-title{margin-top:0}'
+      /* Карточка оплаты в просмотре события */
+      + '.zrz-pay-card{margin:12px 0;padding:14px 16px;border-radius:16px;'
+      +   'background:linear-gradient(180deg,rgba(217,146,74,0.12),rgba(217,146,74,0.04));'
+      +   'border:1.5px solid rgba(217,146,74,0.32)}'
+      + 'html[data-theme="dark"] .zrz-pay-card{background:linear-gradient(180deg,rgba(224,168,102,0.14),rgba(224,168,102,0.05));border-color:rgba(224,168,102,0.34)}'
+      + '.zrz-pay-card-title{font-size:12.5px;font-weight:800;color:#8a5a0c;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px}'
+      + 'html[data-theme="dark"] .zrz-pay-card-title{color:#e0a866}'
+      + '.zrz-pay-card-row{display:flex;justify-content:space-between;padding:5px 0;font-size:14px;'
+      +   'border-bottom:1px dashed rgba(217,146,74,0.22)}'
+      + '.zrz-pay-card-row:last-child{border-bottom:none}'
+      + '.zrz-pay-card-row span{color:var(--text-soft);font-weight:500}'
+      + '.zrz-pay-card-row b{font-weight:800;color:var(--text);font-family:var(--font-mono);letter-spacing:-0.02em}'
+      /* Статус приёма */
+      + '.zrz-pay-card-status{display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:12px;'
+      +   'margin-top:10px;font-size:13.5px;font-weight:700}'
+      + '.zrz-pay-card-ok{background:rgba(76,175,125,0.14);color:#2c7a54;border:1px solid rgba(76,175,125,0.30)}'
+      + 'html[data-theme="dark"] .zrz-pay-card-ok{color:#86efac;background:rgba(78,195,140,0.16);border-color:rgba(78,195,140,0.32)}'
+      + '.zrz-pay-card-ok b{font-weight:800;font-family:var(--font-mono)}'
+      + '.zrz-pay-card-by{margin-left:auto;font-size:11.5px;font-weight:600;opacity:0.8;'
+      +   'background:rgba(255,255,255,0.5);padding:2px 8px;border-radius:8px}'
+      + 'html[data-theme="dark"] .zrz-pay-card-by{background:rgba(255,255,255,0.08)}'
+      + '.zrz-pay-card-warn{background:rgba(224,168,102,0.20);color:#8a5a0c;border:1px solid rgba(217,146,74,0.40)}'
+      + 'html[data-theme="dark"] .zrz-pay-card-warn{color:#e0a866;background:rgba(224,168,102,0.16)}'
+      + '.zrz-pay-card-warn b{font-weight:800;font-family:var(--font-mono)}'
+      /* Кнопки */
+      + '.zrz-pay-card-btn{display:block;width:100%;padding:13px 18px;margin-top:12px;'
+      +   'border:none;border-radius:14px;'
+      +   'background:linear-gradient(135deg,#e0a866,#d9924a);color:#fff;'
+      +   'font-family:inherit;font-size:15px;font-weight:700;cursor:pointer;'
+      +   'box-shadow:0 6px 18px rgba(217,146,74,0.35);'
+      +   'transition:transform .14s ease,box-shadow .14s ease}'
+      + '.zrz-pay-card-btn:active{transform:scale(0.98);box-shadow:0 3px 10px rgba(217,146,74,0.45)}'
+      + '.zrz-pay-card-btn-cancel{background:var(--surface);color:var(--danger);'
+      +   'border:1.5px solid rgba(201,101,101,0.28);box-shadow:none;font-size:13.5px;padding:11px 16px}'
+      + '.zrz-pay-card-btn-cancel:active{background:rgba(201,101,101,0.08)}'
+      + '.zrz-pay-card-hint{margin-top:10px;font-size:12px;color:var(--muted);text-align:center;'
+      +   'line-height:1.5;font-weight:600}'
+      ;
+
+    var st = document.createElement('style');
+    st.id = 'zrz-pay-css';
+    st.textContent = css;
+    document.head.appendChild(st);
+  }
+
+  /* ============================================================
+     8. ЗАПУСК
+     ============================================================ */
+
+  function apply(){
+    try { injectCss(); }catch(e){}
+    try { wrapOpenEventForm(); }catch(e){}
+    try { wrapSaveEventForm(); }catch(e){}
+    try { wrapOpenEventFromCalendar(); }catch(e){}
+    try { wrapRenderOrderEventsBlock(); }catch(e){}
+  }
+
+  if(document.body) apply();
+  else document.addEventListener('DOMContentLoaded', apply, {once:true});
+  setTimeout(apply, 700);
+  setTimeout(apply, 1800);
+
+  /* Подстраховка */
+  var _iv = setInterval(function(){
+    try { wrapOpenEventForm(); }catch(e){}
+    try { wrapSaveEventForm(); }catch(e){}
+    try { wrapOpenEventFromCalendar(); }catch(e){}
+    try { wrapRenderOrderEventsBlock(); }catch(e){}
+  }, 2500);
+  setTimeout(function(){ clearInterval(_iv); }, 60000);
+
+  try{ console.log('[14 p2] оплата через событие активна'); }catch(_){}
+})();
