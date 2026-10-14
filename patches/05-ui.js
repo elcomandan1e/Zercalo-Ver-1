@@ -267,4 +267,108 @@
   else document.addEventListener('DOMContentLoaded', boot, {once:true});
 
   try{ console.log('[05-ui p1] SVG-иконки активны'); }catch(_){}
+})();/* patches/05-ui.js — часть 2/2
+   · Основной шрифт: Onest (хорошая кириллица, свежий вид)
+   · Моно: JetBrains Mono (номера заказов, цены)
+   · Табличные цифры в ценах, номерах, размерах
+   · Чертёж A4 (PT Sans Narrow) и логотип — не трогаем
+*/
+(function(){
+  if(window._zrz05UiP2) return;
+  window._zrz05UiP2 = true;
+
+  var head = document.head || document.documentElement;
+
+  /* ---------- Preconnect (быстрее загрузка) ---------- */
+
+  function addLink(rel, href, extra){
+    var l = document.createElement('link');
+    l.rel = rel;
+    if(href) l.href = href;
+    if(extra) for(var k in extra){ try{ l.setAttribute(k, extra[k]); }catch(e){} }
+    head.appendChild(l);
+    return l;
+  }
+
+  if(!document.querySelector('link[href*="fonts.googleapis.com"][rel="preconnect"]')){
+    addLink('preconnect', 'https://fonts.googleapis.com');
+  }
+  if(!document.querySelector('link[href*="fonts.gstatic.com"][rel="preconnect"]')){
+    addLink('preconnect', 'https://fonts.gstatic.com', {crossorigin:'anonymous'});
+  }
+
+  /* ---------- Загрузка Onest + JetBrains Mono ---------- */
+
+  var FONT_URL = 'https://fonts.googleapis.com/css2'
+    + '?family=Onest:wght@300;400;500;600;700;800;900'
+    + '&family=JetBrains+Mono:wght@400;500;600;700'
+    + '&display=swap';
+
+  if(!document.querySelector('link[href*="family=Onest"]')){
+    addLink('stylesheet', FONT_URL);
+  }
+
+  /* ---------- CSS-переопределения ---------- */
+
+  var old = document.getElementById('zrz-typo3-css');
+  if(old) old.remove();
+
+  var css = ''
+    /* Основные переменные */
+    + ':root{'
+    +   '--font-sans:"Onest","Inter",system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif !important;'
+    +   '--font-mono:"JetBrains Mono","SF Mono",ui-monospace,Menlo,Consolas,monospace !important;'
+    + '}'
+
+    /* Body — Onest */
+    + 'body,button,input,textarea,select{'
+    +   'font-family:var(--font-sans) !important;'
+    +   'font-feature-settings:"ss01" 1,"cv01" 1;'
+    +   'letter-spacing:-0.005em;'
+    + '}'
+
+    /* Заголовки — плотнее */
+    + 'h1,h2,h3,h4,h5,h6,.card-title,.modal h2,.order-num-lg{'
+    +   'letter-spacing:-0.02em;'
+    +   'font-feature-settings:"ss01" 1,"cv01" 1;'
+    + '}'
+
+    /* Цифры — табличные */
+    + '.order-num,.order-num-lg,.payment-block .pb-val,.price-row input,.price-summary .pv,'
+    + '.price-summary .pl,.report-bar-row .rval,.report-kpi-cell .num,.info-line .val{'
+    +   'font-variant-numeric:tabular-nums;'
+    +   'font-feature-settings:"tnum" 1;'
+    + '}'
+
+    /* Кнопки и чипы — чуть плотнее */
+    + '.btn,.chip,.tabbar-btn,.tabbar-btn span,.key-btn,.role-btn,.team-chip,.cal-nav{'
+    +   'letter-spacing:-0.01em;'
+    + '}'
+
+    /* Моно — только для номеров заказов */
+    + '.order-num,.order-num-lg{'
+    +   'font-family:var(--font-mono) !important;'
+    + '}'
+
+    /* Чертёж A4 — оставляем PT Sans Narrow */
+    + 'canvas{font-family:var(--font-tech) !important}'
+    ;
+
+  var st = document.createElement('style');
+  st.id = 'zrz-typo3-css';
+  st.textContent = css;
+  head.appendChild(st);
+
+  /* ---------- Форсировать перерисовку после загрузки шрифта ---------- */
+
+  if(document.fonts && document.fonts.ready){
+    document.fonts.ready.then(function(){
+      try{
+        document.body.style.opacity = '0.999';
+        setTimeout(function(){ document.body.style.opacity = ''; }, 30);
+      }catch(e){}
+    }).catch(function(){});
+  }
+
+  try{ console.log('[05-ui p2] Onest + JetBrains Mono активны'); }catch(_){}
 })();
