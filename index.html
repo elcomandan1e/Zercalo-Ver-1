@@ -915,18 +915,21 @@ function migrateItem(i){
   if(!Array.isArray(i.shapesFront))i.shapesFront=[];
   if(i.backlightOffset==null)i.backlightOffset=2;if(i.backlightWidth==null)i.backlightWidth=2;
   if(i.plinthMount==null)i.plinthMount=false;if(i.plinthHeight==null)i.plinthHeight=0;
-  if(i.socketsMount==null)i.socketsMount=false;if(i.cutoutEnabled==null)i.cutoutEnabled=false;
+  if(i.socketsMount==null)i.socketsMount=false;if(i.lightsMount==null)i.lightsMount=false;if(i.cutoutEnabled==null)i.cutoutEnabled=false;
   if(i.cutoutW==null)i.cutoutW=0;if(i.cutoutH==null)i.cutoutH=0;
   if(i.cutoutShape==null)i.cutoutShape='rect';
   if(i.cutV==null)i.cutV=false;if(i.cutVPos==null)i.cutVPos=50;if(i.cutH==null)i.cutH=false;if(i.cutHPos==null)i.cutHPos=50;
   if(i.isNiche==null)i.isNiche=false;if(i.nicheDepth==null)i.nicheDepth=0;if(i.tempered==null)i.tempered=false;
   if(!Array.isArray(i.socketsList))i.socketsList=[];
   i.socketsList.forEach(function(s){if(s.step==null)s.step=7.1;if(s.distX==null)s.distX=30;if(s.distY==null)s.distY=110;if(s.edgeX!=='right')s.edgeX='left';if(s.edgeY!=='top')s.edgeY='bottom';if(!s.count)s.count=1;});
+  if(!Array.isArray(i.lightsList))i.lightsList=[];
+  i.lightsList.forEach(function(s){if(s.distX==null)s.distX=30;if(s.distY==null)s.distY=10;if(s.edgeX!=='right')s.edgeX='left';if(s.edgeY!=='bottom')s.edgeY='top';delete s.count;});
   if(i.shape==='FIGURED'&&i.cornerRadius==null)i.cornerRadius=50;
   if(i.roundedCorners==null)i.roundedCorners=false;
   if(i.type==='SHOWER'||i.type==='APRON'){i.edge='';i.facetWidth=0;}
   if(i.type==='MIRROR')i.tempered=false;
-  if(i.type==='SHOWER'){i.plinthMount=false;i.plinthHeight=0;i.isNiche=false;i.nicheDepth=0;i.socketsMount=false;i.socketsList=[];i.cutoutEnabled=false;i.cutoutW=0;i.cutoutH=0;}
+  if(i.type==='SHOWER'){i.plinthMount=false;i.plinthHeight=0;i.isNiche=false;i.nicheDepth=0;i.socketsMount=false;i.socketsList=[];i.lightsMount=false;i.lightsList=[];i.cutoutEnabled=false;i.cutoutW=0;i.cutoutH=0;}
+  if(i.type!=='MIRROR'&&i.type!=='PANNO'){i.lightsMount=false;i.lightsList=[];}
   if(i.note==null)i.note='';
   if(!Array.isArray(i.assignedUserIds))i.assignedUserIds=null;
   ensureUpdatedAt(i,i.createdAt);
@@ -1176,8 +1179,8 @@ function estimateInstallDuration(order){
   totalMin+=socketsCount*15;
   /* Светильники (поле появится в 2.1.19) — на всякий случай уже учитываем */
   var lightsCount=items.reduce(function(s,i){
-    if(!i.lightsMount)return s;
-    return s+(Number(i.lightsCount)||0)*(Number(i.qty)||1);
+    if(!i.lightsMount||!Array.isArray(i.lightsList))return s;
+    return s+i.lightsList.length*(Number(i.qty)||1);
   },0);
   totalMin+=lightsCount*15;
   return Math.max(30,totalMin);
@@ -1847,6 +1850,15 @@ function frameLabel(i){if(!hasFrame(i))return '';var f=frameInfo(i.frameColor);r
 function edgeLabel(i){if(i.type==='SHOWER'||i.type==='APRON')return '';if(!i.edge)return '';if(i.edge==='Фацет'&&i.facetWidth>0)return 'Фацет '+numFmt(i.facetWidth)+' мм';return i.edge;}
 function mountLabel(i){if(i.type==='SHOWER'||i.type==='APRON')return '';if(!i.mountType)return '';if(i.mountType==='Свой вариант')return i.mountCustom||'Свой вариант';return i.mountType;}
 function thresholdLabel(i){if(i.type!=='SHOWER')return '';var h=i.showerThresholdH||0,w=i.showerThresholdW||0;if(!h&&!w)return '';var parts=[];if(h)parts.push('H'+numFmt(h));if(w)parts.push('Ш'+numFmt(w));return 'Порог: '+parts.join('×')+' см';}
+function lightsSummary(i){
+  if(!i.lightsMount)return '';
+  if(Array.isArray(i.lightsList)&&i.lightsList.length){
+    return i.lightsList.map(function(s,idx){
+      return '№'+(idx+1)+': '+(s.edgeX==='right'?'от правого':'от левого')+' '+numFmt(s.distX)+' см, '+(s.edgeY==='top'?'от верха':'от низа')+' '+numFmt(s.distY)+' см';
+    }).join(' • ');
+  }
+  return '';
+}
 function socketSummary(i){if(!i.socketsMount)return '';if(Array.isArray(i.socketsList)&&i.socketsList.length){var suffix=(i.type==='MIRROR'&&isMirrorNicheMode(i))?' (от стекла)':'';return i.socketsList.map(function(s){var txt=s.count+' мест: '+(s.edgeX==='right'?'от правого':'от левого')+' '+numFmt(s.distX)+' см, '+(s.edgeY==='top'?'от верха':'от низа')+' '+numFmt(s.distY)+' см';if(s.count>1)txt+=', шаг '+numFmt(s.step!=null?s.step:7.1)+' см';return txt;}).join(' • ')+suffix;}return '';}
 function cutSummary(i){if(!i.cutV&&!i.cutH)return '';var p=[];if(i.cutV)p.push('вертикальный от левого края '+numFmt(i.cutVPos)+' см');if(i.cutH)p.push('горизонтальный от верха '+numFmt(i.cutHPos)+' см');return p.join(', ');}
 function electricSummary(i){if(!hasElectric(i))return '';var p=[],bl=backlightArr(i);if(bl.length)p.push('подсветка: '+bl.join(', '));if(i.voltage)p.push(i.voltage);if(i.switches&&i.switches.length)p.push('кнопки: '+i.switches.join(', '));if(i.colorTemp)p.push('цв.темп: '+i.colorTemp);if(i.trafo)p.push('трансформатор: '+i.trafo);return p.join(' • ');}
@@ -1884,7 +1896,8 @@ function shapeLabel(i){
   }
   if(i.type==='SHELF'){var gS=glassDimensions(i);return 'Полка Ш'+numFmt(gS.w)+'×В'+numFmt(gS.h)+' см • гл. '+numFmt(i.shelfDepth||15)+' см • ст. '+i.th+' мм';}
   if(i.type==='PANNO'){var gP=glassDimensions(i);return 'Панно Ш'+numFmt(gP.w)+'×В'+numFmt(gP.h)+' см • '+(pannoLabel(i)||'рамка')+' • ст. '+i.th+' мм';}
-  var _rcSuffix=(i.type==='MIRROR'&&i.roundedCorners&&Number(i.cornerRadius)>0)?(', ⭕ R'+numFmt(i.cornerRadius)+' мм'):'';
+  var _lightsSuffix=(i.lightsMount&&Array.isArray(i.lightsList)&&i.lightsList.length)?(', 💡 '+i.lightsList.length+' св.'):'';
+  var _rcSuffix=(i.type==='MIRROR'&&i.roundedCorners&&Number(i.cornerRadius)>0)?(', ⭕ R'+numFmt(i.cornerRadius)+' мм'+_lightsSuffix):_lightsSuffix;
   if(i.shape==='RECT4')return '4 стороны: Верх '+numFmt(i.T||0)+', Низ '+numFmt(i.B||0)+', Лево '+numFmt(i.L||0)+', Право '+numFmt(i.R||0)+' см, ст. '+i.th+' мм'+_rcSuffix;
   if(i.shape==='RECT')return 'Прямоуг. Ш'+numFmt(i.w)+'×В'+numFmt(i.h)+' см, ст. '+i.th+' мм'+_rcSuffix;
   if(i.shape==='FIGURED')return 'Фигурное Ш'+numFmt(i.w)+'×В'+numFmt(i.h)+' см, R'+numFmt(i.cornerRadius!=null?i.cornerRadius:50)+' мм, ст. '+i.th+' мм';
@@ -1970,6 +1983,68 @@ function makeTechCanvas(d){
   var s=db.settings||{},foot=[s.phone,s.email,s.website].filter(Boolean).join('   •   ');
   ctx.fillText(foot||'Зерцало • стекольная компания',A4W/2,A4H-PAD+20);
   return cv;
+}
+
+/* ============ v3.0.2: СИЛУЭТ БРА НА ЧЕРТЕЖЕ ============ */
+function _drawLightFixture(ctx, cx, cy, sc3){
+  /* sc3 — пикселей на см. cx, cy — центр крепления (базы) в пикселях. */
+  if(!sc3||sc3<=0)return;
+  var ink='#3b5c8f';
+  var fillShade='rgba(200,221,240,0.5)';
+  var fillBase='rgba(120,140,180,0.18)';
+  var baseR=4*sc3;
+  var stemLen=8*sc3;
+  var shadeW=12*sc3;
+  var shadeH=15*sc3;
+  /* База — кружок */
+  ctx.save();
+  ctx.beginPath();ctx.arc(cx,cy,baseR,0,Math.PI*2);
+  ctx.fillStyle=fillBase;ctx.fill();
+  ctx.strokeStyle=ink;ctx.lineWidth=1.6;ctx.stroke();
+  ctx.beginPath();ctx.arc(cx,cy,baseR*0.55,0,Math.PI*2);
+  ctx.strokeStyle='rgba(59,92,143,0.55)';ctx.lineWidth=0.9;ctx.stroke();
+  /* Кронштейн — вертикальная ножка от базы вверх */
+  var stemBot=cy-baseR;
+  var stemTop=stemBot-stemLen;
+  ctx.beginPath();ctx.moveTo(cx,stemBot);ctx.lineTo(cx,stemTop);
+  ctx.strokeStyle=ink;ctx.lineWidth=2.2;ctx.stroke();
+  /* Плафон — цилиндр (прямоугольник + верх/низ «дуги») */
+  var shadeL=cx-shadeW/2;
+  var shadeT=stemTop-shadeH;
+  var shadeR=cx+shadeW/2;
+  var shadeB=stemTop;
+  /* Верх плафона — эллипс */
+  ctx.beginPath();
+  ctx.ellipse(cx, shadeT, shadeW/2, Math.max(2, shadeW*0.08), 0, 0, Math.PI*2);
+  ctx.fillStyle=fillShade;ctx.fill();
+  ctx.strokeStyle=ink;ctx.lineWidth=1.6;ctx.stroke();
+  /* Тело плафона — 2 вертикали */
+  ctx.beginPath();
+  ctx.moveTo(shadeL, shadeT);
+  ctx.lineTo(shadeL, shadeB);
+  ctx.moveTo(shadeR, shadeT);
+  ctx.lineTo(shadeR, shadeB);
+  ctx.stroke();
+  /* Низ плафона — эллипс */
+  ctx.beginPath();
+  ctx.ellipse(cx, shadeB, shadeW/2, Math.max(2, shadeW*0.08), 0, 0, Math.PI*2);
+  ctx.stroke();
+  /* Лёгкая внутренняя тень для объёма */
+  ctx.beginPath();
+  ctx.ellipse(cx, shadeB, shadeW/2*0.7, Math.max(1.5, shadeW*0.055), 0, 0, Math.PI);
+  ctx.strokeStyle='rgba(59,92,143,0.35)';ctx.lineWidth=0.8;ctx.stroke();
+  ctx.restore();
+}
+function _drawLightsOnMirror(ctx, x0, y0, pxW, pxH, d, sc3){
+  if(!d||!d.lightsMount)return;
+  if(d.type!=='MIRROR'&&d.type!=='PANNO')return;
+  if(!Array.isArray(d.lightsList)||!d.lightsList.length)return;
+  d.lightsList.forEach(function(s){
+    var dx=Number(s.distX)||0, dy=Number(s.distY)||0;
+    var baseX=(s.edgeX==='right')?(x0+pxW-dx*sc3):(x0+dx*sc3);
+    var baseY=(s.edgeY==='top')?(y0+dy*sc3):(y0+pxH-dy*sc3);
+    _drawLightFixture(ctx, baseX, baseY, sc3);
+  });
 }
 
 /* ============ ВИД 1: ИЗОМЕТРИЯ ============ */
@@ -2210,6 +2285,8 @@ function drawTechIso(ctx,x,y,w,h,dims,scale,d){
     });
   }
 
+  _drawLightsOnMirror(ctx,x0,y0,pxW,pxH,d,sc3);
+
   if(_rMm>0&&_rPx>4){
     _rCalloutArrow(ctx,x0+pxW-_rPx,y0+pxH-_rPx,_rPx,_rMm);
   }
@@ -2347,6 +2424,7 @@ function drawTechFront(ctx,x,y,w,h,d){
   ctx.stroke();
   _drawMirrorBacklightStrip(ctx,cx-pxW/2,cy-pxH/2,pxW,pxH,d,sc3);
   _drawMirrorFacet(ctx,cx-pxW/2,cy-pxH/2,pxW,pxH,d,sc3);
+  _drawLightsOnMirror(ctx,cx-pxW/2,cy-pxH/2,pxW,pxH,d,sc3);
   if(_rMm2>0){ctx.fillStyle=red;ctx.font='700 12px "PT Sans Narrow",Arial';ctx.textAlign='left';ctx.textBaseline='top';ctx.fillText('R'+numFmt(_rMm2),cx-pxW/2+_rPx2+4,cy-pxH/2+_rPx2+2);}
   ctx.strokeStyle=red;ctx.lineWidth=1;ctx.setLineDash([3,3]);
   ctx.beginPath();ctx.moveTo(cx-pxW/2,cy-pxH/2-24);ctx.lineTo(cx+pxW/2,cy-pxH/2-24);ctx.stroke();
@@ -2755,6 +2833,7 @@ function openItem(id){
 
     /* РОЗЕТКИ */
     '<div id="sockets_block"><div class="checkbox-row"><input type="checkbox" id="e_sockets" '+(d.socketsMount?'checked':'')+'><label for="e_sockets">🔌 Розетки</label></div><div id="sockets_wrap" style="display:'+(d.socketsMount?'block':'none')+'"><div id="socketsList"></div><button type="button" class="btn btn-secondary" style="margin-top:10px;padding:10px;font-size:14px" onclick="addSocketRow()">+ Розетка</button></div></div>'+
+    '<div id="lights_block"><div class="checkbox-row"><input type="checkbox" id="e_lights" '+(d.lightsMount?'checked':'')+'><label for="e_lights">💡 Светильники (бра)</label></div><div id="lights_wrap" style="display:'+(d.lightsMount?'block':'none')+'"><div id="lightsList"></div><button type="button" class="btn btn-secondary" style="margin-top:10px;padding:10px;font-size:14px" onclick="addLightRow()">+ Светильник</button></div></div>'+
 
     /* ВЫРЕЗ */
     '<div id="cutout_block"><div class="checkbox-row"><input type="checkbox" id="e_cutout" '+(d.cutoutEnabled?'checked':'')+'><label for="e_cutout">✂️ Вырез</label></div><div id="cutout_wrap" style="display:'+(d.cutoutEnabled?'block':'none')+'">'+
@@ -2862,7 +2941,7 @@ function openItem(id){
     if(d.type==='MIRROR')d.tempered=false;
     var gc=document.getElementById('chips_glass');if(gc)gc.innerHTML=renderGlassChips(d.type,d.glass);
     updateElectricVisibility(d);updatePannoVisibility(d);updateShowerVisibility(d);updateCutVisibility(d);updateRoundingVisibility(d);
-    renderSizeFields(d);renderMirrorModeUI(d);renderApronBuilder();renderShowerBuilder();renderShowerHandle();calcPreview(d);saveDraft();
+    renderSizeFields(d);renderMirrorModeUI(d);renderApronBuilder();renderShowerBuilder();renderSocketsBuilder();renderLightsBuilder();renderShowerHandle();calcPreview(d);saveDraft();
   };
 
   document.getElementById('chips_shape').onclick=function(e){
@@ -2908,6 +2987,9 @@ function openItem(id){
   var sockChk=document.getElementById('e_sockets'),sockWrap=document.getElementById('sockets_wrap');
   if(sockChk)sockChk.onchange=function(){d.socketsMount=sockChk.checked;sockWrap.style.display=d.socketsMount?'block':'none';renderSocketsBuilder();calcPreview(d);saveDraft();};
 
+  var lightsChk=document.getElementById('e_lights'),lightsWrap=document.getElementById('lights_wrap');
+  if(lightsChk)lightsChk.onchange=function(){d.lightsMount=lightsChk.checked;lightsWrap.style.display=d.lightsMount?'block':'none';renderLightsBuilder();calcPreview(d);saveDraft();};
+
   var cutChk=document.getElementById('e_cutout'),cutWrap=document.getElementById('cutout_wrap');
   if(cutChk)cutChk.onchange=function(){d.cutoutEnabled=cutChk.checked;cutWrap.style.display=d.cutoutEnabled?'block':'none';calcPreview(d);saveDraft();};
   var cwEl=document.getElementById('f_cutoutW'),chEl=document.getElementById('f_cutoutH');
@@ -2943,7 +3025,7 @@ function openItem(id){
 
   var pi=document.getElementById('photoInput');if(pi)pi.onchange=function(e){var fs=e.target.files;if(fs&&fs.length)addPhotos(fs);e.target.value='';};
   renderPhotoGrid(d.photos);
-  renderShowerBuilder();renderApronBuilder();renderSocketsBuilder();renderShowerProfiles();renderShowerHandle();
+  renderShowerBuilder();renderApronBuilder();renderSocketsBuilder();renderLightsBuilder();renderShowerProfiles();renderShowerHandle();
 
   var apColor=document.getElementById('f_apronColorNumber');if(apColor)apColor.oninput=function(){d.apronColorNumber=apColor.value.trim();calcPreview(d);saveDraft();};
 
@@ -3048,6 +3130,29 @@ function renderSocketsBuilder(){
     '</div>';
   }).join('');
 }
+/* ============ v3.0.1: СВЕТИЛЬНИКИ (БРА) ============ */
+function renderLightsBuilder(){
+  var d=window._editDraft;if(!d)return;var box=document.getElementById('lightsList');if(!box)return;
+  if(!Array.isArray(d.lightsList))d.lightsList=[];
+  if(!d.lightsList.length)box.innerHTML='<div style="text-align:center;padding:14px;color:#8894a9;font-size:13px;background:var(--surface);border-radius:14px;border:1.5px dashed var(--accent-line)">Нет светильников</div>';
+  else box.innerHTML=d.lightsList.map(function(s,idx){
+    var ex=s.edgeX||'left',ey=s.edgeY||'top';
+    var dx=s.distX!=null?s.distX:30,dy=s.distY!=null?s.distY:10;
+    return '<div class="shower-item" style="margin-bottom:10px">'+
+      '<div class="shower-item-head"><span class="shower-item-num">'+(idx+1)+'</span><span class="shower-item-type">💡 Светильник</span><button type="button" class="shower-item-del" onclick="removeLightRow('+idx+')">✕</button></div>'+
+      '<div class="row2" style="margin-top:10px">'+
+        '<div><label style="font-size:11px;color:#8894a9">X, см</label><input type="text" inputmode="decimal" value="'+numFmt(dx)+'" oninput="setLightVal('+idx+','distX',this.value)"><div class="chips" style="margin-top:6px"><button type="button" class="chip '+(ex==='left'?'active':'')+'" onclick="setLightEdge('+idx+','edgeX','left')">← лево</button><button type="button" class="chip '+(ex==='right'?'active':'')+'" onclick="setLightEdge('+idx+','edgeX','right')">право →</button></div></div>'+
+        '<div><label style="font-size:11px;color:#8894a9">Y, см</label><input type="text" inputmode="decimal" value="'+numFmt(dy)+'" oninput="setLightVal('+idx+','distY',this.value)"><div class="chips" style="margin-top:6px"><button type="button" class="chip '+(ey==='top'?'active':'')+'" onclick="setLightEdge('+idx+','edgeY','top')">верх ↑</button><button type="button" class="chip '+(ey==='bottom'?'active':'')+'" onclick="setLightEdge('+idx+','edgeY','bottom')">↓ низ</button></div></div>'+
+      '</div>'+
+      '<div class="shower-hint" style="text-align:left;margin-top:6px">X/Y — до центра крепления (базы). Каждый светильник добавляется отдельной кнопкой «+ Светильник».</div>'+
+    '</div>';
+  }).join('');
+}
+function addLightRow(){var d=window._editDraft;if(!d)return;if(!Array.isArray(d.lightsList))d.lightsList=[];if(d.lightsList.length>=10){uiAlert('Максимум 10');return;}haptic(8);d.lightsList.push({distX:30,edgeX:'left',distY:10,edgeY:'top'});renderLightsBuilder();calcPreview(d);saveDraft();}
+function removeLightRow(idx){var d=window._editDraft;if(!d||!Array.isArray(d.lightsList))return;d.lightsList.splice(idx,1);renderLightsBuilder();calcPreview(d);saveDraft();}
+function setLightVal(idx,key,val){var d=window._editDraft;if(!d||!d.lightsList[idx])return;var n=parseFloat(String(val).replace(',','.'))||0;d.lightsList[idx][key]=n;calcPreview(d);saveDraft();}
+function setLightEdge(idx,key,val){var d=window._editDraft;if(!d||!d.lightsList[idx])return;d.lightsList[idx][key]=val;renderLightsBuilder();calcPreview(d);saveDraft();}
+
 function addSocketRow(){var d=window._editDraft;if(!d)return;if(!Array.isArray(d.socketsList))d.socketsList=[];if(d.socketsList.length>=10){uiAlert('Максимум 10');return;}haptic(8);d.socketsList.push({count:1,step:7.1,distX:30,edgeX:'left',distY:110,edgeY:'bottom'});renderSocketsBuilder();calcPreview(d);saveDraft();}
 function removeSocketRow(idx){var d=window._editDraft;if(!d||!Array.isArray(d.socketsList))return;d.socketsList.splice(idx,1);renderSocketsBuilder();calcPreview(d);saveDraft();}
 function setSocketCount(idx,n){var d=window._editDraft;if(!d||!d.socketsList[idx])return;d.socketsList[idx].count=n;renderSocketsBuilder();calcPreview(d);saveDraft();}
@@ -3171,6 +3276,8 @@ function updateShowerVisibility(d){
   ids.forEach(function(id){var el=document.getElementById(id);if(el)el.style.display=st[id];});
   var mcw=document.getElementById('mirror_color_number_wrap');if(mcw)mcw.style.display=(isMirror&&d.glass==='Состаренное')?'block':'none';
   ['plinth_block','niche_block','sockets_block','cutout_block'].forEach(function(id){var el=document.getElementById(id);if(el)el.style.display=isShower?'none':'';});
+  var lightsBlock=document.getElementById('lights_block');
+  if(lightsBlock){var _showLights=(d.type==='MIRROR'||d.type==='PANNO')&&!nonPlain;lightsBlock.style.display=_showLights?'':'none';}
   var tmp=document.getElementById('tempered_block');if(tmp)tmp.style.display=isMirror?'none':'';
   var thLbl=document.getElementById('th_label');if(thLbl)thLbl.textContent=isMirror?'Толщина зеркала':'Толщина стекла';
 }
@@ -3338,6 +3445,8 @@ function collectDraft(d){
   var nicheD=document.getElementById('f_nicheDepth');r.nicheDepth=r.isNiche&&nicheD?numVal(nicheD):0;
   var sockChk=document.getElementById('e_sockets');r.socketsMount=sockChk?sockChk.checked:false;
   r.socketsList=Array.isArray(d.socketsList)?d.socketsList.map(function(s){return {count:Math.max(1,Math.min(4,Number(s.count)||1)),step:(Number(s.step)>0?Number(s.step):7.1),distX:Number(s.distX)||0,edgeX:s.edgeX==='right'?'right':'left',distY:Number(s.distY)||0,edgeY:s.edgeY==='top'?'top':'bottom'};}):[];
+  var _lightsChk=document.getElementById('e_lights');r.lightsMount=_lightsChk?_lightsChk.checked:false;
+  r.lightsList=Array.isArray(d.lightsList)?d.lightsList.map(function(s){return {distX:Number(s.distX)||0,edgeX:s.edgeX==='right'?'right':'left',distY:Number(s.distY)||0,edgeY:s.edgeY==='bottom'?'bottom':'top'};}):[];
   var cutChk=document.getElementById('e_cutout');r.cutoutEnabled=cutChk?cutChk.checked:false;
   var cw2=document.getElementById('f_cutoutW'),ch2=document.getElementById('f_cutoutH');
   r.cutoutShape=(d.cutoutShape==='circle')?'circle':'rect';
@@ -3387,6 +3496,7 @@ function calcPreview(d){
   if(it.type==='MIRROR'&&it.roundedCorners&&(it.shape==='RECT'||it.shape==='RECT4'))row('⭕ Скругление: <b>R'+numFmt(it.cornerRadius||0)+' мм</b>');
   if(it.isNiche)row('В нишу: <b>'+(it.nicheDepth?('глубина '+numFmt(it.nicheDepth)+' мм'):'не указана')+'</b>');
   if(it.socketsMount){var s2=socketSummary(it);row('🔌 Розетки'+(s2?': <b>'+esc(s2)+'</b>':''));}
+  if(it.lightsMount){var l2=lightsSummary(it);row('💡 Светильники'+(l2?': <b>'+esc(l2)+'</b>':''));}
   if(it.cutoutEnabled&&it.cutoutW&&it.cutoutH)row('✂️ Вырез: <b>'+numFmt(it.cutoutW)+'×'+numFmt(it.cutoutH)+'</b>');
   var html='<span class="calc-title">'+esc(t.label)+'</span>'+rows.join('');
   if(hasElectric(it)){var es=electricSummary(it);if(es)html+='<div class="calc-elec">⚡ <b>'+esc(es)+'</b></div>';}
@@ -3417,7 +3527,8 @@ async function saveItem(id){
   if(d.type!=='MIRROR'){d.electric=false;d.backlight=[];d.voltage='';d.switches=[];d.colorTemp='';d.trafo='';}
   if(d.type==='SHOWER'||d.type==='APRON'){d.edge='';d.facetWidth=0;}
   if(d.type==='MIRROR')d.tempered=false;
-  if(d.type==='SHOWER'){d.plinthMount=false;d.plinthHeight=0;d.isNiche=false;d.nicheDepth=0;d.socketsMount=false;d.socketsList=[];d.cutoutEnabled=false;d.cutoutW=0;d.cutoutH=0;}
+  if(d.type==='SHOWER'){d.plinthMount=false;d.plinthHeight=0;d.isNiche=false;d.nicheDepth=0;d.socketsMount=false;d.socketsList=[];d.lightsMount=false;d.lightsList=[];d.cutoutEnabled=false;d.cutoutW=0;d.cutoutH=0;}
+  if(d.type!=='MIRROR'&&d.type!=='PANNO'){d.lightsMount=false;d.lightsList=[];}
   if(id){
     var exist=db.items.find(function(x){return x.id===id;});
     if(!exist){await uiAlert('Позиция не найдена');return;}
@@ -5347,8 +5458,6 @@ function openEventForm(dateYmd,eventId,presetOrderId){
   html+='<label>Команда</label><div class="team-grid" id="ev_team">'+teamChips+'</div>';
   html+='<div class="section-title" style="margin-top:14px">⏱ Длительность</div>';
   html+='<div id="ev_duration_block">'+renderEventDurationBlock(e)+'</div>';
-  html+='<div class="section-title" style="margin-top:14px">📍 Расстояние (OSRM)</div>';
-  html+='<div id="ev_geo_block">'+renderEventGeoBlock(e)+'</div>';
   html+='<label>Заметка</label><textarea id="ev_note" rows="2">'+esc(d.note)+'</textarea>';
   if(e){
     html+='<div class="checkbox-row"><input type="checkbox" id="ev_done" '+(e.status==='done'?'checked':'')+'><label for="ev_done">✓ Выполнено</label></div>';
@@ -5364,73 +5473,6 @@ function openEventForm(dateYmd,eventId,presetOrderId){
     if(idx>=0)window._evTeam.splice(idx,1);else window._evTeam.push(uid);
     btn.classList.toggle('active');
   };
-}
-function renderEventGeoBlock(e){
-  var leg=e&&e.legFromPrev;
-  var html='<div style="font-size:12px;color:var(--muted);line-height:1.5;margin-bottom:8px">Для доставки, возврата, закупки и закалки — расстояние от базы до адреса заказа. Нажми «Рассчитать» — подставится время в пути.</div>';
-  html+='<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">';
-  html+='<button type="button" class="chip" onclick="evCalcRoute()">📍 Рассчитать от базы</button>';
-  html+='<button type="button" class="chip" onclick="evOpenYandex()">🗺 Яндекс.Карты</button>';
-  html+='</div>';
-  if(leg)html+='<div style="margin-top:8px;padding:8px 12px;background:var(--ok-soft);color:#2c7a54;border-radius:10px;font-size:13px;font-weight:600">📏 '+numFmt(leg.km)+' км • ⏱ '+formatDurationMin(leg.minutes)+'</div>';
-  return html;
-}
-async function evCalcRoute(){
-  var type=window._evType||'measure';
-  var orderId=parseInt((document.getElementById('ev_order')||{}).value||'0',10)||null;
-  if(!orderId){uiAlert('Выберите заказ — нужен адрес для расчёта.');return;}
-  var base=(db.settings&&db.settings.baseAddress)||'';
-  if(!base){uiAlert('Сначала укажите «🏠 Адрес базы» в настройках.');return;}
-  var o=db.orders.find(function(x){return x.id===orderId;});
-  if(!o){uiAlert('Заказ не найден');return;}
-  var toAddr=orderAddrString(o);
-  if(!toAddr){uiAlert('У заказа не заполнен адрес.');return;}
-  var el=document.getElementById('ev_geo_block');
-  if(el)el.insertAdjacentHTML('afterbegin','<div id="ev_geo_loading" style="padding:8px 12px;background:var(--accent-soft);border-radius:10px;font-size:13px;font-weight:600;margin-bottom:8px">⏳ Считаем…</div>');
-  try{
-    var isReturn=(type==='return');
-    var fromAddr=isReturn?toAddr:base;
-    var toAddr2=isReturn?base:toAddr;
-    var r=await calcRouteDistance(fromAddr,toAddr2);
-    var ld=document.getElementById('ev_geo_loading');if(ld)ld.remove();
-    if(!r||r.error){
-      var msg=r&&r.error==='from'?'Не удалось определить адрес базы.':(r&&r.error==='to'?'Не удалось найти адрес заказа.':'OSRM не отвечает.');
-      if(el)el.insertAdjacentHTML('afterbegin','<div style="padding:8px 12px;background:var(--danger-soft);color:var(--danger);border-radius:10px;font-size:13px;font-weight:600;margin-bottom:8px">❌ '+msg+' Введите расстояние вручную.</div>');
-      return;
-    }
-    window._evLeg={km:r.km,minutes:r.minutes};
-    var durEl=document.getElementById('ev_duration');
-    if(durEl&&!durEl.value){
-      var baseMeta=EVENT_TYPES.find(function(x){return x.key===type;});
-      var defaultBase=(baseMeta&&baseMeta.defaultMin)||0;
-      durEl.value=String(defaultBase+r.minutes);
-    }
-    if(el){
-      var old=el.querySelector('.ev-leg-result');if(old)old.remove();
-      el.insertAdjacentHTML('beforeend','<div class="ev-leg-result" style="margin-top:8px;padding:8px 12px;background:var(--ok-soft);color:#2c7a54;border-radius:10px;font-size:13px;font-weight:600">📏 '+numFmt(r.km)+' км • ⏱ '+formatDurationMin(r.minutes)+' <button type="button" class="chip" style="margin-left:8px;padding:4px 10px;font-size:11px" onclick="evApplyLegToDuration()">→ в длительность</button></div>');
-    }
-    evRecalcDurations();
-  }catch(e){
-    var ld2=document.getElementById('ev_geo_loading');if(ld2)ld2.remove();
-    uiAlert('Ошибка: '+(e.message||e));
-  }
-}
-function evApplyLegToDuration(){
-  if(!window._evLeg)return;
-  var type=window._evType||'measure';
-  var meta=EVENT_TYPES.find(function(x){return x.key===type;});
-  var base=(meta&&meta.defaultMin)||0;
-  var el=document.getElementById('ev_duration');
-  if(el)el.value=String(base+window._evLeg.minutes);
-  evRecalcDurations();
-}
-function evOpenYandex(){
-  var orderId=parseInt((document.getElementById('ev_order')||{}).value||'0',10)||null;
-  if(!orderId){uiAlert('Выберите заказ.');return;}
-  var o=db.orders.find(function(x){return x.id===orderId;});
-  var a=o?orderAddrString(o):'';
-  if(!a){uiAlert('У заказа нет адреса.');return;}
-  openYandexRoute(a);
 }
 function renderEventDurationBlock(e){
   var dur=e&&Number(e.duration)>0?Number(e.duration):0;
@@ -5477,7 +5519,7 @@ async function saveEventForm(eventId){
   if(eventId){
     var e=eventById(eventId);if(!e){await uiAlert('Событие не найдено');return;}
     var oldDate=e.date,oldTime=e.time;
-    e.type=type;e.orderId=orderId;e.date=date;e.time=time;e.note=note;e.assignedUserIds=team;e.duration=durManual;if(window._evLeg)e.legFromPrev=window._evLeg;
+    e.type=type;e.orderId=orderId;e.date=date;e.time=time;e.note=note;e.assignedUserIds=team;e.duration=durManual;
     var doneEl=document.getElementById('ev_done');
     if(doneEl)e.status=doneEl.checked?'done':'planned';
     touch(e);
@@ -5491,7 +5533,7 @@ async function saveEventForm(eventId){
       var hadAlready=Array.isArray(e.assignedUserIds);/* упрощённо: если уведомления уже были созданы для этого события и юзера — не плодим */
     });
   }else{
-    var newE={id:db.nextEvent++,type:type,orderId:orderId,date:date,time:time,duration:durManual,assignedUserIds:team,note:note,status:'planned',createdAt:Date.now(),createdBy:db.currentUserId,updatedAt:Date.now(),legFromPrev:window._evLeg||null};
+    var newE={id:db.nextEvent++,type:type,orderId:orderId,date:date,time:time,duration:durManual,assignedUserIds:team,note:note,status:'planned',createdAt:Date.now(),createdBy:db.currentUserId,updatedAt:Date.now(),legFromPrev:null};
     db.events.push(newE);
     notifyEventCreated(newE,db.currentUserId);
   }
@@ -6281,6 +6323,7 @@ function buildReceiptModel(o,items){
     if(i.plinthMount&&i.plinthHeight)R.push({k:'Плинтус',v:'H'+numFmt(i.plinthHeight)});
     if(i.isNiche)R.push({k:'В нишу',v:i.nicheDepth?('глубина '+numFmt(i.nicheDepth)+' мм'):'—'});
     if(i.socketsMount){var ss=socketSummary(i);R.push({k:'🔌 Розетки',v:ss||'—'});}
+    if(i.lightsMount){var ls=lightsSummary(i);R.push({k:'💡 Светильники',v:ls||'—'});}
     if(i.cutV||i.cutH)R.push({k:'✂️ Разрез',v:cutSummary(i)});
     if(hasElectric(i)){
       var bl=backlightArr(i);
@@ -7836,8 +7879,8 @@ function renderAuth(){
 (function(){if(!('serviceWorker' in navigator))return;if(location.protocol==='file:'||location.protocol==='content:')return;var swCode=["const CACHE='zerzalo-v3';","const SHELL=['./','./index.html'];","self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(SHELL)).then(()=>self.skipWaiting()).catch(()=>{}));});","self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()).catch(()=>{}));});","self.addEventListener('fetch',e=>{if(e.request.method!=='GET')return;const u=new URL(e.request.url);if(u.origin!==location.origin)return;e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request).then(resp=>{if(!resp||resp.status!==200||resp.type==='opaque')return resp;const cl=resp.clone();caches.open(CACHE).then(c=>c.put(e.request,cl)).catch(()=>{});return resp;}).catch(()=>caches.match('./index.html'))));});"].join('\n');window.addEventListener('load',function(){var urlsToTry=[];try{urlsToTry.push('./sw.js');}catch(e){}if(window.Blob&&window.URL&&URL.createObjectURL){try{var b=new Blob([swCode],{type:'application/javascript'}),blobUrl=URL.createObjectURL(b);urlsToTry.push(blobUrl);}catch(e){}}var tried=0;function tryNext(){if(tried>=urlsToTry.length)return;var u=urlsToTry[tried++];navigator.serviceWorker.register(u).then(function(reg){console.log('SW registered',reg.scope);}).catch(function(e){tryNext();});}tryNext();});})();
 
 /* ============ ВЕРСИЯ / BOOT ============ */
-var APP_VERSION='2.1.18';
-var SCHEMA_BUILD='17/notifications/roles/sync/auto-token/rounded/backlight-facet/manual-num/measure-date/event-types/fab-top/cta/back-guard/inline-actions/cad-mirror/cutout-sockets/header-mark/driver-tab/push/morning/test-stand/docs/firebase-security/home-dashboard/order-payment/events-duration-osrm-workload';
+var APP_VERSION='3.0.2';
+var SCHEMA_BUILD='17/notifications/roles/sync/auto-token/rounded/backlight-facet/manual-num/measure-date/event-types/fab-top/cta/back-guard/inline-actions/cad-mirror/cutout-sockets/header-mark/driver-tab/push/morning/test-stand/docs/firebase-security/home-dashboard/order-payment/events-duration-osrm-workload/lights/lights-draw';
 
 /* ============================================================
    v2.1.12: ТЕСТОВЫЙ СТЕНД
