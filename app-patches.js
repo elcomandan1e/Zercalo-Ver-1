@@ -1,6 +1,6 @@
-/* app-patches.js — динамические патчи «Зерцало» v4.3.2 */
+/* app-patches.js — динамические патчи «Зерцало» v4.3.3 */
 (function(){
-  var PATCH_VERSION = '4.3.2';
+  var PATCH_VERSION = '4.3.3';
   var AUTHOR_NAME = 'Лютиков А.С.';
   var AUTHOR_TG = '@el_c0mandan1e';
   var _lock = false;
@@ -104,14 +104,21 @@
       var far = Math.max(Math.hypot(x,y), Math.hypot(rect.width-x,y), Math.hypot(x,rect.height-y), Math.hypot(rect.width-x,rect.height-y));
       var wave = document.createElement('span');
       wave.className = 'zrz-card-ripple';
-      wave.style.left = x+'px';
-      wave.style.top = y+'px';
-      wave.style.width = '40px';
-      wave.style.height = '40px';
+      wave.style.left = x+'px'; wave.style.top = y+'px';
+      wave.style.width = '40px'; wave.style.height = '40px';
       wave.style.setProperty('--zrz-scale', (far/20).toFixed(2));
       card.appendChild(wave);
       setTimeout(function(){ wave.remove(); }, 900);
     }, true);
+  }
+
+  /* ─── v4.3.3: болты с настраиваемым отступом ─── */
+  function getBoltOffset(d){
+    var v = Number(d.boltOffset);
+    if(!v || v<=0) return 5;
+    if(v<1) v = 1;
+    if(v>30) v = 30;
+    return v;
   }
 
   function boltLayout(W, H, cnt, offCm){
@@ -144,19 +151,21 @@
     if(cnt<4) return;
     var g = null; try{ g = glassDimensions(d); }catch(e){ return; }
     if(!g || !g.w || !g.h) return;
-    var pts = boltLayout(g.w, g.h, cnt, 5);
+    var off = getBoltOffset(d);
+    var pts = boltLayout(g.w, g.h, cnt, off);
     var r = Math.max(3, Math.min(7, 0.45*sc3));
     ctx.save();
     pts.forEach(function(p){ drawBoltCircle(ctx, x0 + p.x*sc3, y0 + p.y*sc3, r); });
     ctx.fillStyle = '#1e4d7b'; ctx.font = '700 11px "PT Sans Narrow",Arial';
     ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-    ctx.fillText('🔩 '+pts.length+' болтов Ø8 мм · отступ 5 см', x0 + (g.w*sc3)/2, y0 + g.h*sc3 + 14);
+    ctx.fillText('🔩 '+pts.length+' болтов Ø8 мм · отступ '+numFmt(off)+' см', x0 + (g.w*sc3)/2, y0 + g.h*sc3 + 14);
     ctx.restore();
   }
   function drawApronBoltsIso(ctx, x, y, w, h, d){
     var wh = apronTotalWH(d); if(!wh) return;
     var cnt = Number(d.boltCount)||0; if(cnt<4) return;
-    var pts = boltLayout(wh.W, wh.H, cnt, 5);
+    var off = getBoltOffset(d);
+    var pts = boltLayout(wh.W, wh.H, cnt, off);
     var cx=x+w/2, cy=y+h/2;
     var sc3 = Math.min((w-160)/wh.W, (h-80)/wh.H);
     var pxW = wh.W*sc3, pxH = wh.H*sc3;
@@ -166,7 +175,7 @@
     pts.forEach(function(p){ drawBoltCircle(ctx, x0 + p.x*sc3, y0 + p.y*sc3, r); });
     ctx.fillStyle = '#1e4d7b'; ctx.font = '700 11px "PT Sans Narrow",Arial';
     ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-    ctx.fillText('🔩 '+pts.length+' болтов Ø8 мм · отступ 5 см', cx, y0 + pxH + 14);
+    ctx.fillText('🔩 '+pts.length+' болтов Ø8 мм · отступ '+numFmt(off)+' см', cx, y0 + pxH + 14);
     ctx.restore();
   }
   function drawApronBoltsFront(ctx, x, y, w, h, d){
@@ -176,32 +185,30 @@
     var totalW = 0, maxH = 0;
     secs.forEach(function(s){ totalW += Number(s.bottom)||0; maxH = Math.max(maxH, Number(s.left)||0, Number(s.right)||0); });
     if(totalW<1||maxH<1) return;
+    var off = getBoltOffset(d);
     var cx=x+w/2, cy=y+h/2;
     var gap = 16;
     var sc = Math.min((w-80-gap*(secs.length-1))/totalW, (h-60)/maxH);
     var startX = cx - (totalW*sc + gap*(secs.length-1))/2;
     var baseY = cy + maxH*sc/2 - 10;
-    var pts = boltLayout(totalW, maxH, cnt, 5);
+    var pts = boltLayout(totalW, maxH, cnt, off);
     var r = Math.max(3, Math.min(7, 0.45*sc));
     ctx.save();
     pts.forEach(function(p){ drawBoltCircle(ctx, startX + p.x*sc, baseY - maxH*sc + p.y*sc, r); });
     ctx.fillStyle = '#1e4d7b'; ctx.font = '700 11px "PT Sans Narrow",Arial';
     ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-    ctx.fillText('🔩 '+pts.length+' болтов Ø8 мм · отступ 5 см', startX + (totalW*sc)/2, baseY + 30);
+    ctx.fillText('🔩 '+pts.length+' болтов Ø8 мм · отступ '+numFmt(off)+' см', startX + (totalW*sc)/2, baseY + 30);
     ctx.restore();
   }
 
-  /* ═══ v4.3.2 — РАЗМЕРЫ С ВЫНОСНЫМИ ЛИНИЯМИ ═══ */
-
+  /* ─── v4.3.2: размеры розеток и бра ─── */
   var DIM_SOCKET_COLOR = '#a05c26';
   var DIM_LIGHT_COLOR  = '#7a3d8a';
   var DIM_COLOR        = '#c14d4d';
 
-  /* Размерная линия с двумя выносными (тонкий пунктир от объектов) */
   function _zrzDimLineFull(ctx, obj1, obj2, dimP1, dimP2, label, color){
     color = color || DIM_COLOR;
     ctx.save();
-    /* Выносные линии — тонкий пунктир */
     ctx.strokeStyle = color;
     ctx.lineWidth = 0.8;
     ctx.setLineDash([3,3]);
@@ -212,7 +219,6 @@
     ctx.stroke();
     ctx.setLineDash([]);
     ctx.globalAlpha = 1;
-    /* Основная размерная линия со стрелками */
     var dx = dimP2.x - dimP1.x, dy = dimP2.y - dimP1.y;
     var len = Math.hypot(dx, dy);
     if(len < 15){ ctx.restore(); return; }
@@ -236,7 +242,6 @@
     ctx.lineTo(dimP2.x - ux*arr - nx*aw, dimP2.y - uy*arr - ny*aw);
     ctx.lineTo(dimP2.x - ux*arr + nx*aw, dimP2.y - uy*arr + ny*aw);
     ctx.closePath(); ctx.fill();
-    /* Подпись */
     if(label){
       ctx.font = '800 14px "PT Sans Narrow",Arial';
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
@@ -291,7 +296,6 @@
     return {pts: pts, baseX: baseX, baseY: baseY, or: or, stepCm: stepCm, edgeX: s.edgeX, edgeY: s.edgeY};
   }
 
-  /* Расчёт отступов размеров от розеток, чтобы не накладывались */
   function _zrzDrawSocketDims(ctx, x0, y0, pxW, pxH, sc3, d){
     if(!d.socketsMount || !Array.isArray(d.socketsList) || !d.socketsList.length) return;
     for(var i=0;i<d.socketsList.length;i++){
@@ -305,8 +309,6 @@
       var dx = Number(s.distX)||0;
       var dy = Number(s.distY)||0;
 
-      /* ─── X-размер: от края до центра базовой розетки ─── */
-      /* Вынос вниз, далеко от розеток: 40 px под самой нижней точкой */
       var minY = Math.min.apply(null, pts.map(function(p){return p.y;}));
       var maxY = Math.max.apply(null, pts.map(function(p){return p.y;}));
       var xDimY = maxY + 40;
@@ -316,8 +318,6 @@
         {x:edgeXpx, y:xDimY}, {x:baseX, y:xDimY},
         numFmt(dx)+' см', DIM_SOCKET_COLOR);
 
-      /* ─── Y-размер: от края до центра базовой розетки ─── */
-      /* Вынос вбок, на противоположную сторону от X, но дальше: 46 px */
       var minX = Math.min.apply(null, pts.map(function(p){return p.x;}));
       var maxX = Math.max.apply(null, pts.map(function(p){return p.x;}));
       var yDimX = (s.edgeX==='right') ? (minX - 46) : (maxX + 46);
@@ -327,10 +327,8 @@
         {x:yDimX, y:edgeYpx}, {x:yDimX, y:baseY},
         numFmt(dy)+' см', DIM_SOCKET_COLOR);
 
-      /* ─── Шаг: ещё дальше ─── */
       if(pts.length > 1){
         if(info.or === 'horizontal'){
-          /* Горизонтальные розетки: размер сверху или снизу, но выше X-размера */
           var yStep = (s.edgeY==='top') ? (maxY + 20) : (minY - 28);
           _zrzDimLineFull(ctx,
             {x:first.x, y:yStep > maxY ? maxY : minY},
@@ -338,7 +336,6 @@
             {x:first.x, y:yStep}, {x:last.x, y:yStep},
             'шаг '+numFmt(info.stepCm)+' см', DIM_SOCKET_COLOR);
         } else {
-          /* Вертикальные розетки: размер сбоку, дальше Y-размера */
           var xStep = (s.edgeX==='right') ? (maxX + 46 + 44) : (minX - 46 - 44);
           _zrzDimLineFull(ctx,
             {x:minX, y:first.y}, {x:minX, y:last.y},
@@ -359,12 +356,10 @@
       var baseY = (s.edgeY==='bottom')? (y0 + pxH - dy*sc3) : (y0 + dy*sc3);
       var edgeXpx = (s.edgeX==='right') ? (x0 + pxW) : x0;
       var edgeYpx = (s.edgeY==='top') ? y0 : (y0 + pxH);
-      /* X-размер — сверху от базы */
       _zrzDimLineFull(ctx,
         {x:edgeXpx, y:baseY - 6}, {x:baseX, y:baseY - 6},
         {x:edgeXpx, y:baseY - 46}, {x:baseX, y:baseY - 46},
         numFmt(dx)+' см', DIM_LIGHT_COLOR);
-      /* Y-размер — сбоку */
       var yDimX = (s.edgeX==='right') ? (baseX - 46) : (baseX + 46);
       _zrzDimLineFull(ctx,
         {x:baseX + (s.edgeX==='right' ? 6 : -6), y:edgeYpx}, {x:baseX + (s.edgeX==='right' ? 6 : -6), y:baseY},
@@ -474,6 +469,7 @@
     }
   }
 
+  /* UI болтов с настраиваемым отступом */
   function injectBoltUI(){
     var m = document.querySelector('.modal');
     if(!m) return;
@@ -482,6 +478,7 @@
     if(d.type!=='MIRROR' && d.type!=='APRON') return;
     var anchor = document.getElementById('calcBox');
     if(!anchor) return;
+    var off = getBoltOffset(d);
     var html = '<div id="zrz_bolt_block" style="margin-top:14px">'
       + '<div class="section-title" style="margin-top:0">🔩 Декоративные болты</div>'
       + '<div class="checkbox-row" style="background:linear-gradient(180deg,rgba(59,92,143,0.10),rgba(59,92,143,0.04));border:1.5px solid rgba(59,92,143,0.28)">'
@@ -494,22 +491,50 @@
       + '    <button type="button" class="chip" data-v="6">6 болтов · +верх/низ</button>'
       + '    <button type="button" class="chip" data-v="8">8 болтов · +лево/право</button>'
       + '  </div>'
-      + '  <div class="shower-hint" style="text-align:left;margin-top:6px">Отступ от угла — 5 см.</div>'
+      + '  <label style="margin-top:12px">Отступ от края, см</label>'
+      + '  <div class="chips" id="zrz_bolt_offset_presets" style="margin-bottom:6px">'
+      + '    <button type="button" class="chip" data-off="3">3</button>'
+      + '    <button type="button" class="chip" data-off="5">5</button>'
+      + '    <button type="button" class="chip" data-off="7">7</button>'
+      + '    <button type="button" class="chip" data-off="10">10</button>'
+      + '    <button type="button" class="chip" data-off="15">15</button>'
+      + '  </div>'
+      + '  <input id="zrz_bolt_offset_input" type="text" inputmode="decimal" placeholder="Своё значение, см" value="'+numFmt(off)+'">'
+      + '  <div class="shower-hint" style="text-align:left;margin-top:6px">От 1 до 30 см. Учитывается на чертеже.</div>'
       + '</div></div>';
     anchor.insertAdjacentHTML('beforebegin', html);
     var chk = document.getElementById('zrz_bolt_chk');
     var ww = document.getElementById('zrz_bolt_count_wrap');
     var chs = document.getElementById('zrz_bolt_chips');
+    var offs = document.getElementById('zrz_bolt_offset_presets');
+    var offInput = document.getElementById('zrz_bolt_offset_input');
     chk.checked = !!d.boltMount;
     ww.style.display = d.boltMount ? 'block' : 'none';
     var cnt = Number(d.boltCount) || 4;
     chs.querySelectorAll('.chip').forEach(function(c){ c.classList.toggle('active', Number(c.dataset.v)===cnt); });
+    offs.querySelectorAll('.chip').forEach(function(c){ c.classList.toggle('active', Number(c.dataset.off)===off); });
+
+    function setOffset(v){
+      v = parseFloat(String(v).replace(',','.'))||0;
+      if(v<1) v=1;
+      if(v>30) v=30;
+      if(window._editDraft){
+        window._editDraft.boltOffset = v;
+        if(offInput && document.activeElement !== offInput) offInput.value = numFmt(v);
+        offs.querySelectorAll('.chip').forEach(function(c){ c.classList.toggle('active', Number(c.dataset.off)===v); });
+      }
+      if(typeof saveDraft==='function') saveDraft();
+      if(typeof calcPreview==='function' && window._editDraft) calcPreview(window._editDraft);
+    }
+
     chk.onchange = function(){
       if(window._editDraft) window._editDraft.boltMount = chk.checked;
       ww.style.display = chk.checked ? 'block' : 'none';
-      if(chk.checked && !window._editDraft.boltCount) window._editDraft.boltCount = 4;
+      if(chk.checked){
+        if(!window._editDraft.boltCount) window._editDraft.boltCount = 4;
+        if(!window._editDraft.boltOffset) window._editDraft.boltOffset = 5;
+      }
       if(typeof saveDraft==='function') saveDraft();
-      if(typeof calcPreview==='function' && window._editDraft) calcPreview(window._editDraft);
     };
     chs.onclick = function(e){
       var c = e.target.closest('.chip');
@@ -518,11 +543,22 @@
       c.classList.add('active');
       if(window._editDraft) window._editDraft.boltCount = Number(c.dataset.v);
       if(typeof saveDraft==='function') saveDraft();
-      if(typeof calcPreview==='function' && window._editDraft) calcPreview(window._editDraft);
     };
+    offs.onclick = function(e){
+      var c = e.target.closest('.chip');
+      if(!c) return;
+      setOffset(Number(c.dataset.off));
+    };
+    if(offInput){
+      offInput.oninput = function(){ setOffset(offInput.value); };
+      offInput.onblur = function(){
+        var v = parseFloat(String(offInput.value).replace(',','.'))||0;
+        if(v<1) v=1; if(v>30) v=30;
+        offInput.value = numFmt(v);
+      };
+    }
   }
 
-  /* Чипы ориентации розеток — стабильная вставка */
   function injectSocketOrientationUI(){
     var box = document.getElementById('socketsList');
     if(!box) return;
@@ -593,6 +629,7 @@
         if(window._editDraft){
           r.boltMount = !!window._editDraft.boltMount;
           r.boltCount = Number(window._editDraft.boltCount)||4;
+          r.boltOffset = getBoltOffset(window._editDraft);
         }
       }catch(e){}
       return r;
@@ -612,7 +649,8 @@
           if(!src) return;
           if(src.boltMount){
             var cnt = Number(src.boltCount)||4;
-            it.rows.push({k:'🔩 Болты', v:cnt+' шт, Ø8 мм, отступ 5 см от углов'});
+            var off = getBoltOffset(src);
+            it.rows.push({k:'🔩 Болты', v:cnt+' шт, Ø8 мм, отступ '+numFmt(off)+' см от углов'});
           }
           if(src.socketsMount && Array.isArray(src.socketsList) && src.socketsList.length){
             var sockTxt = src.socketsList.map(function(s){
