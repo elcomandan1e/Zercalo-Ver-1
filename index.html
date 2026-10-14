@@ -1077,6 +1077,15 @@ html[data-theme="dark"] .fab-top{box-shadow:0 8px 22px rgba(0,0,0,0.55)}
 html[data-theme="dark"] .btn-row-action{box-shadow:0 6px 16px rgba(0,0,0,0.4)}
 
 .btn-row-action.btn-row-compact{padding:11px 16px;font-size:14px;margin:4px 0 12px;border-radius:14px}
+.addr-suggest-wrap{position:relative;margin-top:14px}
+.addr-suggest-wrap>label{margin-top:0}
+.addr-suggest-dd{display:none;position:relative;z-index:5;background:var(--surface);border:1.5px solid var(--line);border-radius:14px;box-shadow:0 8px 24px rgba(90,120,170,.18);max-height:280px;overflow-y:auto;margin-top:6px}
+.addr-suggest-dd .addr-item{padding:10px 14px;font-size:13.5px;line-height:1.4;cursor:pointer;color:var(--text);word-break:break-word}
+.addr-suggest-dd .addr-item+.addr-item{border-top:1px solid var(--line-soft)}
+.addr-suggest-dd .addr-item:active{background:var(--accent-soft)}
+.addr-suggest-dd .addr-empty{padding:12px 14px;color:var(--muted);font-size:13px;text-align:center}
+.addr-suggest-dd .addr-suggest-dadata{padding:6px 14px;font-size:10px;color:var(--muted-2);text-align:right;background:var(--line-soft);border-top:1px solid var(--line)}
+.addr-type-chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
 
 </style>
 
@@ -1341,6 +1350,17 @@ function frameInfo(k){return FRAME_COLORS.find(function(f){return f.key===k;})||
 
 
 var MOUNT_OPTIONS=['На герметик','На крепления','Свой вариант'];
+/* v4.1.0 — DaData + типы объектов + маска телефона */
+var DADATA_TOKEN='005cb73fc5aa0f5dafe3b816afb38130be66e39c';
+function _zrObj(){var o={};for(var i=0;i<arguments.length-1;i+=2){o[arguments[i]]=arguments[i+1];}return o;}
+var DADATA_LOCATIONS=[_zrObj('region','Москва'),_zrObj('region','Московская'),_zrObj('region','Владимирская'),_zrObj('region','Калужская'),_zrObj('region','Рязанская'),_zrObj('region','Смоленская'),_zrObj('region','Тверская'),_zrObj('region','Тульская'),_zrObj('region','Ярославская')];
+var OBJECT_TYPES=[_zrObj('key','flat','label','Квартира','ico','🏢'),_zrObj('key','house','label','Частный дом','ico','🏠'),_zrObj('key','snt','label','СНТ / Дача','ico','🌳'),_zrObj('key','office','label','Офис','ico','💼'),_zrObj('key','commercial','label','Коммерческое','ico','🏪')];
+function objectTypeInfo(k){for(var i=0;i<OBJECT_TYPES.length;i++){if(OBJECT_TYPES[i].key===k)return OBJECT_TYPES[i];}return null;}
+function objectTypeLabel(k){var o=objectTypeInfo(k);return o?o.label:'';}
+function maskPhoneInput(inp){if(!inp||inp.tagName!=='INPUT'||inp.type!=='tel')return;var v=String(inp.value||'');var digits=v.replace(/D/g,'');if(digits.length&&(digits.charAt(0)==='7'||digits.charAt(0)==='8'))digits=digits.slice(1);digits=digits.slice(0,10);var out='+7';if(digits.length>0)out+=' '+digits.slice(0,3);if(digits.length>3)out+=' '+digits.slice(3,6);if(digits.length>6)out+='-'+digits.slice(6,8);if(digits.length>8)out+='-'+digits.slice(8,10);if(inp.value!==out)inp.value=out;}
+document.addEventListener('input',function(e){var t=e.target;if(t&&t.tagName==='INPUT'&&t.type==='tel')maskPhoneInput(t);},true);
+document.addEventListener('focus',function(e){var t=e.target;if(t&&t.tagName==='INPUT'&&t.type==='tel'&&!String(t.value||'').trim())t.value='+7 ';},true);
+function setupAddrSuggest(){var inp=document.getElementById('af_addrSearch');var dd=document.getElementById('af_addrSearch_dd');if(!inp||!dd)return;var timer=null;function closeDd(){dd.style.display='none';dd.innerHTML='';}function renderList(list){if(!list.length){dd.innerHTML='<div class="addr-empty">Ничего не найдено</div>';dd.style.display='block';return;}var h='';for(var i=0;i<list.length;i++){h+='<div class="addr-item" data-i="'+i+'">'+esc(list[i].value)+'</div>';}h+='<div class="addr-suggest-dadata">подсказки: DaData</div>';dd.innerHTML=h;dd.style.display='block';dd.querySelectorAll('.addr-item').forEach(function(el){el.addEventListener('mousedown',function(ev){ev.preventDefault();var idx=parseInt(el.getAttribute('data-i'),10);pickSug(list[idx]);});});}function pickSug(s){var d=s.data||_zrObj();var form=inp.closest('.modal')||document;function setV(id,val){var el=form.querySelector('#'+id);if(el&&val!=null)el.value=String(val);}setV('af_region',d.region_with_type||d.region||'');setV('af_district',d.city_district_with_type||d.area_with_type||'');setV('af_settlement',d.settlement_with_type||'');setV('af_city',d.city||d.settlement||'');var street=(d.street_with_type||d.street||'').replace(/^(ул|пр-т|пр-кт|пер|шоссе|ш|б-р|наб|проезд|пл|аллея)s*.?s*/i,'');setV('af_street',street||d.street||'');setV('af_house',d.house||'');setV('af_building',d.block||'');setV('af_postalCode',d.postal_code||'');window._lastAddrGeo=_zrObj('lat',d.geo_lat?parseFloat(d.geo_lat):null,'lon',d.geo_lon?parseFloat(d.geo_lon):null,'postalCode',d.postal_code||'');inp.value=s.value||'';closeDd();}function fetchSug(q){if(!q||q.length<3){closeDd();return;}var url='https://suggestions.dadata.ru/suggestions/api/4_1/rs/suggest/address';var body=_zrObj('query',q,'count',10,'locations',DADATA_LOCATIONS);var headers=_zrObj('Content-Type','application/json','Accept','application/json','Authorization','Token '+DADATA_TOKEN);fetch(url,_zrObj('method','POST','headers',headers,'body',JSON.stringify(body))).then(function(r){return r.ok?r.json():null;}).then(function(j){if(!j||!j.suggestions)return;renderList(j.suggestions);}).catch(function(){closeDd();});}inp.addEventListener('input',function(){clearTimeout(timer);var q=String(inp.value||'').trim();if(q.length<3){closeDd();return;}timer=setTimeout(function(){fetchSug(q);},280);});inp.addEventListener('focus',function(){if(dd.innerHTML)dd.style.display='block';});inp.addEventListener('blur',function(){setTimeout(closeDd,180);});}
 
 var BACKLIGHT_OPTIONS=['Из-за зеркала','На зеркале','По периметру','По 3 сторонам (сверху и по бокам)','По 3 сторонам (снизу и по бокам)','По 2 вертикальным сторонам','По 2 горизонтальным сторонам','По левой стороне','По правой стороне','Снизу','Сверху'];
 
@@ -1960,7 +1980,15 @@ function migrateAddress(a){
   if(a.needPass==null)a.needPass=false;
 
   if(a.geoNote==null)a.geoNote='';
-
+  if(a.region==null)a.region='';
+  if(a.district==null)a.district='';
+  if(a.settlement==null)a.settlement='';
+  if(a.objectType==null)a.objectType='';
+  if(a.complexName==null)a.complexName='';
+  if(a.accessNote==null)a.accessNote='';
+  if(a.postalCode==null)a.postalCode='';
+  if(a.geoLat==null)a.geoLat=null;
+  if(a.geoLon==null)a.geoLon=null;
   if(a.createdAt==null)a.createdAt=Date.now();
 
   ensureUpdatedAt(a,a.createdAt);
@@ -2739,21 +2767,18 @@ function clientFullName(c){
 
 }
 
-function addressShort(a){if(!a)return '';return [a.city,a.street,a.house].filter(function(x){return x&&String(x).trim();}).join(', ');}
-
+function addressShort(a){if(!a)return '';var c=a.city||a.settlement||'';return [c,a.street,a.house].filter(function(x){return x&&String(x).trim();}).join(', ');}
 function addressFull(a){
-
   if(!a)return '';
-
   var p=[];
-
+  if(a.region)p.push(a.region);
+  if(a.district)p.push(a.district);
   if(a.city)p.push('г. '+a.city);
-
+  else if(a.settlement)p.push(a.settlement);
   if(a.street)p.push('ул. '+a.street);
-
   if(a.house)p.push('д. '+a.house);
-
   if(a.building)p.push('корп. '+a.building);
+  if(a.complexName)p.push('«'+a.complexName+'»');
 
   var s=p.join(', ');
 
@@ -3828,7 +3853,7 @@ function hasUnsavedModal(){return !!window._modalDirty;}
 
 async function closeModalWithConfirm(){if(hasUnsavedModal()){haptic(8);var ok=await uiConfirm('Есть несохранённые изменения.\n\nВыйти без сохранения?','Выход',{danger:true,yesLabel:'Выйти',noLabel:'Остаться'});if(!ok)return;try{if(typeof clearDraft==='function')clearDraft();}catch(e){}}window._modalDirty=false;closeModal();}
 
-function closeModal(){document.getElementById('modalRoot').innerHTML='';window._refreshModalSecNav=null;window._modalDirty=false;}
+function closeModal(){document.getElementById('modalRoot').innerHTML='';window._refreshModalSecNav=null;window._modalDirty=false;if(window._pendingRender){window._pendingRender=false;setTimeout(function(){try{render();}catch(e){__showErr('[pending render] '+(e.message||e));}},30);}}
 
 function initModalDrag(){var modal=document.querySelector('.modal');if(!modal)return;var h2=modal.querySelector('h2');if(!h2)return;var startY=0,curY=0,dragging=false,startTime=0;function onDown(e){var t=e.touches?e.touches[0]:e;startY=t.clientY;curY=startY;dragging=true;startTime=Date.now();modal.classList.add('dragging');modal.style.transition='none';document.addEventListener('mousemove',onMove);document.addEventListener('touchmove',onMove,{passive:false});document.addEventListener('mouseup',onUp);document.addEventListener('touchend',onUp);}function onMove(e){if(!dragging)return;var t=e.touches?e.touches[0]:e;curY=t.clientY;var dy=Math.max(0,curY-startY);modal.style.transform='translateY('+dy+'px)';e.preventDefault();}function onUp(){if(!dragging)return;dragging=false;var dy=curY-startY,dt=Date.now()-startTime;document.removeEventListener('mousemove',onMove);document.removeEventListener('touchmove',onMove);document.removeEventListener('mouseup',onUp);document.removeEventListener('touchend',onUp);modal.classList.remove('dragging');if(dy>120||(dy>40&&dt<250&&dy/dt>0.5)){modal.style.transform='translateY(120%)';setTimeout(function(){closeModal();},180);}else{modal.style.transform='translateY(0)';}}h2.style.cursor='grab';h2.addEventListener('mousedown',onDown);h2.addEventListener('touchstart',onDown,{passive:true});}
 
@@ -6387,7 +6412,8 @@ function updateShowerVisibility(d){
 
   var mcw=document.getElementById('mirror_color_number_wrap');if(mcw)mcw.style.display=(isMirror&&d.glass==='Состаренное')?'block':'none';
 
-  ['plinth_block','niche_block','sockets_block','cutout_block'].forEach(function(id){var el=document.getElementById(id);if(el)el.style.display=isShower?'none':'';});
+  ['plinth_block','niche_block'].forEach(function(id){var el=document.getElementById(id);if(el)el.style.display=(isShower||isApron)?'none':'';});
+  ['sockets_block','cutout_block'].forEach(function(id){var el=document.getElementById(id);if(el)el.style.display=isShower?'none':'';});
   var lightsBlock=document.getElementById('lights_block');
   if(lightsBlock){var _showLights=(d.type==='MIRROR'||d.type==='PANNO')&&!nonPlain;lightsBlock.style.display=_showLights?'':'none';}
 
@@ -9255,9 +9281,7 @@ async function wzSave(){
     liftNeeded:!!a.liftNeeded,liftFloor:a.liftFloor||0,parkingCarry:!!a.parkingCarry,needPass:!!a.needPass,
 
     paid:!!s.paid,paidAmount:s.paid?Number(s.paidAmount)||0:0,
-
-    createdAt:createdAt,updatedAt:createdAt,manualNum:false,
-
+    createdAt:createdAt,updatedAt:createdAt,
     clientNote:s.clientNote||'',orderNote:s.orderNote||'',masterComment:'',
 
     createdBy:db.currentUserId,status:'new',assignedUserIds:s.team.slice(),
@@ -10167,6 +10191,7 @@ function openAddressForm(clientId,addressId){
   var a=addressId?addressById(addressId):null;
 
   var d=a?{label:a.label||'',city:a.city||'',street:a.street||'',house:a.house||'',building:a.building||'',entrance:a.entrance||'',floor:a.floor||'',apartment:a.apartment||'',intercom:a.intercom||'',liftNeeded:!!a.liftNeeded,liftFloor:a.liftFloor||0,parkingCarry:!!a.parkingCarry,needPass:!!a.needPass,geoNote:a.geoNote||''}:{label:'',city:'',street:'',house:'',building:'',entrance:'',floor:'',apartment:'',intercom:'',liftNeeded:false,liftFloor:0,parkingCarry:false,needPass:false,geoNote:''};
+  ['region','district','settlement','postalCode','complexName','accessNote','objectType'].forEach(function(k){if(d[k]==null)d[k]=(a&&a[k]!=null)?a[k]:'';});
 
   var crumbs=c?'<div class="modal-crumbs"><span>'+esc(clientFullName(c))+'</span><span class="bc-sep">/</span><span class="bc-cur">Адрес</span></div>':'<div class="modal-crumbs"><span>Контрагент</span><span class="bc-sep">/</span><span class="bc-cur">Адрес</span></div>';
 
@@ -10174,14 +10199,18 @@ function openAddressForm(clientId,addressId){
 
     crumbs+
 
+    '<div class="addr-suggest-wrap"><label>🔍 Быстрый поиск адреса</label><input id="af_addrSearch" type="text" placeholder="Москва, Тверская 5 или ЖК Северный" autocomplete="off"><div class="addr-suggest-dd" id="af_addrSearch_dd"></div><div class="shower-hint" style="text-align:left;margin-top:4px">Начните вводить — выберите из подсказок, поля заполнятся сами.</div></div>'+
     '<label>Название (необязательно)</label><input id="af_label" value="'+esc(d.label)+'" placeholder="Квартира, Дача, Офис…">'+
-
-    '<div class="row2"><div><label>Город</label><input id="af_city" value="'+esc(d.city)+'"></div><div><label>Улица</label><input id="af_street" value="'+esc(d.street)+'"></div></div>'+
-
+    '<div class="row2"><div><label>Область / регион</label><input id="af_region" value="'+esc(d.region||'')+'" placeholder="Московская обл."></div><div><label>Район</label><input id="af_district" value="'+esc(d.district||'')+'"></div></div>'+
+    '<div class="row2"><div><label>Город</label><input id="af_city" value="'+esc(d.city)+'"></div><div><label>Населённый пункт / СНТ</label><input id="af_settlement" value="'+esc(d.settlement||'')+'"></div></div>'+
+    '<div class="row2"><div><label>Улица</label><input id="af_street" value="'+esc(d.street)+'"></div><div><label>Индекс</label><input id="af_postalCode" type="text" inputmode="numeric" value="'+esc(d.postalCode||'')+'"></div></div>'+
     '<div class="row2"><div><label>Дом</label><input id="af_house" value="'+esc(d.house)+'"></div><div><label>Корпус</label><input id="af_building" value="'+esc(d.building)+'"></div></div>'+
 
     '<div class="row3"><div><label>Подъезд</label><input id="af_entrance" value="'+esc(d.entrance)+'"></div><div><label>Этаж</label><input id="af_floor" value="'+esc(d.floor)+'"></div><div><label>Кв</label><input id="af_apartment" value="'+esc(d.apartment)+'"></div></div>'+
 
+    '<label>Тип объекта</label><div class="chips addr-type-chips" id="af_typeChips"></div>'+
+    '<label>Название ЖК / СНТ / КП</label><input id="af_complexName" value="'+esc(d.complexName||'')+'" placeholder="ЖК Северный, СНТ Берёзка, КП Лесной">'+
+    '<label>Как добраться / пропускной режим</label><textarea id="af_accessNote" rows="2" placeholder="Въезд со 2-го КПП, позвонить за 20 мин">'+esc(d.accessNote||'')+'</textarea>'+
     '<label>Домофон</label><input id="af_intercom" value="'+esc(d.intercom)+'">'+
 
     '<div class="checkbox-row"><input type="checkbox" id="af_lift" '+(d.liftNeeded?'checked':'')+'><label for="af_lift">Подъём</label></div>'+
@@ -10199,18 +10228,31 @@ function openAddressForm(clientId,addressId){
     '<button class="btn btn-secondary" onclick="closeModal()">Отмена</button>');
 
   var lc=document.getElementById('af_lift'),lw=document.getElementById('af_lift_wrap');
-
   if(lc)lc.onchange=function(){lw.style.display=lc.checked?'block':'none';};
-
+  window._afObjectType=d.objectType||'';
+  var tc=document.getElementById('af_typeChips');
+  if(tc){
+    tc.innerHTML=OBJECT_TYPES.map(function(o){return '<button type="button" class="chip '+(window._afObjectType===o.key?'active':'')+'" data-val="'+o.key+'">'+o.ico+' '+o.label+'</button>';}).join('');
+    tc.addEventListener('click',function(ev){
+      var b=ev.target.closest('.chip');
+      if(!b)return;
+      tc.querySelectorAll('.chip').forEach(function(x){x.classList.toggle('active',x===b);});
+      window._afObjectType=b.getAttribute('data-val')||'';
+    });
+  }
+  window._lastAddrGeo=(a&&a.geoLat&&a.geoLon)?_zrObj('lat',a.geoLat,'lon',a.geoLon,'postalCode',a.postalCode||''):null;
+  setupAddrSuggest();
 }
 
 async function saveAddressForm(clientId,addressId){
 
   if(!canManageAddresses()){uiAlert('Нет прав');return;}
 
-  var v=function(x){return (document.getElementById(x).value||'').trim();};
-
+  var v=function(x){var el=document.getElementById(x);return el?(el.value||'').trim():'';};
   var label=v('af_label'),city=v('af_city'),street=v('af_street'),house=v('af_house'),building=v('af_building'),entrance=v('af_entrance'),floor=v('af_floor'),apartment=v('af_apartment'),intercom=v('af_intercom'),geoNote=v('af_geoNote');
+  var region=v('af_region'),district=v('af_district'),settlement=v('af_settlement'),postalCode=v('af_postalCode'),complexName=v('af_complexName'),accessNote=v('af_accessNote');
+  var objectType=window._afObjectType||'';
+  var geo=window._lastAddrGeo||null;
 
   var liftNeeded=document.getElementById('af_lift').checked,liftFloor=parseInt(v('af_liftFloor'))||0,parkingCarry=document.getElementById('af_parking').checked,needPass=document.getElementById('af_pass').checked;
 
@@ -10224,13 +10266,16 @@ async function saveAddressForm(clientId,addressId){
 
     var a=addressById(addressId);if(!a){await uiAlert('Адрес не найден');return;}
 
-    a.label=label;a.city=city;a.street=street;a.house=house;a.building=building;a.entrance=entrance;a.floor=floor;a.apartment=apartment;a.intercom=intercom;a.liftNeeded=liftNeeded;a.liftFloor=liftFloor;a.parkingCarry=parkingCarry;a.needPass=needPass;a.geoNote=geoNote;touch(a);
+    a.label=label;a.region=region;a.district=district;a.settlement=settlement;a.city=city;a.street=street;a.house=house;a.building=building;a.entrance=entrance;a.floor=floor;a.apartment=apartment;a.intercom=intercom;a.postalCode=postalCode;a.complexName=complexName;a.accessNote=accessNote;a.objectType=objectType;a.liftNeeded=liftNeeded;a.liftFloor=liftFloor;a.parkingCarry=parkingCarry;a.needPass=needPass;a.geoNote=geoNote;if(geo){a.geoLat=geo.lat;a.geoLon=geo.lon;}touch(a);
 
   }else{
 
     createdId=db.nextAddress++;
 
-    db.addresses.push({id:createdId,clientId:clientId||null,label:label,city:city,street:street,house:house,building:building,entrance:entrance,floor:floor,apartment:apartment,intercom:intercom,liftNeeded:liftNeeded,liftFloor:liftFloor,parkingCarry:parkingCarry,needPass:needPass,geoNote:geoNote,createdAt:Date.now(),updatedAt:Date.now()});
+    var na={id:createdId,clientId:clientId||null,label:label,city:city,street:street,house:house,building:building,entrance:entrance,floor:floor,apartment:apartment,intercom:intercom,liftNeeded:liftNeeded,liftFloor:liftFloor,parkingCarry:parkingCarry,needPass:needPass,geoNote:geoNote,createdAt:Date.now(),updatedAt:Date.now()};
+    na.region=region;na.district=district;na.settlement=settlement;na.postalCode=postalCode;na.complexName=complexName;na.accessNote=accessNote;na.objectType=objectType;
+    if(geo){na.geoLat=geo.lat;na.geoLon=geo.lon;}
+    db.addresses.push(na);
 
   }
 
@@ -10773,9 +10818,8 @@ function openEventForm(dateYmd,eventId,presetOrderId){
   showModal(html);
 
   window._evType=d.type;
-
   window._evTeam=d.assignedUserIds.slice();
-
+  window._evLeg=e&&e.legFromPrev?{km:Number(e.legFromPrev.km)||0,minutes:Number(e.legFromPrev.minutes)||0}:null;
   window._evTeamToggle=function(uid,btn){
 
     var idx=window._evTeam.indexOf(uid);
@@ -14853,9 +14897,18 @@ function syncEnsureDefaults(){
       /* При самом первом запуске (lastPushAt=0) отправляем свою локальную базу в Firebase. */
 
       if(!db.sync.lastPushAt){
-
-        setTimeout(function(){ fbPushAll().catch(function(){}); },1500);
-
+        setTimeout(function(){
+          _fbDbRef.once('value').then(function(snap){
+            var remote=snap.val();
+            if(remote){
+              _fbApplyingRemote=true;
+              try{applySyncPayload(remote);}finally{setTimeout(function(){_fbApplyingRemote=false;},300);}
+              db.sync.lastPullAt=Date.now();
+              save();
+            }
+            return fbPushAll();
+          }).catch(function(){fbPushAll().catch(function(){});});
+        },1500);
       }
 
     }catch(e){
@@ -14895,19 +14948,14 @@ function _fbSubscribe(){
     try{
 
       applySyncPayload(remote);
-
       db.sync.lastPullAt=Date.now();
-
       save();
-
-      if(typeof render==='function'){try{render();}catch(e){}}
-
+      var _mOpen=!!document.querySelector('.modal-bg');
+      if(_mOpen){window._pendingRender=true;}
+      else if(typeof render==='function'){try{render();}catch(e){__showErr('[sync] '+(e.message||e));}}
     }finally{
-
       setTimeout(function(){ _fbApplyingRemote=false; },300);
-
     }
-
   },function(err){
 
     db.sync.status='error';
@@ -15744,7 +15792,7 @@ function renderAuth(){
 
 /* ============ ВЕРСИЯ / BOOT ============ */
 
-var APP_VERSION='4.0.1';
+var APP_VERSION='4.1.0';/* ZRZ410_DADATA *//* ZRZ40FIX_APPLIED */
 
 var SCHEMA_BUILD='17/notifications/roles/sync/auto-token/rounded/backlight-facet/manual-num/measure-date/event-types/fab-top/cta/back-guard/inline-actions/cad-mirror/cutout-sockets/header-mark/driver-tab/push/morning/test-stand/docs/firebase-security/home-dashboard/order-payment/events-duration-osrm-workload/lights/docs-v4';
 
