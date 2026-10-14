@@ -386,3 +386,113 @@
 
   try{ console.log('[07-gestures p1] свайпы навигации — безопасная версия активна'); }catch(_){}
 })();
+/* ============================================================
+   v7.0.1 · Тап по эмблеме → боковое меню
+   · Одиночный тап по логотипу в шапке → открывается Drawer
+   · Долгий тап по логотипу остаётся → Command Palette (06-nav)
+   · Тап по ⌘ остаётся → Command Palette
+   · Свайп от левого края остаётся → Drawer
+   Работает с любой страницы — логотип всегда в шапке.
+   ============================================================ */
+(function(){
+  if(window._zrz07LogoTap) return;
+  window._zrz07LogoTap = true;
+
+  var TAP_MAX_MS = 500;  /* тап короче 500мс → drawer */
+  var MOVE_TOL   = 12;   /* смещение < 12px = не свайп, а тап */
+
+  function openDrawerSafe(){
+    try {
+      /* Не открываем, если показан экран входа */
+      if(document.getElementById('authScreen')) return;
+      if(typeof window.zrzOpenDrawer === 'function') window.zrzOpenDrawer();
+    }catch(e){}
+  }
+
+  function bindLogoTap(){
+    var logo = document.getElementById('headerLogo');
+    if(!logo || logo.dataset.drawerTapBound) return;
+    logo.dataset.drawerTapBound = '1';
+
+    var startX = 0, startY = 0, startT = 0;
+    var moved = false, active = false;
+
+    function begin(x, y){
+      startX = x; startY = y;
+      startT = Date.now();
+      moved = false;
+      active = true;
+    }
+    function move(x, y){
+      if(!active || moved) return;
+      if(Math.hypot(x - startX, y - startY) > MOVE_TOL) moved = true;
+    }
+    function end(){
+      if(!active) return;
+      active = false;
+      var dt = Date.now() - startT;
+      if(moved || dt > TAP_MAX_MS) return;
+      /* Проверяем что тап не по кнопке ⌘ */
+      try { if(typeof haptic === 'function') haptic(6); }catch(_){}
+      openDrawerSafe();
+    }
+    function cancel(){ active = false; moved = true; }
+
+    /* Игнорируем тап если клик был по внутренней кнопке (например ⌘) */
+    function shouldIgnore(target){
+      return !!(target && target.closest && target.closest('button'));
+    }
+
+    if(window.PointerEvent){
+      logo.addEventListener('pointerdown', function(e){
+        if(e.button && e.button !== 0) return;
+        if(shouldIgnore(e.target)) return;
+        begin(e.clientX, e.clientY);
+      });
+      logo.addEventListener('pointermove', function(e){
+        move(e.clientX, e.clientY);
+      });
+      logo.addEventListener('pointerup', end);
+      logo.addEventListener('pointercancel', cancel);
+      logo.addEventListener('pointerleave', cancel);
+      return;
+    }
+
+    logo.addEventListener('touchstart', function(e){
+      if(e.touches.length !== 1) return;
+      if(shouldIgnore(e.target)) return;
+      begin(e.touches[0].clientX, e.touches[0].clientY);
+    }, {passive:true});
+    logo.addEventListener('touchmove', function(e){
+      if(e.touches.length !== 1) return;
+      move(e.touches[0].clientX, e.touches[0].clientY);
+    }, {passive:true});
+    logo.addEventListener('touchend', end);
+    logo.addEventListener('touchcancel', cancel);
+
+    /* Desktop fallback */
+    logo.addEventListener('mousedown', function(e){
+      if(shouldIgnore(e.target)) return;
+      begin(e.clientX, e.clientY);
+    });
+    logo.addEventListener('mousemove', function(e){ move(e.clientX, e.clientY); });
+    logo.addEventListener('mouseup', end);
+    logo.addEventListener('mouseleave', cancel);
+  }
+
+  function apply(){
+    try { bindLogoTap(); }catch(e){}
+  }
+
+  if(document.body) apply();
+  else document.addEventListener('DOMContentLoaded', apply, {once:true});
+  setTimeout(apply, 500);
+  setTimeout(apply, 1500);
+
+  var _iv = setInterval(function(){
+    try { bindLogoTap(); }catch(e){}
+  }, 2000);
+  setTimeout(function(){ clearInterval(_iv); }, 90000);
+
+  try{ console.log('[07-gestures v7.0.1] тап по логотипу → drawer активен'); }catch(_){}
+})();
