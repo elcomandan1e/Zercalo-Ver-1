@@ -13715,9 +13715,9 @@ var ZRZ_DOCS={
 
 'расчёт зеркал/стекла/душевых/фартуков/панно, технические чертежи A4,',
 
-'клиенты, адреса, события (замер/дозамер/монтаж/доставка/закупка),',
-
-'маршруты водителей, контрагенты, уведомления, оплата заказа.',
+'клиенты, адреса, события (замер / дозамер / монтаж / демонтаж / доставка / закупка / возврат / закалка / встреча),',
+'маршруты водителей, контрагенты, уведомления, оплата заказа,',
+'светильники (бра) для зеркал и панно.',
 
 '',
 
@@ -13730,6 +13730,14 @@ var ZRZ_DOCS={
 '- 📅 Календарь — события и маршруты.',
 
 '- ☰ Ещё — контрагенты, отчёты, пользователи, настройки.',
+'',
+'## Ключевые фичи',
+'- 10 типов событий с авторасчётом длительности.',
+'- Светильники (бра) с X/Y и привязкой к краям.',
+'- Оплата заказа: сумма, оплачено, к доплате.',
+'- Чертёж A4: изометрия, размеры, розетки, светильники.',
+'- Расчёт расстояний Nominatim + OSRM.',
+'- Синхронизация Firebase с Anonymous Auth.',
 
 '',
 
@@ -13988,7 +13996,7 @@ var ZRZ_DOCS={
 '- cutoutShape: rect|circle, cutoutW, cutoutH',
 
 '- socketsMount, socketsList: [{count, step, distX, distY, edgeX, edgeY}]',
-
+'- lightsMount (bool), lightsList: [{distX, distY, edgeX, edgeY}] — бра для MIRROR/PANNO',
 '- cutV, cutVPos, cutH, cutHPos (линии реза)',
 
 '- mirrorMeasureMode: glass|niche|both, mirrorInset, mirrorNicheCutMode, mirrorNicheRefCorner',
@@ -14022,10 +14030,9 @@ var ZRZ_DOCS={
 '',
 
 '## db.events — события',
-
-'- id, type: measure|remeasure|install|delivery|purchase',
-
+'- id, type: measure|remeasure|install|demontage|delivery|purchase|return|tempering_out|tempering_in|meeting',
 '- orderId, date, time, duration',
+'- legFromPrev: {km, minutes} — расстояние до предыдущей точки',
 
 '- assignedUserIds: [], note',
 
@@ -14083,8 +14090,12 @@ var ZRZ_DOCS={
 
 '',
 
+'## db.settings',
+'- phone, email, website, telegram, slogan',
+'- baseAddress — «🏠 Адрес базы» для расчёта расстояний',
+'- prices: {mirrorM2, glassM2, edgeM, electroEach}',
+'',
 '## Константы',
-
 '- SCHEMA_VERSION (int) — версия схемы, для миграций',
 
 '- APP_VERSION — версия релиза',
@@ -14124,8 +14135,10 @@ var ZRZ_DOCS={
 'Ветка zerzalo в Realtime Database содержит:',
 
 '- Все заказы, позиции, клиенты, адреса, события.',
-
 '- Маршруты, контрагенты, уведомления.',
+'- Сумма заказа и оплата (orderTotal, orderPaid).',
+'- Параметры светильников (lightsList, lightsMount).',
+'- Адрес базы для расчёта расстояний.',
 
 '- Сумма заказа и оплата (orderTotal, orderPaid).',
 
@@ -15731,9 +15744,9 @@ function renderAuth(){
 
 /* ============ ВЕРСИЯ / BOOT ============ */
 
-var APP_VERSION='2.1.19';
+var APP_VERSION='4.0.1';
 
-var SCHEMA_BUILD='17/notifications/roles/sync/auto-token/rounded/backlight-facet/manual-num/measure-date/event-types/fab-top/cta/back-guard/inline-actions/cad-mirror/cutout-sockets/header-mark/driver-tab/push/morning/test-stand/docs/firebase-security/home-dashboard/order-payment/events-duration-osrm-workload';
+var SCHEMA_BUILD='17/notifications/roles/sync/auto-token/rounded/backlight-facet/manual-num/measure-date/event-types/fab-top/cta/back-guard/inline-actions/cad-mirror/cutout-sockets/header-mark/driver-tab/push/morning/test-stand/docs/firebase-security/home-dashboard/order-payment/events-duration-osrm-workload/lights/docs-v4';
 
 
 
