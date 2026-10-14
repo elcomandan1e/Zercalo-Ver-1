@@ -1086,6 +1086,16 @@ html[data-theme="dark"] .btn-row-action{box-shadow:0 6px 16px rgba(0,0,0,0.4)}
 .addr-suggest-dd .addr-empty{padding:12px 14px;color:var(--muted);font-size:13px;text-align:center}
 .addr-suggest-dd .addr-suggest-dadata{padding:6px 14px;font-size:10px;color:var(--muted-2);text-align:right;background:var(--line-soft);border-top:1px solid var(--line)}
 .addr-type-chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.price-group-nav{display:flex;gap:6px;overflow-x:auto;padding:6px;background:var(--accent-soft);border-radius:14px;margin:8px 0 12px;scrollbar-width:none}
+.price-group-nav::-webkit-scrollbar{display:none}
+.price-group-nav .chip{flex-shrink:0}
+.price-section{margin-bottom:14px}
+.price-section-title{font-size:12px;font-weight:700;color:var(--accent-deep);text-transform:uppercase;letter-spacing:0.5px;margin:10px 0 6px}
+.price-row{display:flex;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line-soft)}
+.price-row:last-child{border-bottom:none}
+.price-row .plabel{flex:1;font-size:14px;color:var(--text);font-weight:600;line-height:1.35}
+.price-row .plabel .punit{font-size:11px;color:var(--muted);font-weight:500;display:block;margin-top:2px}
+.price-row input{width:110px;padding:9px 12px;font-size:14px;margin-top:0;text-align:right;font-family:var(--font-mono)}
 
 </style>
 
@@ -1355,6 +1365,47 @@ var DADATA_TOKEN='005cb73fc5aa0f5dafe3b816afb38130be66e39c';
 function _zrObj(){var o={};for(var i=0;i<arguments.length-1;i+=2){o[arguments[i]]=arguments[i+1];}return o;}
 var DADATA_LOCATIONS=[_zrObj('region','Москва'),_zrObj('region','Московская'),_zrObj('region','Владимирская'),_zrObj('region','Калужская'),_zrObj('region','Рязанская'),_zrObj('region','Смоленская'),_zrObj('region','Тверская'),_zrObj('region','Тульская'),_zrObj('region','Ярославская')];
 var OBJECT_TYPES=[_zrObj('key','flat','label','Квартира','ico','🏢'),_zrObj('key','house','label','Частный дом','ico','🏠'),_zrObj('key','snt','label','СНТ / Дача','ico','🌳'),_zrObj('key','office','label','Офис','ico','💼'),_zrObj('key','commercial','label','Коммерческое','ico','🏪')];
+var PRICE_BOOK_DEFAULT=JSON.parse('{"version":1,"groups":[{"key":"mirror","label":"Зеркала","ico":"🪞","items":[{"key":"base_silver_4","label":"Базовое зеркало, серебро 4 мм","unit":"руб/м2","price":0},{"key":"base_silver_6","label":"Зеркало серебро 6 мм","unit":"руб/м2","price":0},{"key":"base_silver_8","label":"Зеркало серебро 8 мм","unit":"руб/м2","price":0},{"key":"base_clear","label":"Осветлённое зеркало","unit":"руб/м2","price":0},{"key":"base_graphit","label":"Графит","unit":"руб/м2","price":0},{"key":"base_bronze","label":"Бронза","unit":"руб/м2","price":0},{"key":"base_vintage","label":"Состаренное","unit":"руб/м2","price":0},{"key":"edge_polish","label":"Полировка кромки","unit":"руб/пог.м","price":0},{"key":"edge_facet","label":"Фацет","unit":"руб/пог.м","price":0},{"key":"corner_round","label":"Скругление угла","unit":"руб/шт","price":0},{"key":"backlight_behind","label":"Подсветка из-за зеркала","unit":"руб/пог.м","price":0},{"key":"backlight_on","label":"Подсветка на зеркале","unit":"руб/пог.м","price":0},{"key":"socket_mount","label":"Розетка (монтаж)","unit":"руб/шт","price":0},{"key":"light_fixture","label":"Светильник (бра)","unit":"руб/шт","price":0},{"key":"cutout_rect","label":"Вырез прямоугольный","unit":"руб/шт","price":0},{"key":"cutout_circle","label":"Вырез круглый","unit":"руб/шт","price":0},{"key":"switch_button","label":"Кнопка-выключатель","unit":"руб/шт","price":0},{"key":"transformer","label":"Трансформатор","unit":"руб/шт","price":0},{"key":"plinth","label":"Плинтус","unit":"руб/пог.м","price":0}]},{"key":"shower","label":"Душевые","ico":"🚿","items":[{"key":"base_6","label":"Стекло 6 мм","unit":"руб/м2","price":0},{"key":"base_8","label":"Стекло 8 мм","unit":"руб/м2","price":0},{"key":"base_10","label":"Стекло 10 мм","unit":"руб/м2","price":0},{"key":"matte","label":"Матовое","unit":"руб/м2","price":0},{"key":"moru","label":"Moru","unit":"руб/м2","price":0},{"key":"bronze","label":"Бронза","unit":"руб/м2","price":0},{"key":"graphit","label":"Графит","unit":"руб/м2","price":0},{"key":"hinge","label":"Петля","unit":"руб/шт","price":0},{"key":"handle_knob","label":"Ручка-кноб","unit":"руб/шт","price":0},{"key":"handle_bow","label":"Ручка-скоба","unit":"руб/шт","price":0},{"key":"handle_bar","label":"Рейлинг","unit":"руб/шт","price":0},{"key":"profile_wall","label":"Профиль к стене","unit":"руб/пог.м","price":0},{"key":"profile_magnet","label":"Магнитный профиль","unit":"руб/шт","price":0},{"key":"profile_a","label":"А-шка","unit":"руб/шт","price":0},{"key":"profile_corner","label":"Угловой профиль","unit":"руб/шт","price":0},{"key":"rod_stabilizer","label":"Штанга-стабилизатор","unit":"руб/шт","price":0},{"key":"threshold","label":"Порог","unit":"руб/шт","price":0},{"key":"tray","label":"Поддон","unit":"руб/шт","price":0}]},{"key":"apron","label":"Фартуки","ico":"🍳","items":[{"key":"base_clear","label":"Стекло прозрачное","unit":"руб/м2","price":0},{"key":"base_colored","label":"Стекло крашеное","unit":"руб/м2","price":0},{"key":"base_mirror","label":"Зеркало","unit":"руб/м2","price":0},{"key":"edge_polish","label":"Обработка кромки","unit":"руб/пог.м","price":0}]},{"key":"panno","label":"Панно","ico":"🖼","items":[{"key":"base","label":"Базовое панно","unit":"руб/м2","price":0},{"key":"complex_layout","label":"Надбавка: сложная разбивка","unit":"руб/м2","price":0},{"key":"overlay","label":"Накладной элемент","unit":"руб/шт","price":0}]},{"key":"shelf","label":"Полки","ico":"🗄","items":[{"key":"base","label":"Полка стеклянная","unit":"руб/м2","price":0},{"key":"bracket","label":"Кронштейн","unit":"руб/шт","price":0}]},{"key":"works","label":"Работы и логистика","ico":"🚚","items":[{"key":"measure_mkad","label":"Замер в пределах МКАД","unit":"руб/выезд","price":0},{"key":"measure_30","label":"Замер до 30 км от МКАД","unit":"руб/выезд","price":0},{"key":"measure_60","label":"Замер до 60 км от МКАД","unit":"руб/выезд","price":0},{"key":"measure_far","label":"Замер свыше 60 км от МКАД","unit":"руб/выезд","price":0},{"key":"install_mirror","label":"Монтаж зеркала","unit":"руб/шт","price":0},{"key":"install_shower","label":"Монтаж душевой","unit":"руб/шт","price":0},{"key":"install_apron","label":"Монтаж фартука","unit":"руб/м2","price":0},{"key":"install_panno","label":"Монтаж панно","unit":"руб/шт","price":0},{"key":"demontage","label":"Демонтаж","unit":"руб/шт","price":0},{"key":"delivery_km","label":"Доставка","unit":"руб/км","price":0},{"key":"lift_floor","label":"Подъём на этаж","unit":"руб/этаж","price":0}]},{"key":"markup","label":"Наценки / скидки","ico":"💯","items":[{"key":"urgent","label":"Срочность","unit":"%","price":0},{"key":"seasonal","label":"Сезонная скидка","unit":"%","price":0},{"key":"large_order","label":"Крупный заказ","unit":"%","price":0}]}]}');
+function _zrDeepClone(o){return JSON.parse(JSON.stringify(o));}
+function ensurePriceBook(){
+  if(!db.settings)db.settings={};
+  if(!db.settings.priceBook||typeof db.settings.priceBook!=='object'||!Array.isArray(db.settings.priceBook.groups)){
+    db.settings.priceBook=_zrDeepClone(PRICE_BOOK_DEFAULT);
+    db.settings.priceBook.updatedAt=Date.now();
+  } else {
+    /* Дозаполнить недостающие группы/позиции, если прайс частично есть. */
+    var def=_zrDeepClone(PRICE_BOOK_DEFAULT);
+    for(var i=0;i<def.groups.length;i++){
+      var dg=def.groups[i];
+      var ex=null;
+      for(var j=0;j<db.settings.priceBook.groups.length;j++){if(db.settings.priceBook.groups[j].key===dg.key){ex=db.settings.priceBook.groups[j];break;}}
+      if(!ex){db.settings.priceBook.groups.push(dg);continue;}
+      for(var k=0;k<dg.items.length;k++){
+        var di=dg.items[k];
+        var found=false;
+        for(var m=0;m<ex.items.length;m++){if(ex.items[m].key===di.key){found=true;break;}}
+        if(!found)ex.items.push(di);
+      }
+    }
+  }
+  return db.settings.priceBook;
+}
+function getPriceBook(){return ensurePriceBook();}
+function setPriceVal(groupKey,itemKey,val){
+  var pb=ensurePriceBook();
+  for(var i=0;i<pb.groups.length;i++){
+    if(pb.groups[i].key!==groupKey)continue;
+    for(var j=0;j<pb.groups[i].items.length;j++){
+      if(pb.groups[i].items[j].key!==itemKey)continue;
+      var n=parseFloat(String(val==null?'':val).replace(',','.'))||0;
+      if(n<0)n=0;
+      pb.groups[i].items[j].price=n;
+      pb.updatedAt=Date.now();
+      return true;
+    }
+  }
+  return false;
+}
 function objectTypeInfo(k){for(var i=0;i<OBJECT_TYPES.length;i++){if(OBJECT_TYPES[i].key===k)return OBJECT_TYPES[i];}return null;}
 function objectTypeLabel(k){var o=objectTypeInfo(k);return o?o.label:'';}
 function maskPhoneInput(inp){if(!inp||inp.tagName!=='INPUT'||inp.type!=='tel')return;var v=String(inp.value||'');var digits=v.replace(/D/g,'');if(digits.length&&(digits.charAt(0)==='7'||digits.charAt(0)==='8'))digits=digits.slice(1);digits=digits.slice(0,10);var out='+7';if(digits.length>0)out+=' '+digits.slice(0,3);if(digits.length>3)out+=' '+digits.slice(3,6);if(digits.length>6)out+='-'+digits.slice(6,8);if(digits.length>8)out+='-'+digits.slice(8,10);if(inp.value!==out)inp.value=out;}
@@ -8138,8 +8189,9 @@ function renderMoreTab(){
 
     workBtns+='<button class="btn btn-secondary" onclick="activeTab=\'contractors\';render();window.scrollTo(0,0)">🏢 Контрагенты ('+db.contractors.filter(function(c){return !c.archived;}).length+')</button>';
 
+  if(userCan('orders.pricing'))
+    workBtns+='<button class="btn btn-secondary" onclick="openPriceBook()">📋 Прайс-лист</button>';
   if(canViewReports())
-
     workBtns+='<button class="btn btn-secondary" onclick="openReports()">📊 Отчёты</button>';
 
   if(canViewTrash())
@@ -15575,21 +15627,10 @@ function openSettings(){
   /* Прайс-лист (ЭТАП 2). */
 
   if(userCan('orders.pricing')){
-
-    html+='<div class="section-title">Прайс-лист (₽)</div>';
-
-    html+='<div style="font-size:12px;color:var(--muted);margin:6px 0 10px;line-height:1.5">Используется для ориентировочной стоимости в заказе. Можно оставить пустым.</div>';
-
-    html+='<div class="price-row"><span class="plabel">💰 Зеркало, ₽/м²</span><input id="p_mirror_m2" type="text" inputmode="decimal" value="'+(s.prices&&s.prices.mirrorM2?numFmt(s.prices.mirrorM2):'')+'"></div>';
-
-    html+='<div class="price-row"><span class="plabel">🚿 Стекло, ₽/м²</span><input id="p_glass_m2" type="text" inputmode="decimal" value="'+(s.prices&&s.prices.glassM2?numFmt(s.prices.glassM2):'')+'"></div>';
-
-    html+='<div class="price-row"><span class="plabel">✂️ Обработка, ₽/пог.м</span><input id="p_edge_m" type="text" inputmode="decimal" value="'+(s.prices&&s.prices.edgeM?numFmt(s.prices.edgeM):'')+'"></div>';
-
-    html+='<div class="price-row"><span class="plabel">⚡ Электрика, ₽/шт</span><input id="p_electro_each" type="text" inputmode="decimal" value="'+(s.prices&&s.prices.electroEach?numFmt(s.prices.electroEach):'')+'"></div>';
-
-    html+='<button class="btn btn-secondary" onclick="savePrices()">💾 Сохранить прайс</button>';
-
+    html+='<div class="section-title">Прайс-лист</div>';
+    var _pbf=_priceBookFilled();
+    html+='<div style="font-size:12px;color:var(--muted);margin:6px 0 10px;line-height:1.5">Полный конструктор цен. Заполнено: <b>'+_pbf.filled+' из '+_pbf.total+'</b>.</div>';
+    html+='<button class="btn btn-secondary" onclick="closeModal();openPriceBook()">📋 Открыть прайс-лист</button>';
   }
 
   if(canManageUsers())html+='<div class="section-title">Управление</div><div style="color:#8894a9;font-size:13px;margin:6px 0 10px">Заказов: <b>'+orderCount+'</b> • Позиций: <b>'+itemCount+'</b> • Клиентов: <b>'+db.clients.length+'</b></div><button class="btn btn-secondary" onclick="closeModal();openUsers()">👥 Пользователи ('+db.users.filter(function(u){return u.active;}).length+')</button><button class="btn btn-secondary" onclick="closeModal();openRolesSettings()">⚙️ Роли и права</button>';
@@ -15620,6 +15661,92 @@ function openSettings(){
 
 function saveSettings(){db.settings=db.settings||{};db.settings.phone=(document.getElementById('s_phone').value||'').trim();db.settings.email=(document.getElementById('s_email').value||'').trim();db.settings.website=(document.getElementById('s_website').value||'').trim();db.settings.telegram=(document.getElementById('s_telegram').value||'').trim();db.settings.slogan=(document.getElementById('s_slogan').value||'').trim();var _ba=document.getElementById('s_baseAddress');if(_ba)db.settings.baseAddress=(_ba.value||'').trim();db.settings.updatedAt=Date.now();save();closeModal();render();}
 
+var _priceSaveTimer=null;
+function _priceScheduleSave(){if(_priceSaveTimer)clearTimeout(_priceSaveTimer);_priceSaveTimer=setTimeout(function(){try{save();}catch(e){}},450);}
+function openPriceBook(){
+  if(!userCan('orders.pricing')){uiAlert('Нет прав');return;}
+  if(!window._priceGroup)window._priceGroup='mirror';
+  renderPriceBook();
+}
+function switchPriceGroup(k){window._priceGroup=k;renderPriceBook();}
+function renderPriceBook(){
+  ensurePriceBook();
+  var pb=getPriceBook();
+  var gk=window._priceGroup;
+  var g=null;
+  for(var i=0;i<pb.groups.length;i++){if(pb.groups[i].key===gk){g=pb.groups[i];break;}}
+  if(!g){g=pb.groups[0];gk=g.key;window._priceGroup=gk;}
+  var html='<h2>'+LOGO_MARK(30)+' Прайс-лист</h2>';
+  html+='<div class="draft-notice">Заполняйте цены по мере необходимости. Пустое = 0. Автосохранение.</div>';
+  html+='<div class="price-group-nav">';
+  pb.groups.forEach(function(gg){
+    html+='<button type="button" class="chip '+(gg.key===gk?'active':'')+'" onclick="switchPriceGroup(&#39;'+gg.key+'&#39;)">'+gg.ico+' '+esc(gg.label)+'</button>';
+  });
+  html+='</div>';
+  html+='<div style="max-height:52vh;overflow-y:auto;padding-right:2px">';
+  html+='<div class="price-section"><div class="price-section-title">'+g.ico+' '+esc(g.label)+'</div>';
+  g.items.forEach(function(it){
+    var val=it.price?numFmt(it.price):'';
+    html+='<div class="price-row"><span class="plabel">'+esc(it.label)+'<span class="punit">'+esc(it.unit)+'</span></span><input type="text" inputmode="decimal" value="'+val+'" placeholder="0" oninput="onPriceInput(&#39;'+g.key+'&#39;,&#39;'+it.key+'&#39;,this.value)"></div>';
+  });
+  html+='</div></div>';
+  var total=_priceBookFilled();
+  html+='<div class="draft-notice" style="margin-top:10px">Заполнено позиций: <b>'+total.filled+' из '+total.total+'</b></div>';
+  html+='<button class="btn btn-secondary" onclick="priceExportJSON()">📤 Экспорт JSON</button>';
+  html+='<button class="btn btn-secondary" onclick="priceImportJSON()">📥 Импорт JSON</button>';
+  html+='<button class="btn btn-secondary" onclick="priceClearAll()">🗑 Обнулить все цены</button>';
+  html+='<button class="btn btn-primary" onclick="save();closeModal();render()">Готово</button>';
+  showModal(html);
+}
+function _priceBookFilled(){
+  var pb=getPriceBook();
+  var total=0,filled=0;
+  pb.groups.forEach(function(g){g.items.forEach(function(it){total++;if(Number(it.price)>0)filled++;});});
+  return {total:total,filled:filled};
+}
+function onPriceInput(gk,ik,v){
+  if(setPriceVal(gk,ik,v))_priceScheduleSave();
+}
+function priceExportJSON(){
+  try{
+    var pb=getPriceBook();
+    var txt=JSON.stringify(pb,null,2);
+    if(navigator.clipboard&&navigator.clipboard.writeText){
+      navigator.clipboard.writeText(txt).then(function(){uiAlert('Прайс скопирован в буфер.');},function(){uiAlert(txt);});
+    } else uiAlert(txt);
+  }catch(e){uiAlert('Ошибка экспорта');}
+}
+function priceImportJSON(){
+  showModal('<h2>'+LOGO_MARK(30)+' Импорт прайса</h2>'+
+    '<div class="draft-notice">Вставь JSON прайса (из экспорта). Заменит текущие цены.</div>'+
+    '<textarea id="pb_import" rows="10" placeholder="Вставь JSON..."></textarea>'+
+    '<button class="btn btn-primary" onclick="priceDoImport()">Импортировать</button>'+
+    '<button class="btn btn-secondary" onclick="renderPriceBook()">Отмена</button>');
+}
+function priceDoImport(){
+  var ta=document.getElementById('pb_import');
+  if(!ta){uiAlert('Поле не найдено');return;}
+  try{
+    var obj=JSON.parse(ta.value||'{}');
+    if(!obj||!Array.isArray(obj.groups)){uiAlert('Неверный формат');return;}
+    db.settings.priceBook=obj;
+    db.settings.priceBook.updatedAt=Date.now();
+    ensurePriceBook();
+    save();
+    uiAlert('Прайс импортирован');
+    renderPriceBook();
+  }catch(e){uiAlert('Ошибка разбора JSON: '+(e.message||e));}
+}
+async function priceClearAll(){
+  if(!userCan('orders.pricing')){uiAlert('Нет прав');return;}
+  var ok=await uiConfirm('Обнулить все цены прайса?','Очистка',{danger:true,yesLabel:'Обнулить'});
+  if(!ok)return;
+  var pb=getPriceBook();
+  pb.groups.forEach(function(g){g.items.forEach(function(it){it.price=0;});});
+  pb.updatedAt=Date.now();
+  save();
+  renderPriceBook();
+}
 function savePrices(){
 
   var v=function(id){var el=document.getElementById(id);if(!el)return 0;return parseFloat(String(el.value||'').replace(',','.'))||0;};
@@ -15836,7 +15963,7 @@ function renderAuth(){
 
 /* ============ ВЕРСИЯ / BOOT ============ */
 
-var APP_VERSION='4.1.1';/* ZRZ411_PHONEMASK *//* ZRZ410_DADATA *//* ZRZ40FIX_APPLIED */
+var APP_VERSION='4.1.2';/* ZRZ412_PRICEBOOK *//* ZRZ411_PHONEMASK *//* ZRZ410_DADATA *//* ZRZ40FIX_APPLIED */
 
 var SCHEMA_BUILD='17/notifications/roles/sync/auto-token/rounded/backlight-facet/manual-num/measure-date/event-types/fab-top/cta/back-guard/inline-actions/cad-mirror/cutout-sockets/header-mark/driver-tab/push/morning/test-stand/docs/firebase-security/home-dashboard/order-payment/events-duration-osrm-workload/lights/docs-v4';
 
