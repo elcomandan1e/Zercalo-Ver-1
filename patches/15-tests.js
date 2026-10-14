@@ -506,3 +506,26 @@
 
   try{ console.log('[15-tests] проверка патчей активна'); }catch(_){}
 })();
+/* ===== TEMP: дамп функций ядра ===== */
+(function(){
+  if (location.search.indexOf('dump=1') === -1) return;
+  function dump(){
+    var names = [];
+    for (var k in window) {
+      try {
+        if (typeof window[k] === 'function' &&
+            /open|new|show|route|client|event|order|call|navig/i.test(k)) {
+          names.push(k);
+        }
+      } catch(e){}
+    }
+    names.sort();
+    var html = '<div style="position:fixed;inset:0;background:#000;color:#0f0;z-index:99999;padding:14px;font:12px/1.5 monospace;overflow:auto;white-space:pre-wrap;-webkit-user-select:text;user-select:text">' +
+      '=== FUNCTIONS ===\n' + names.join('\n') +
+      '\n\n=== ROLE ===\n' + (typeof currentUser==='function' ? JSON.stringify(currentUser()) : 'currentUser not found') +
+      '\n\n(тапни сюда, чтобы выделить и скопировать)</div>';
+    document.body.insertAdjacentHTML('beforeend', html);
+  }
+  if (document.readyState === 'complete') setTimeout(dump, 2500);
+  else window.addEventListener('load', function(){ setTimeout(dump, 2500); });
+})();
