@@ -540,25 +540,53 @@
      Перехватываем pointerup и на всякий случай откладываем открытие через RAF */
   try{ console.log('[07-gestures v7.0.2] click-through fix активен'); }catch(_){}
 })();
-/* ============ ZERZALO · RADIAL FAB · 07-gestures part2 ============ */
+/* ============ ZERZALO · RADIAL FAB · 07-gestures part2 v2 ============ */
 (function () {
   'use strict';
-  if (window._zrzFabLoaded) return;
-  window._zrzFabLoaded = true;
+  if (window._zrzFabLoadedV2) return;
+  window._zrzFabLoadedV2 = true;
 
   var DIST = window.innerWidth < 360 ? 88 : 105;
 
-  var ACTIONS = [
-    { id:'order',  label:'Новый заказ',  color:'#4A90E2', angle:-60,
-      svg:'<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>' },
-    { id:'client', label:'Новый клиент', color:'#34C759', angle:-20,
-      svg:'<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.6"/><path d="M5 20c0-3.6 3.1-6.2 7-6.2s7 2.6 7 6.2"/></svg>' },
-    { id:'event',  label:'Событие',      color:'#FF9500', angle: 20,
-      svg:'<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="6" width="16" height="14" rx="2.5"/><path d="M8 3v5M16 3v5M4 11h16"/></svg>' },
-    { id:'route',  label:'Маршрут',      color:'#AF52DE', angle: 60,
-      svg:'<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 18-9-5-9 5z"/></svg>' }
-  ];
+  var ICONS = {
+    event:     '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="6" width="16" height="14" rx="2.5"/><path d="M8 3v5M16 3v5M4 11h16"/></svg>',
+    order:     '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+    client:    '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.6"/><path d="M5 20c0-3.6 3.1-6.2 7-6.2s7 2.6 7 6.2"/></svg>',
+    route:     '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 18-9-5-9 5z"/></svg>',
+    measure:   '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="8" width="20" height="8" rx="1.5"/><path d="M6 8v3M10 8v3M14 8v3M18 8v3"/></svg>',
+    note:      '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l4-1 10-10-3-3L5 16z"/><path d="M14 6l4 4"/></svg>',
+    events:    '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg>',
+    call:      '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.6a2 2 0 0 1-.5 2.1L8.1 9.6a16 16 0 0 0 6 6l1.2-1.2a2 2 0 0 1 2.1-.5c.8.3 1.7.6 2.6.7a2 2 0 0 1 1.7 2z"/></svg>',
+    navigator: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M16 8l-2.5 6.5L7 17l2.5-6.5z"/></svg>'
+  };
 
+  var ACTIONS_BY_ROLE = {
+    admin:    [ {id:'event', label:'Новое событие', color:'#FF9500', angle:-60},
+                {id:'order', label:'Новый заказ',  color:'#4A90E2', angle:-20},
+                {id:'client',label:'Новый клиент', color:'#34C759', angle: 20},
+                {id:'route', label:'Маршрут дня',  color:'#AF52DE', angle: 60} ],
+    manager:  [ {id:'event', label:'Новое событие', color:'#FF9500', angle:-60},
+                {id:'order', label:'Новый заказ',  color:'#4A90E2', angle:-20},
+                {id:'client',label:'Новый клиент', color:'#34C759', angle: 20},
+                {id:'route', label:'Маршрут дня',  color:'#AF52DE', angle: 60} ],
+    surveyor: [ {id:'measure', label:'Новый замер',  color:'#FF9500', angle:-60},
+                {id:'route',   label:'Маршрут дня',  color:'#AF52DE', angle:-20},
+                {id:'client',  label:'Новый клиент', color:'#34C759', angle: 20},
+                {id:'note',    label:'Заметка',      color:'#4A90E2', angle: 60} ],
+    driver:   [ {id:'route',     label:'Маршрут',   color:'#AF52DE', angle:-60},
+                {id:'events',    label:'События',   color:'#FF9500', angle:-20},
+                {id:'call',      label:'Позвонить', color:'#34C759', angle: 20},
+                {id:'navigator', label:'Навигатор', color:'#4A90E2', angle: 60} ],
+    master:   []
+  };
+
+  function getRole() {
+    try {
+      if (typeof currentUser !== 'function') return null;
+      var u = currentUser();
+      return u ? u.role : null;
+    } catch (e) { return null; }
+  }
   function gesturesDisabled() {
     try {
       if (localStorage.getItem('zrz_gestures_disabled') === '1') return true;
@@ -569,10 +597,17 @@
   }
   function buzz(ms) { try { if (navigator.vibrate) navigator.vibrate(ms || 12); } catch (e) {} }
 
+  function onHome() {
+    var h = (location.hash || '').replace(/^#/, '').trim();
+    return h === '';
+  }
+
+  /* -------- styles -------- */
   var st = document.createElement('style');
   st.setAttribute('data-zrz', 'fab');
   st.textContent = [
-    '#zrz-fab-root{position:fixed;inset:0;pointer-events:none;z-index:9000;font-family:Onest,system-ui,-apple-system,sans-serif}',
+    '#zrz-fab-root{position:fixed;inset:0;pointer-events:none;z-index:9000;font-family:Onest,system-ui,-apple-system,sans-serif;opacity:0;transition:opacity .25s ease}',
+    '#zrz-fab-root.zrz-fab-visible{opacity:1}',
     '#zrz-fab-backdrop{position:absolute;inset:0;background:rgba(0,0,0,0);backdrop-filter:blur(0);-webkit-backdrop-filter:blur(0);transition:background .25s ease,backdrop-filter .25s ease;pointer-events:none}',
     '#zrz-fab-root.open #zrz-fab-backdrop{background:rgba(0,0,0,.32);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);pointer-events:auto}',
     '#zrz-fab-main{position:absolute;left:50%;bottom:calc(84px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);width:62px;height:62px;border-radius:50%;border:none;padding:0;background:linear-gradient(135deg,#4A90E2 0%,#2D6FD1 100%);color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 24px rgba(45,111,209,.42),0 2px 6px rgba(0,0,0,.18);pointer-events:auto;cursor:pointer;transition:transform .3s cubic-bezier(.34,1.56,.64,1);-webkit-tap-highlight-color:transparent;touch-action:none;user-select:none}',
@@ -595,20 +630,29 @@
       '<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>' +
     '</button>';
 
+  var currentActions = [];
   var actionEls = [];
   var isOpen = false, swipeMode = false, pointerId = null, pointerStart = null, previewIdx = -1, moved = false;
 
   function buildActions() {
+    var role = getRole();
+    currentActions = (role && ACTIONS_BY_ROLE[role]) ? ACTIONS_BY_ROLE[role].slice() : [];
     var wrap = root.querySelector('#zrz-fab-actions');
     wrap.innerHTML = '';
     actionEls = [];
-    ACTIONS.forEach(function (a) {
+    currentActions.forEach(function (a) {
       var b = document.createElement('button');
       b.type = 'button';
       b.className = 'zrz-fab-action';
       b.dataset.id = a.id;
       b.style.background = a.color;
-      b.innerHTML = a.svg + '<span class="zrz-fab-lbl">' + a.label + '</span>';
+      b.innerHTML = (ICONS[a.id] || '') + '<span class="zrz-fab-lbl">' + a.label + '</span>';
+      b.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        var id = b.dataset.id;
+        close();
+        setTimeout(function () { runAction(id); }, 60);
+      });
       wrap.appendChild(b);
       actionEls.push(b);
     });
@@ -616,7 +660,7 @@
 
   function positions(open) {
     actionEls.forEach(function (el, i) {
-      var a = ACTIONS[i];
+      var a = currentActions[i];
       var rad = a.angle * Math.PI / 180;
       var x = Math.sin(rad) * DIST;
       var y = -Math.cos(rad) * DIST;
@@ -634,14 +678,14 @@
     });
   }
 
-  function open()   { if (isOpen) return; isOpen = true; root.classList.add('open'); positions(true); buzz(10); }
-  function close()  { if (!isOpen && !swipeMode) return; isOpen = false; swipeMode = false; previewIdx = -1; root.classList.remove('open'); positions(false); actionEls.forEach(function (el) { el.classList.remove('zrz-fab-preview'); }); }
+  function open()  { if (isOpen || !currentActions.length) return; isOpen = true; root.classList.add('open'); positions(true); buzz(10); }
+  function close() { if (!isOpen && !swipeMode) return; isOpen = false; swipeMode = false; previewIdx = -1; root.classList.remove('open'); positions(false); actionEls.forEach(function (el) { el.classList.remove('zrz-fab-preview'); }); }
   function toggle() { isOpen ? close() : open(); }
 
   function nearestAction(dx, dy) {
     var ang = Math.atan2(dx, -dy) * 180 / Math.PI;
     var best = 0, bestDiff = 1e9;
-    ACTIONS.forEach(function (a, i) {
+    currentActions.forEach(function (a, i) {
       var d = Math.abs(ang - a.angle);
       if (d > 180) d = 360 - d;
       if (d < bestDiff) { bestDiff = d; best = i; }
@@ -657,12 +701,18 @@
 
   function runAction(id) {
     buzz(18);
-    try { document.dispatchEvent(new CustomEvent('zrz:fab-action', { detail: { id: id } })); } catch (e) {}
+    var role = getRole();
+    try { document.dispatchEvent(new CustomEvent('zrz:fab-action', { detail: { id: id, role: role } })); } catch (e) {}
     var FUNC_MAP = {
-      order:  ['zrzOpenNewOrder','openNewOrder','newOrder'],
-      client: ['zrzOpenNewClient','openNewClient','newClient'],
-      event:  ['zrzOpenNewEvent','openNewEvent','newEvent'],
-      route:  ['zrzOpenRoute','openRoute','showRoute','zrzRoute']
+      event:     ['zrzOpenNewEvent','openNewEvent','newEvent'],
+      order:     ['zrzOpenNewOrder','openNewOrder','newOrder'],
+      client:    ['zrzOpenNewClient','openNewClient','newClient'],
+      route:     ['zrzOpenRoute','openRoute','showRoute','zrzRoute'],
+      measure:   ['zrzOpenNewMeasure','openNewMeasure','newMeasure'],
+      note:      ['zrzOpenNewNote','openNewNote','newNote'],
+      events:    ['zrzOpenEventsList','openEventsList'],
+      call:      ['zrzOpenCallPicker','openCallPicker'],
+      navigator: ['zrzOpenNavigator','openNavigator','zrzOpenRoutePicker']
     };
     var names = FUNC_MAP[id] || [];
     for (var i = 0; i < names.length; i++) {
@@ -671,10 +721,26 @@
         try { fn(); return; } catch (e) { console.warn('[zrzFab] action err', id, e); }
       }
     }
-    console.info('[zrzFab] action', id, '— handler not found (слушай zrz:fab-action)');
+    console.info('[zrzFab] action', id, 'role', role, '— handler not found');
   }
 
-  function bind() {
+  function updateVisibility() {
+    var role = getRole();
+    if (!role || !ACTIONS_BY_ROLE[role] || !ACTIONS_BY_ROLE[role].length) {
+      root.classList.remove('zrz-fab-visible');
+      close();
+      return;
+    }
+    if (onHome()) {
+      root.classList.add('zrz-fab-visible');
+      buildActions();
+    } else {
+      root.classList.remove('zrz-fab-visible');
+      close();
+    }
+  }
+
+  function bindMain() {
     var main = root.querySelector('#zrz-fab-main');
     var backdrop = root.querySelector('#zrz-fab-backdrop');
 
@@ -685,7 +751,6 @@
       moved = false; swipeMode = false;
       try { main.setPointerCapture(e.pointerId); } catch (err) {}
     });
-
     main.addEventListener('pointermove', function (e) {
       if (pointerId !== e.pointerId || !pointerStart) return;
       var dx = e.clientX - pointerStart.x;
@@ -698,12 +763,8 @@
           if (!isOpen) open();
         }
       }
-      if (swipeMode) {
-        e.preventDefault();
-        previewAt(nearestAction(dx, dy));
-      }
+      if (swipeMode) { e.preventDefault(); previewAt(nearestAction(dx, dy)); }
     }, { passive: false });
-
     function endPointer(e) {
       if (pointerId !== e.pointerId) return;
       var dx = e.clientX - pointerStart.x;
@@ -712,10 +773,9 @@
       var wasSwipe = swipeMode;
       var idx = previewIdx;
       pointerId = null; pointerStart = null; swipeMode = false; previewIdx = -1;
-
       if (wasSwipe) {
         if (dist > 42 && idx >= 0) {
-          var id = ACTIONS[idx].id;
+          var id = currentActions[idx].id;
           close();
           setTimeout(function () { runAction(id); }, 60);
         } else { close(); }
@@ -729,16 +789,6 @@
     main.addEventListener('pointercancel', function (e) {
       if (pointerId === e.pointerId) { pointerId = null; pointerStart = null; swipeMode = false; previewIdx = -1; close(); }
     });
-
-    actionEls.forEach(function (el) {
-      el.addEventListener('click', function (ev) {
-        ev.stopPropagation();
-        var id = el.dataset.id;
-        close();
-        setTimeout(function () { runAction(id); }, 60);
-      });
-    });
-
     backdrop.addEventListener('click', function () { close(); });
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && isOpen) close(); });
     window.addEventListener('scroll', function () { if (isOpen) close(); }, { passive: true });
@@ -747,10 +797,22 @@
   function mount() {
     if (!document.body) { setTimeout(mount, 60); return; }
     if (!document.getElementById('zrz-fab-root')) document.body.appendChild(root);
-    buildActions();
-    bind();
+    bindMain();
+    updateVisibility();
+    window.addEventListener('hashchange', updateVisibility);
+    document.addEventListener('visibilitychange', updateVisibility);
+    setInterval(function () {
+      if (!onHome() && root.classList.contains('zrz-fab-visible')) updateVisibility();
+      else if (onHome() && !root.classList.contains('zrz-fab-visible')) updateVisibility();
+    }, 1200);
   }
   mount();
 
-  window.zrzFab = { open: open, close: close, toggle: toggle };
+  window.zrzFab = {
+    open: open,
+    close: close,
+    toggle: toggle,
+    refresh: updateVisibility,
+    getRole: getRole
+  };
 })();
