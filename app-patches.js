@@ -3481,3 +3481,122 @@
 
   try{console.log('[v5.4.0] Bottom Sheet + долгий тап на заказе + Мануал/FAQ — активны');}catch(_){}
 })();
+/* ============================================================
+   v5.4.1 · Фикс мелькания подложек свайпа
+   Подложки .swipe-actions (синяя слева, красная справа)
+   показываются только при |сдвиг| > 12 px. При обычном тапе
+   микро-сдвиг больше не зажигает цветные полоски.
+   ============================================================ */
+(function(){
+  if(window._zrzSwipeFixApplied) return;
+  window._zrzSwipeFixApplied = true;
+
+  var THRESHOLD = 12; /* пикселей — от этого значения подложки появляются */
+
+  /* ---------- CSS ---------- */
+
+  var st = document.createElement('style');
+  st.id = 'zrz-swipe-fix-css';
+  st.textContent = ''
+    + '.swipe-wrap .swipe-actions{'
+    +   'opacity:0 !important;'
+    +   'visibility:hidden;'
+    +   'transition:opacity .12s ease-out, visibility .12s ease-out;'
+    +   'pointer-events:none;'
+    + '}'
+    + '.swipe-wrap.zrz-swipe-live .swipe-actions{'
+    +   'opacity:1 !important;'
+    +   'visibility:visible;'
+    +   'pointer-events:auto;'
+    + '}'
+    /* Убираем hover-эффекты с карточек на тач-устройствах, чтобы Chrome
+       не подсвечивал ничего при pointerdown */
+    + '@media (hover: none){'
+    +   '.swipe-wrap .card{-webkit-tap-highlight-color:transparent}'
+    +   '.swipe-wrap .card:hover{transform:none}'
+    + '}'
+    ;
+  (document.head || document.documentElement).appendChild(st);
+
+  /* ---------- MutationObserver: следим за transform карточек ---------- */
+
+  var obs = new MutationObserver(function(muts){
+    for(var i=0;i<muts.length;i++){
+      var m = muts[i];
+      if(m.attributeName !== 'style') continue;
+      var card = m.target;
+      if(!card || !card.classList || !card.classList.contains('card')) continue;
+      var wrap = card.parentNode;
+      if(!wrap || !wrap.classList || !wrap.classList.contains('swipe-wrap')) continue;
+      var tr = card.style.transform || '';
+      var mm = tr.match(/translateX\((-?\d+(?:\.\d+)?)px\)/);
+      var val = mm ? Math.abs(parseFloat(mm[1])) : 0;
+      if(val > THRESHOLD){
+        wrap.classList.add('zrz-swipe-live');
+      } else {
+        wrap.classList.remove('zrz-swipe-live');
+      }
+    }
+  });
+
+  /* ---------- Привязка наблюдения на все карточки ---------- */
+
+  function attachAll(){
+    var cards = document.querySelectorAll('.swipe-wrap .card');
+    for(var i=0;i<cards.length;i++){
+      var c = cards[i];
+      if(c.__zrzSwipeObs) continue;
+      c.__zrzSwipeObs = true;
+      try { obs.observe(c, {attributes:true, attributeFilter:['style']}); } catch(e){}
+    }
+  }
+
+  /* Первичная привязка + перепривязка после каждой отрисовки */
+
+  function boot(){
+    try { attachAll(); } catch(e){}
+  }
+
+  if(document.body) boot();
+  else document.addEventListener('DOMContentLoaded', boot, {once:true});
+
+  /* Обёртка render — перепривязываемся сразу после перерисовки */
+  if(typeof window.render === 'function' && !window._zrzRenderSwipeWrapped){
+    window._zrzRenderSwipeWrapped = true;
+    var origRender = window.render;
+    window.render = function(){
+      var r = origRender.apply(this, arguments);
+      setTimeout(attachAll, 30);
+      return r;
+    };
+  }
+
+  /* Также лёгкий пуллинг на случай, если render был переопределён позже */
+  var _iv = setInterval(function(){
+    try { attachAll(); } catch(e){}
+  }, 1200);
+  setTimeout(function(){ clearInterval(_iv); }, 60000);
+
+  /* ---------- Доп. защита: не даём ядру сдвинуть карточку при < 3px ---------- */
+
+  /* Вешаем capture-обработчик pointermove на документ. Если идёт микро-
+     движение (|dx|<3 и |dy|<3) — ядро может начать сдвигать карточку,
+     но мы это гасим, восстанавливая transform='' */
+
+  document.addEventListener('pointerup', function(e){
+    /* На всякий случай после отпускания — снимаем класс */
+    var wrap = e.target.closest && e.target.closest('.swipe-wrap');
+    if(!wrap) return;
+    var card = wrap.querySelector('.card');
+    if(!card) return;
+    /* Если transform близок к нулю — снимаем флаг */
+    var tr = card.style.transform || '';
+    var mm = tr.match(/translateX\((-?\d+(?:\.\d+)?)px\)/);
+    var val = mm ? Math.abs(parseFloat(mm[1])) : 0;
+    if(val < 4){
+      wrap.classList.remove('zrz-swipe-live');
+    }
+  }, true);
+
+  try{console.log('[v5.4.1] Фикс подложек свайпа активен (порог '+THRESHOLD+'px)');}catch(_){}
+})();
