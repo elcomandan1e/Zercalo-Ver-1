@@ -2,15 +2,14 @@
    Активные фичи:
      v4.2.1 — скрыть OSRM в форме события.
      v4.2.3 — смелая типографика.
-     v4.2.4 — цвета фурнитуры душевых (+чёрный).
-     v4.2.5 — микроанимации и конфетти.
+     v4.2.4 — цвета фурнитуры душевых.
+     v4.2.5 — микроанимации (конфетти, пульс, ripple, пружина).
 */
 (function(){
   var PATCH_VERSION = '4.2.5';
   var _lock = false;
 
   /* ─── v4.2.1: скрыть OSRM ─── */
-
   function hideOsrm(){
     var titles = document.querySelectorAll('.modal .section-title');
     for(var i=0;i<titles.length;i++){
@@ -28,7 +27,6 @@
   }
 
   /* ─── v4.2.4: цвета фурнитуры ─── */
-
   var NEW_FITTING = [
     { key:'chrome',     label:'Хром',         hex:'#d8dde3' },
     { key:'nickel',     label:'Никель',       hex:'#c8c0b5' },
@@ -38,105 +36,113 @@
     { key:'bronze',     label:'Бронза',       hex:'#8b6f47' },
     { key:'gunsteel',   label:'Оруж. сталь',  hex:'#4a4d52' }
   ];
-
   function installFittings(){
     try{ SHOWER_FITTING_COLORS = NEW_FITTING; }catch(e){}
     try{
       fittingInfo = function(k){
-        for(var i=0;i<NEW_FITTING.length;i++){
-          if(NEW_FITTING[i].key===k) return NEW_FITTING[i];
-        }
+        for(var i=0;i<NEW_FITTING.length;i++){ if(NEW_FITTING[i].key===k) return NEW_FITTING[i]; }
         return null;
       };
     }catch(e){}
   }
 
-  /* ─── v4.2.5: конфетти ─── */
+  /* ─── v4.2.5: микроанимации ─── */
 
-  function showConfetti(){
+  function fireConfetti(){
     if(document.getElementById('zrz-confetti')) return;
-    if(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    var cv = document.createElement('canvas');
-    cv.id = 'zrz-confetti';
-    cv.style.cssText = 'position:fixed;inset:0;z-index:9999;pointer-events:none;';
-    document.body.appendChild(cv);
-    var ctx = cv.getContext('2d');
-    cv.width = window.innerWidth;
-    cv.height = window.innerHeight;
-    var W = cv.width, H = cv.height;
-    var COLORS = ['#4caf7d','#7b9dd1','#5b7fb8','#e8a70c','#e08080','#3a7a5a','#a05c26'];
-    var parts = [];
-    for(var i=0;i<140;i++){
-      parts.push({
-        x: W/2 + (Math.random()-0.5)*80,
-        y: H*0.35 + (Math.random()-0.5)*40,
-        vx: (Math.random()-0.5)*13,
-        vy: -Math.random()*13 - 4,
-        g: 0.42,
-        s: 4 + Math.random()*6,
-        rot: Math.random()*Math.PI*2,
-        vr: (Math.random()-0.5)*0.35,
-        c: COLORS[(Math.random()*COLORS.length)|0],
-        life: 130
-      });
+    var colors = ['#5b7fb8','#4caf7d','#d9924a','#c96565','#8b5cf6','#f0b400','#229ED9','#25D366'];
+    var container = document.createElement('div');
+    container.id = 'zrz-confetti';
+    container.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:9999;overflow:hidden';
+    document.body.appendChild(container);
+    var total = 80;
+    for(var i=0;i<total;i++){
+      var p = document.createElement('div');
+      var color = colors[Math.floor(Math.random()*colors.length)];
+      var size = 5 + Math.random()*9;
+      var left = Math.random()*100;
+      var delay = Math.random()*0.35;
+      var dur = 1.9 + Math.random()*1.3;
+      var rot = Math.random()*720 - 360;
+      var shape = Math.random();
+      var radius = shape>0.7 ? '50%' : (shape>0.4 ? '2px' : '0');
+      p.style.cssText =
+        'position:absolute;top:-24px;left:'+left+'%;'
+        +'width:'+size+'px;height:'+size*0.7+'px;'
+        +'background:'+color+';border-radius:'+radius+';'
+        +'opacity:0.95;'
+        +'animation:zrz-confetti-fall '+dur+'s cubic-bezier(.2,.6,.4,1) '+delay+'s forwards, '
+        +'zrz-confetti-spin '+(0.6+Math.random()*0.8)+'s linear infinite';
+      p.style.setProperty('--zrz-rot-end', rot+'deg');
+      container.appendChild(p);
     }
-    var t0 = Date.now();
-    function frame(){
-      ctx.clearRect(0,0,W,H);
-      var alive = 0;
-      for(var i=0;i<parts.length;i++){
-        var p = parts[i];
-        if(p.life<=0) continue;
-        alive++;
-        p.x += p.vx;
-        p.y += p.vy;
-        p.vy += p.g;
-        p.vx *= 0.995;
-        p.rot += p.vr;
-        p.life--;
-        ctx.save();
-        ctx.translate(p.x, p.y);
-        ctx.rotate(p.rot);
-        ctx.fillStyle = p.c;
-        ctx.globalAlpha = Math.min(1, p.life/35);
-        ctx.fillRect(-p.s/2, -p.s/4, p.s, p.s/2);
-        ctx.restore();
-      }
-      if(alive>0 && Date.now()-t0 < 2600){
-        requestAnimationFrame(frame);
-      } else {
-        try{ cv.remove(); }catch(e){ cv.parentNode && cv.parentNode.removeChild(cv); }
-      }
-    }
-    frame();
+    setTimeout(function(){ container.remove(); }, 3800);
   }
+  window._zrzConfetti = fireConfetti;
 
-  /* ─── v4.2.5: обёртки над savePayment и saveMeasurePaid ─── */
-
-  function wrapPaymentSave(){
-    if(!window.savePayment || window._zrzWrappedPayment) return;
-    window._zrzWrappedPayment = true;
+  function wrapSavePayment(){
+    if(window._zrzSavePaymentWrapped) return;
+    if(typeof window.savePayment !== 'function') return;
     var orig = window.savePayment;
     window.savePayment = function(orderId){
-      var before = null;
-      try{ before = db.orders.find(function(x){return x.id===orderId;}); }catch(e){}
-      var wasDue = before ? Math.max(0, (Number(before.orderTotal)||0) - (Number(before.orderPaid)||0)) : 0;
-      var ret = orig.apply(this, arguments);
-      var after = null;
-      try{ after = db.orders.find(function(x){return x.id===orderId;}); }catch(e){}
-      var nowDue = after ? Math.max(0, (Number(after.orderTotal)||0) - (Number(after.orderPaid)||0)) : 0;
-      var total = after ? Number(after.orderTotal)||0 : 0;
-      if(wasDue>0 && nowDue<=0 && total>0) showConfetti();
-      return ret;
+      var o = null;
+      try{ o = db.orders.find(function(x){return x.id===orderId;}); }catch(e){}
+      var wasFull = !!(o && Number(o.orderTotal)>0 && Number(o.orderPaid)>=Number(o.orderTotal));
+      var res = orig.apply(this, arguments);
+      var now = null;
+      try{ now = db.orders.find(function(x){return x.id===orderId;}); }catch(e){}
+      var nowFull = !!(now && Number(now.orderTotal)>0 && Number(now.orderPaid)>=Number(now.orderTotal));
+      if(nowFull && !wasFull){ setTimeout(fireConfetti, 200); }
+      return res;
     };
+    window._zrzSavePaymentWrapped = true;
   }
 
-  /* ─── v4.2.3: типографика + v4.2.5: микроанимации ─── */
+  function wrapSaveMasterComment(){
+    if(window._zrzSaveCommentWrapped) return;
+    if(typeof window.saveMasterComment !== 'function') return;
+    var orig = window.saveMasterComment;
+    window.saveMasterComment = function(id){
+      var r = orig.apply(this, arguments);
+      /* Все существующие .btn внутри модалки — микро-пульс */
+      var btns = document.querySelectorAll('.modal .btn-secondary');
+      for(var i=0;i<btns.length;i++){
+        var b = btns[i];
+        b.style.animation = 'zrz-pulse-soft .55s cubic-bezier(.2,.7,.3,1)';
+        setTimeout(function(){ b.style.animation=''; }, 600);
+      }
+      return r;
+    };
+    window._zrzSaveCommentWrapped = true;
+  }
+
+  function bindCardRipple(){
+    if(window._zrzCardRippleBound) return;
+    window._zrzCardRippleBound = true;
+    document.addEventListener('pointerdown', function(e){
+      var card = e.target.closest && e.target.closest('.card');
+      if(!card) return;
+      /* Игнорируем тапы по вложенным ссылкам/кнопкам — там свой ripple */
+      if(e.target.closest('.btn,.chip,.tap-link,.del-x,.photo-thumb,.photo-del')) return;
+      var rect = card.getBoundingClientRect();
+      var x = e.clientX - rect.left;
+      var y = e.clientY - rect.top;
+      var wave = document.createElement('span');
+      wave.className = 'zrz-card-ripple';
+      wave.style.left = x+'px';
+      wave.style.top = y+'px';
+      wave.style.width = '24px';
+      wave.style.height = '24px';
+      card.appendChild(wave);
+      setTimeout(function(){ wave.remove(); }, 700);
+    }, true);
+  }
+
+  /* ─── v4.2.3: типографика + новые CSS-анимации ─── */
 
   function injectCss(){
     if(document.getElementById('zrz-patch-css')) return;
     var css = ''
-    /* типографика */
     + '.card{padding:20px 22px 20px 26px !important;border-radius:22px !important;box-shadow:0 4px 20px rgba(90,120,170,0.10) !important;}'
     + '.card-title{font-size:17.5px !important;font-weight:800 !important;letter-spacing:-0.25px !important;line-height:1.25 !important;margin-bottom:6px !important;}'
     + '.card-sub{font-size:13.5px !important;line-height:1.5 !important;color:var(--text-soft) !important;}'
@@ -163,49 +169,35 @@
     + 'header button{width:44px !important;height:44px !important;border-radius:14px !important;font-size:21px !important;}'
     + '.progress-wrap{height:5px !important;border-radius:5px !important;}'
     + '.progress-bar{border-radius:5px !important;}'
+    + '.card.stagger{animation:fadeInUp .42s cubic-bezier(.2,.7,.3,1) forwards !important;}'
+    + '.page-enter{animation-duration:0.32s !important;}'
     + '.type-badge{font-size:11px !important;font-weight:800 !important;letter-spacing:0.6px !important;padding:4px 11px !important;}'
     + '.order-num{font-size:12.5px !important;font-weight:800 !important;padding:4px 14px !important;}'
     + '.order-num-lg{font-size:24px !important;font-weight:800 !important;padding:12px 26px !important;}'
     + '.order-date-lg{font-size:14px !important;font-weight:600 !important;color:var(--text-soft) !important;}'
     + '.team-chip{font-size:13.5px !important;padding:9px 15px 9px 11px !important;font-weight:600 !important;}'
+
+    /* Ripple на карточках */
+    + '.card{position:relative;overflow:hidden;}'
+    + '.zrz-card-ripple{position:absolute;pointer-events:none;border-radius:50%;background:rgba(91,127,184,0.28);transform:translate(-50%,-50%) scale(0);animation:zrz-card-ripple-anim .65s ease-out forwards;}'
+    + '@keyframes zrz-card-ripple-anim{to{transform:translate(-50%,-50%) scale(14);opacity:0;}}'
+
+    /* Конфетти */
+    + '@keyframes zrz-confetti-fall{0%{transform:translateY(0);opacity:1}85%{opacity:1}100%{transform:translateY(110vh);opacity:0}}'
+    + '@keyframes zrz-confetti-spin{from{rotate:0deg}to{rotate:720deg}}'
+
+    /* Пульс непрочитанных */
+    + '.notif-bell .bell-badge{animation:zrz-badge-pulse 2s ease-in-out infinite;}'
+    + '@keyframes zrz-badge-pulse{0%,100%{transform:scale(1);box-shadow:0 1px 3px rgba(0,0,0,0.25);}50%{transform:scale(1.14);box-shadow:0 0 0 6px rgba(201,101,101,0.18);}}'
+
+    /* Микро-пульс кнопок после сохранения */
+    + '@keyframes zrz-pulse-soft{0%{transform:scale(1)}40%{transform:scale(0.96)}70%{transform:scale(1.02)}100%{transform:scale(1)}}'
+
+    /* Модалка: пружинящий slide-up */
+    + '.modal{animation:zrz-modal-in .34s cubic-bezier(.2,.85,.3,1) both !important;}'
+    + '@keyframes zrz-modal-in{from{transform:translateY(50px);opacity:0.6}to{transform:translateY(0);opacity:1}}'
+
     + '@media (max-width:420px){.card{padding:18px 18px 18px 22px !important;}.modal h2{font-size:21px !important;}.btn{padding:15px 18px !important;font-size:15.5px !important;}}'
-
-    /* Микроанимации */
-
-    /* Плавный въезд модалки */
-    + '@keyframes zrzModalIn{from{transform:translateY(24px) scale(0.98);opacity:0;}to{transform:none;opacity:1;}}'
-    + '.modal{animation:zrzModalIn .34s cubic-bezier(.2,.7,.3,1) both !important;}'
-
-    /* Плавное появление карточек */
-    + '@keyframes zrzFadeUp{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:none;}}'
-    + '.card.stagger{animation:zrzFadeUp .42s cubic-bezier(.2,.7,.3,1) forwards !important;}'
-
-    /* Плавный вход страницы */
-    + '@keyframes zrzPageIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}'
-    + '#app.page-enter{animation:zrzPageIn .32s cubic-bezier(.2,.7,.3,1) both !important;}'
-
-    /* Пульсация бейджей уведомлений */
-    + '@keyframes zrzPulseBadge{0%,100%{transform:scale(1);box-shadow:0 0 0 0 rgba(201,101,101,0.55);}50%{transform:scale(1.08);box-shadow:0 0 0 6px rgba(201,101,101,0);}}'
-    + '.tabbar-badge,.bell-badge{animation:zrzPulseBadge 1.8s ease-in-out infinite;}'
-
-    /* Ripple-эффект на кнопках и чипах */
-    + '.btn,.chip,.btn-row-action,.type-btn,.key-btn{position:relative;overflow:hidden;}'
-    + '@keyframes zrzRipple{to{transform:translate(-50%,-50%) scale(2.8);opacity:0;}}'
-    + '.zrz-ripple{position:absolute;border-radius:50%;pointer-events:none;width:22px;height:22px;background:rgba(255,255,255,0.42);transform:translate(-50%,-50%) scale(0);animation:zrzRipple .62s ease-out forwards;}'
-    + '.chip .zrz-ripple,.btn-secondary .zrz-ripple{background:rgba(91,127,184,0.35);}'
-
-    /* FAB — тактильный отклик */
-    + '.fab,.fab-wide,.fab-top{transition:transform .18s cubic-bezier(.2,.7,.3,1),box-shadow .22s ease !important;}'
-    + '.fab:active,.fab-wide:active,.fab-top:active{transform:scale(0.94) !important;}'
-
-    /* Карточка — подсветка при длинном нажатии */
-    + '.card{padding-left:26px;position:relative;}'
-    + '.card::after{content:"";position:absolute;inset:0;border-radius:inherit;background:radial-gradient(circle at var(--zrz-tap-x,50%) var(--zrz-tap-y,50%),rgba(91,127,184,0.10),transparent 60%);opacity:0;transition:opacity .28s ease;pointer-events:none;}'
-    + '.card.zrz-tapped::after{opacity:1;}'
-
-    /* Пульсация выделенного чипа */
-    + '.chip.active{animation:zrzChipGlow 2.4s ease-in-out infinite;}'
-    + '@keyframes zrzChipGlow{0%,100%{box-shadow:0 5px 14px rgba(91,127,184,0.35);}50%{box-shadow:0 6px 20px rgba(91,127,184,0.55);}}'
     ;
     var st = document.createElement('style');
     st.id = 'zrz-patch-css';
@@ -213,43 +205,7 @@
     document.head.appendChild(st);
   }
 
-  /* ─── v4.2.5: ripple + tap-glow ─── */
-
-  function installRipple(){
-    if(window._zrzRippleInstalled) return;
-    window._zrzRippleInstalled = true;
-
-    document.addEventListener('click', function(e){
-      var el = e.target.closest('.btn,.chip,.btn-row-action,.type-btn,.key-btn');
-      if(!el || el.disabled) return;
-      try{
-        var r = el.getBoundingClientRect();
-        var x = e.clientX || (r.left+r.width/2);
-        var y = e.clientY || (r.top+r.height/2);
-        var s = document.createElement('span');
-        s.className = 'zrz-ripple';
-        s.style.left = (x-r.left)+'px';
-        s.style.top = (y-r.top)+'px';
-        el.appendChild(s);
-        setTimeout(function(){ try{s.remove();}catch(_){} }, 640);
-      }catch(err){}
-    }, true);
-
-    document.addEventListener('pointerdown', function(e){
-      var c = e.target.closest('.card');
-      if(!c) return;
-      try{
-        var r = c.getBoundingClientRect();
-        c.style.setProperty('--zrz-tap-x', ((e.clientX-r.left)/r.width*100)+'%');
-        c.style.setProperty('--zrz-tap-y', ((e.clientY-r.top)/r.height*100)+'%');
-        c.classList.add('zrz-tapped');
-        setTimeout(function(){ c.classList.remove('zrz-tapped'); }, 340);
-      }catch(err){}
-    }, true);
-  }
-
   /* ─── индикатор версии ─── */
-
   function tagVersion(){
     var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
     var n;
@@ -257,7 +213,7 @@
       if(!n.nodeValue) continue;
       if(n.nodeValue.indexOf('Зерцало v4.2.0') >= 0 && n.nodeValue.indexOf('Схема') >= 0){
         if(n.nodeValue.indexOf('патч '+PATCH_VERSION) < 0){
-          n.nodeValue = n.nodeValue.replace(/Зерцало v4\.2\.0( · [^•]+ патч [0-9.]+)?/, 'Зерцало v4.2.0 · ✨ патч '+PATCH_VERSION);
+          n.nodeValue = n.nodeValue.replace(/Зерцало v4\.2\.0( · [^•]+ патч [0-9.]+)?/, 'Зерцало v4.2.0 · ⚡ патч '+PATCH_VERSION);
         }
       }
     }
@@ -266,15 +222,14 @@
   function apply(){
     try{ injectCss(); }catch(e){}
     try{ installFittings(); }catch(e){}
-    try{ installRipple(); }catch(e){}
     try{ hideOsrm(); }catch(e){}
+    try{ wrapSavePayment(); }catch(e){}
+    try{ wrapSaveMasterComment(); }catch(e){}
+    try{ bindCardRipple(); }catch(e){}
     try{ tagVersion(); }catch(e){}
-    try{ wrapPaymentSave(); }catch(e){}
   }
 
-  /* Ранняя инициализация — до появления тяжёлых узлов */
   try{ installFittings(); }catch(e){}
-  try{ installRipple(); }catch(e){}
 
   var mo = new MutationObserver(function(){
     if(_lock) return;
@@ -285,9 +240,8 @@
   if(root) mo.observe(root, {childList:true, subtree:true});
   var app = document.getElementById('app');
   if(app) mo.observe(app, {childList:true, subtree:true});
-
-  /* Первичное обёртывание — с задержкой, чтобы savePayment успел определиться */
-  setTimeout(function(){ try{ wrapPaymentSave(); }catch(e){} }, 800);
+  var header = document.querySelector('header');
+  if(header) mo.observe(header, {childList:true, subtree:true});
 
   window._zrzPatchInit = apply;
 
