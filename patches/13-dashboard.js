@@ -1,7 +1,7 @@
 /* patches/13-dashboard.js — Часть 1: основа + дашборд админа/менеджера
    · Обёртка renderHome — свой дашборд для admin/manager
    · Шапка: приветствие + дата + иконка поиска
-   · KPI-плитки (4 шт)
+   · KPI-плитки (4 шт) — с фильтрами по тапу
    · Блок «Требует внимания»
    · Segmented control: События / Заказы / Мои
    · Компактные строки (60-70px)
@@ -17,7 +17,9 @@
   /* ============================================================
      СОСТОЯНИЕ
      ============================================================ */
-  if(!window._zrzDash) window._zrzDash = { tab:'events', scrollY:0 };
+  if(!window._zrzDash) window._zrzDash = { tab:'events', scrollY:0, ordersFilter:'', eventsFilter:'' };
+  if(typeof window._zrzDash.ordersFilter === 'undefined') window._zrzDash.ordersFilter = '';
+  if(typeof window._zrzDash.eventsFilter === 'undefined') window._zrzDash.eventsFilter = '';
 
   /* ============================================================
      ХЕЛПЕРЫ
@@ -137,7 +139,6 @@
       var tk = todayKey();
       var now = nowMinutes();
 
-      /* 1. Просроченные события */
       visibleEvents().forEach(function(e){
         if(!e.date) return;
         if(e.status === 'done') return;
@@ -156,13 +157,12 @@
         }
       });
 
-      /* 2. События сегодня, время прошло, статус не done */
       visibleEvents().forEach(function(e){
         if(e.date !== tk) return;
         if(e.status === 'done') return;
         var tm = timeToMin(e.time);
         if(tm == null) return;
-        if(tm < now - 15){ /* 15 мин буфер */
+        if(tm < now - 15){
           var o = e.orderId ? db.orders.find(function(x){ return x.id === e.orderId; }) : null;
           items.push({
             kind:'late_event',
@@ -177,7 +177,6 @@
         }
       });
 
-      /* 3. Заказы на паузе > 3 дней */
       visibleOrdersList().forEach(function(o){
         if(o.status !== 'paused') return;
         var since = o.statusChangedAt || o.updatedAt || o.createdAt || Date.now();
@@ -195,7 +194,6 @@
         }
       });
 
-      /* 4. Долг > 30 дней */
       visibleOrdersList().forEach(function(o){
         var total = Number(o.orderTotal)||0;
         var paid  = Number(o.orderPaid)||0;
@@ -217,7 +215,6 @@
       });
     }catch(e){ try{console.warn('[13 p1] attention', e);}catch(_){} }
 
-    /* Ограничим 5-ю */
     return items.slice(0, 5);
   }
 
@@ -248,14 +245,14 @@
   function buildKpi(u){
     var k = calcKpi(u);
     var tiles = [
-      { ico:'📅', val:k.eventsToday, label:'событий', sub:'сегодня' },
-      { ico:'🔧', val:k.inWork,      label:'в работе', sub:'заказов' },
-      { ico:'💰', val:fmtMoney(k.dueSum) + ' ₽', label:'к доплате', sub:'по всем' },
-      { ico:'⏰', val:k.overdue,     label:'просрочено', sub:'событий' }
+      { key:'events',  ico:'📅', val:k.eventsToday, label:'событий', sub:'сегодня' },
+      { key:'inWork',  ico:'🔧', val:k.inWork,      label:'в работе', sub:'заказов' },
+      { key:'due',     ico:'💰', val:fmtMoney(k.dueSum) + ' ₽', label:'к доплате', sub:'по всем' },
+      { key:'overdue', ico:'⏰', val:k.overdue,     label:'просрочено', sub:'событий' }
     ];
     var html = '<div class="zrz-kpi">';
     tiles.forEach(function(t){
-      html += '<div class="zrz-kpi-cell">'
+      html += '<div class="zrz-kpi-cell" data-kpi="' + t.key + '" onclick="zrzKpiClick(\'' + t.key + '\')">'
         +   '<div class="zrz-kpi-ico">' + t.ico + '</div>'
         +   '<div class="zrz-kpi-val">' + esc2(t.val) + '</div>'
         +   '<div class="zrz-kpi-lbl">' + esc2(t.label) + '</div>'
@@ -311,7 +308,6 @@
     }).join('') + '</div>';
   }
 
-  /* --- Строка события --- */
   function buildEventRow(e){
     var o = e.orderId ? (db.orders || []).find(function(x){ return x.id === e.orderId; }) : null;
     var time = e.time || '—';
@@ -340,7 +336,6 @@
     return html;
   }
 
-  /* --- Строка заказа --- */
   function buildOrderRow(o){
     var st = (typeof STATUS_META !== 'undefined' && STATUS_META[o.status]) ? STATUS_META[o.status] : { label:'—' };
     var name = clientName(o) || 'Без имени';
@@ -349,7 +344,6 @@
     var paid  = Number(o.orderPaid)||0;
     var due = total > paid ? (total - paid) : 0;
 
-    /* Иконка первого типа в позициях */
     var firstTypeIco = '📦';
     try {
       var its = (typeof itemsOf === 'function') ? itemsOf(o.id) : [];
@@ -372,11 +366,9 @@
     return html;
   }
 
-  /* --- Таб: события --- */
   function buildEventsTab(){
     var tk = todayKey();
     var events = visibleEvents().slice();
-    /* Только сегодня и будущие + просроченные не done сегодня */
     events.sort(function(a,b){
       var c = String(a.date||'').localeCompare(String(b.date||''));
       if(c !== 0) return c;
@@ -386,13 +378,29 @@
       if(bm == null) return -1;
       return am - bm;
     });
-    /* Фильтр: сегодня и ближайшие 30 дней + старые не done */
     var list = events.filter(function(e){
       if(!e.date) return false;
       if(e.date >= tk) return true;
       if(e.date < tk && e.status !== 'done') return true;
       return false;
     });
+
+    /* KPI-фильтр «просрочено» */
+    var evFilter = (window._zrzDash && window._zrzDash.eventsFilter) || '';
+    if(evFilter === 'overdue'){
+      list = list.filter(function(e){
+        return e.date < tk && e.status !== 'done';
+      });
+    }
+
+    if(!list.length && evFilter === 'overdue'){
+      return '<div class="zrz-empty">'
+        + '<div class="zrz-empty-ico">✨</div>'
+        + '<div class="zrz-empty-t">Ничего не просрочено</div>'
+        + '<div class="zrz-empty-s">Все события идут по плану</div>'
+        + '<div style="margin-top:14px"><button type="button" class="zrz-att-btn" onclick="zrzKpiReset()">Показать все</button></div>'
+        + '</div>';
+    }
 
     if(!list.length){
       return '<div class="zrz-empty">'
@@ -402,7 +410,6 @@
         + '</div>';
     }
 
-    /* Группировка по дате */
     var groups = {};
     list.forEach(function(e){ (groups[e.date] = groups[e.date] || []).push(e); });
     var keys = Object.keys(groups).sort();
@@ -415,10 +422,39 @@
     return html;
   }
 
-  /* --- Таб: заказы --- */
   function buildOrdersTab(){
     var list = visibleOrdersList().slice();
-    /* Активные сверху: work > ready > approval > measure_done > measure_scheduled > lead */
+
+    /* KPI-фильтр */
+    var of = (window._zrzDash && window._zrzDash.ordersFilter) || '';
+    if(of === 'work'){
+      list = list.filter(function(o){ return o.status === 'work' || o.status === 'ready'; });
+      if(!list.length){
+        return '<div class="zrz-empty">'
+          + '<div class="zrz-empty-ico">🔧</div>'
+          + '<div class="zrz-empty-t">Нет заказов в работе</div>'
+          + '<div class="zrz-empty-s">Все заказы на других этапах</div>'
+          + '<div style="margin-top:14px"><button type="button" class="zrz-att-btn" onclick="zrzKpiReset()">Показать все</button></div>'
+          + '</div>';
+      }
+    }
+    if(of === 'due'){
+      list = list.filter(function(o){
+        var t = Number(o.orderTotal)||0;
+        var p = Number(o.orderPaid)||0;
+        return t > p;
+      });
+      if(!list.length){
+        return '<div class="zrz-empty">'
+          + '<div class="zrz-empty-ico">💸</div>'
+          + '<div class="zrz-empty-t">Нет долгов</div>'
+          + '<div class="zrz-empty-s">Все заказы оплачены</div>'
+          + '<div style="margin-top:14px"><button type="button" class="zrz-att-btn" onclick="zrzKpiReset()">Показать все</button></div>'
+          + '</div>';
+      }
+    }
+
+    /* Активные сверху */
     var order = { work:0, ready:1, approval:2, measure_done:3, measure_scheduled:4, lead:5, paused:6, installed:7, closed:8, declined:9 };
     list.sort(function(a,b){
       var oa = order[a.status] != null ? order[a.status] : 99;
@@ -426,7 +462,6 @@
       if(oa !== ob) return oa - ob;
       return (b.createdAt||0) - (a.createdAt||0);
     });
-    /* Ограничим 50-ю */
     list = list.slice(0, 50);
 
     if(!list.length){
@@ -439,7 +474,6 @@
     return list.map(buildOrderRow).join('');
   }
 
-  /* --- Таб: мои --- */
   function buildMyTab(){
     var u = (typeof currentUser === 'function') ? currentUser() : null;
     if(!u) return '';
@@ -448,7 +482,6 @@
       if(Array.isArray(o.assignedUserIds) && o.assignedUserIds.indexOf(u.id) >= 0) return true;
       return false;
     });
-    /* Активные первыми */
     var order = { work:0, ready:1, approval:2, measure_done:3, measure_scheduled:4, lead:5, paused:6, installed:7, closed:8, declined:9 };
     list.sort(function(a,b){
       var oa = order[a.status] != null ? order[a.status] : 99;
@@ -468,7 +501,6 @@
     return list.map(buildOrderRow).join('');
   }
 
-  /* --- Основной дашборд --- */
   function buildDashboard(u){
     var html = '';
     html += '<div class="zrz-dash-wrap">';
@@ -489,9 +521,42 @@
      РУЧНЫЕ КОМАНДЫ (для onclick)
      ============================================================ */
 
+  window.zrzKpiClick = function(key){
+    try { if(typeof haptic === 'function') haptic(6); }catch(e){}
+    if(!window._zrzDash) window._zrzDash = { tab:'events', scrollY:0, ordersFilter:'', eventsFilter:'' };
+    if(key === 'events'){
+      window._zrzDash.tab = 'events';
+      window._zrzDash.ordersFilter = '';
+      window._zrzDash.eventsFilter = '';
+    } else if(key === 'inWork'){
+      window._zrzDash.tab = 'orders';
+      window._zrzDash.ordersFilter = 'work';
+      window._zrzDash.eventsFilter = '';
+    } else if(key === 'due'){
+      window._zrzDash.tab = 'orders';
+      window._zrzDash.ordersFilter = 'due';
+      window._zrzDash.eventsFilter = '';
+    } else if(key === 'overdue'){
+      window._zrzDash.tab = 'events';
+      window._zrzDash.ordersFilter = '';
+      window._zrzDash.eventsFilter = 'overdue';
+    }
+    try { if(typeof render === 'function') render(); }catch(e){}
+  };
+
+  window.zrzKpiReset = function(){
+    try { if(typeof haptic === 'function') haptic(6); }catch(e){}
+    if(!window._zrzDash) window._zrzDash = { tab:'events', scrollY:0, ordersFilter:'', eventsFilter:'' };
+    window._zrzDash.ordersFilter = '';
+    window._zrzDash.eventsFilter = '';
+    try { if(typeof render === 'function') render(); }catch(e){}
+  };
+
   window.zrzDashSwitchTab = function(tab){
     try { if(typeof haptic === 'function') haptic(6); }catch(e){}
     window._zrzDash.tab = tab || 'events';
+    window._zrzDash.ordersFilter = '';
+    window._zrzDash.eventsFilter = '';
     try { if(typeof render === 'function') render(); }catch(e){}
   };
 
@@ -503,7 +568,6 @@
     try {
       var e = (typeof eventById === 'function') ? eventById(id) : null;
       if(!e) return;
-      /* Если привязан к заказу — открываем заказ */
       if(e.orderId){
         try { if(typeof openOrder === 'function') return openOrder(e.orderId); }catch(x){}
       }
@@ -596,7 +660,6 @@
     window.renderHome = function(){
       var u = (typeof currentUser === 'function') ? currentUser() : null;
       if(!u) return orig.apply(this, arguments);
-      /* Пока только для admin / manager */
       if(u.role !== 'admin' && u.role !== 'manager'){
         return orig.apply(this, arguments);
       }
@@ -613,12 +676,10 @@
     if(document.getElementById('zrz-dash-css')) return;
     var css = '';
 
-    /* Контейнер */
     css += ''
       + '.zrz-dash-wrap{padding:0 0 20px}'
       ;
 
-    /* Шапка */
     css += ''
       + '.zrz-dash-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:8px 4px 16px}'
       + '.zrz-dash-head-left{flex:1;min-width:0}'
@@ -628,18 +689,18 @@
       + '.zrz-dash-search:active{transform:scale(0.92);background:var(--accent-line)}'
       ;
 
-    /* KPI */
     css += ''
       + '.zrz-kpi{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px}'
       + '@media (max-width:420px){.zrz-kpi{grid-template-columns:repeat(2,1fr);gap:8px}}'
-      + '.zrz-kpi-cell{background:var(--surface);border:1.5px solid var(--line);border-radius:16px;padding:12px 8px;text-align:center;transition:transform .12s ease}'
+      + '.zrz-kpi-cell{background:var(--surface);border:1.5px solid var(--line);border-radius:16px;padding:12px 8px;text-align:center;transition:transform .12s ease,background .15s ease,border-color .15s ease}'
       + '.zrz-kpi-cell:active{transform:scale(0.97)}'
+      + '.zrz-kpi-cell[data-kpi]{cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent}'
+      + '.zrz-kpi-cell[data-kpi]:active{background:var(--accent-soft);border-color:var(--accent-line)}'
       + '.zrz-kpi-ico{font-size:18px;line-height:1;margin-bottom:4px;opacity:0.85}'
       + '.zrz-kpi-val{font-size:19px;font-weight:800;letter-spacing:-0.02em;color:var(--text);line-height:1.1;font-variant-numeric:tabular-nums}'
       + '.zrz-kpi-lbl{font-size:10.5px;color:var(--muted);margin-top:2px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px}'
       ;
 
-    /* Блок «Требует внимания» */
     css += ''
       + '.zrz-att{margin-bottom:16px;padding:14px;border-radius:18px;'
       +   'background:linear-gradient(180deg,rgba(217,146,74,0.10),rgba(217,146,74,0.03));'
@@ -658,7 +719,6 @@
       + '.zrz-att-btn:active{background:var(--accent-line);transform:scale(0.96)}'
       ;
 
-    /* Segmented control */
     css += ''
       + '.zrz-seg{display:flex;gap:4px;margin-bottom:14px;padding:4px;background:var(--accent-soft);border-radius:14px}'
       + '.zrz-seg-btn{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:10px 8px;border:none;border-radius:10px;background:transparent;font-family:inherit;font-size:13.5px;font-weight:700;color:var(--text-soft);cursor:pointer;transition:background .15s ease,color .15s ease,box-shadow .15s ease}'
@@ -666,7 +726,6 @@
       + '.zrz-seg-ico{font-size:15px;line-height:1;opacity:0.9}'
       ;
 
-    /* Компактные строки */
     css += ''
       + '.zrz-row{display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--surface);border:1.5px solid var(--line);border-radius:14px;margin-bottom:8px;cursor:pointer;transition:transform .12s ease,background .15s ease}'
       + '.zrz-row:active{transform:scale(0.985);background:var(--accent-soft)}'
@@ -690,14 +749,12 @@
       + '.zrz-badge-installed{background:#bbf7d0;color:#166534}'
       ;
 
-    /* Sticky заголовки дат */
     css += ''
       + '.zrz-day-head{position:sticky;top:0;z-index:3;padding:10px 4px 8px;margin-top:8px;font-size:11.5px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:1.2px;background:linear-gradient(180deg,var(--bg-1) 60%,rgba(246,248,252,0.9) 100%)}'
       + 'html[data-theme="dark"] .zrz-day-head{background:linear-gradient(180deg,var(--bg-1) 60%,rgba(20,26,36,0.9) 100%)}'
       + '.zrz-day-head span{display:inline-block;padding:4px 12px;background:var(--surface);border-radius:10px;border:1.5px solid var(--line);color:var(--accent-deep);letter-spacing:0.6px}'
       ;
 
-    /* Пустые состояния */
     css += ''
       + '.zrz-empty{padding:48px 24px;text-align:center;background:linear-gradient(180deg,var(--surface),var(--accent-soft));border-radius:22px;border:1.5px solid var(--accent-line);margin:8px 0}'
       + '.zrz-empty-ico{font-size:52px;line-height:1;margin-bottom:12px;opacity:0.85}'
@@ -705,7 +762,6 @@
       + '.zrz-empty-s{font-size:13px;color:var(--muted);line-height:1.5}'
       ;
 
-    /* Pull-to-refresh */
     css += ''
       + '.zrz-ptr{height:0;overflow:hidden;text-align:center;font-size:12px;font-weight:700;color:var(--accent-deep);display:flex;align-items:center;justify-content:center;transition:height .15s ease,opacity .15s ease;user-select:none;pointer-events:none}'
       + '.zrz-refresh-ind{padding:14px;text-align:center;font-size:13px;font-weight:700;color:var(--accent-deep)}'
@@ -732,7 +788,6 @@
   setTimeout(apply, 500);
   setTimeout(apply, 1500);
 
-  /* Перерисовка после загрузки — чтобы новый дашборд появился сразу */
   setTimeout(function(){
     try {
       var u = (typeof currentUser === 'function') ? currentUser() : null;
@@ -742,7 +797,6 @@
     }catch(e){}
   }, 2200);
 
-  /* Подстраховка */
   var _iv = setInterval(function(){
     try { wrapRenderHome(); }catch(e){}
   }, 2000);
@@ -750,7 +804,7 @@
 
   try{ console.log('[13-dashboard p1] дашборд админа/менеджера активен'); }catch(_){}
 })();
-/* patches/13-dashboard.js — Часть 2/3
+/* patches/13-dashboard.js — Часть 2/3/* patches/13-dashboard.js — Часть 2/3
    · Дашборд мастера (очередь цеха + прогресс)
    · Дашборд замерщика-монтажника (расписание выездов)
    · Прогресс производства на позициях (0-100%)
@@ -943,7 +997,6 @@
     if(tab === 'work'){
       list = orders.filter(function(o){ return o.status === 'work'; });
       list.sort(function(a,b){
-        /* Сначала те, что давно в работе */
         return (a.updatedAt || a.createdAt || 0) - (b.updatedAt || b.createdAt || 0);
       });
     } else if(tab === 'ready'){
@@ -961,7 +1014,6 @@
           return ymd === today;
         }catch(e){ return false; }
       });
-      /* Только для статусов "готово" / "установлен" / "закрыт" */
       list = list.filter(function(o){
         return o.status === 'ready' || o.status === 'installed' || o.status === 'closed';
       });
@@ -1197,7 +1249,6 @@
     var modal = document.querySelector('.modal');
     if(!modal) return;
     if(modal.querySelector('#zrz_progress_block')) return;
-    /* Только в карточке позиции */
     if(!modal.querySelector('#typeGrid')) return;
 
     var d = window._editDraft;
@@ -1261,26 +1312,21 @@
     window._zrz13P2OpenItemWrapped = true;
   }
 
-  /* Сохранение прогресса при сохранении позиции */
   function wrapSaveItem(){
     if(window._zrz13P2SaveItemWrapped) return;
     if(typeof window.saveItem !== 'function') return;
     var orig = window.saveItem;
     window.saveItem = function(id){
-      /* collectDraft не сохраняет productionProgress — допишем сами */
       if(window._editDraft && typeof window._editDraft.productionProgress === 'number'){
         var p = Number(window._editDraft.productionProgress) || 0;
-        /* Если сохранение новое — потеряется. Копируем в обход */
         var beforeCount = (db.items||[]).length;
         var res = orig.apply(this, arguments);
         setTimeout(function(){
           try {
-            /* Для существующей позиции — обновим сразу */
             if(id){
               var it = db.items.find(function(x){ return x.id === id; });
               if(it){ it.productionProgress = p; if(typeof touch==='function') touch(it); if(typeof save==='function') save(); }
             } else {
-              /* Для новой — последняя добавленная */
               var items = db.items || [];
               if(items.length > beforeCount){
                 var ni = items[items.length - 1];
@@ -1310,37 +1356,29 @@
       var u = (typeof currentUser === 'function') ? currentUser() : null;
       if(!u) return orig.apply(this, arguments);
 
-      /* Мастер */
       if(u.role === 'master'){
         return buildMasterDashboard(u);
       }
-      /* Замерщик */
       if(u.role === 'surveyor'){
         return buildSurveyorDashboard(u);
       }
-      /* Водитель — Часть 3 (пока как было) */
-      /* Админ / менеджер — Часть 1 (через обёртку из Части 1) */
       return orig.apply(this, arguments);
     };
     window._zrz13P2RenderHomeWrapped = true;
   }
 
-  /* Сбрасываем tab при смене роли */
   function resetTabIfNeeded(){
     try {
       var u = (typeof currentUser === 'function') ? currentUser() : null;
       if(!u) return;
       if(!window._zrzDash) return;
       var tab = window._zrzDash.tab;
-      /* Для мастера допустимые табы */
       if(u.role === 'master' && ['work','ready','done'].indexOf(tab) < 0){
         window._zrzDash.tab = 'work';
       }
-      /* Для замерщика */
       if(u.role === 'surveyor' && ['schedule','payments','done'].indexOf(tab) < 0){
         window._zrzDash.tab = 'schedule';
       }
-      /* Для админа/менеджера */
       if((u.role === 'admin' || u.role === 'manager') && ['events','orders','my'].indexOf(tab) < 0){
         window._zrzDash.tab = 'events';
       }
@@ -1355,10 +1393,8 @@
     if(document.getElementById('zrz-dash2-css')) return;
     var css = ''
 
-      /* KPI-3 (три плитки) */
       + '.zrz-kpi-3{grid-template-columns:repeat(3,1fr) !important}'
 
-      /* Прогресс заказа в карточке мастера */
       + '.zrz-row-work{padding-bottom:14px}'
       + '.zrz-master-progress{height:6px;background:rgba(91,127,184,0.14);border-radius:3px;'
       +   'overflow:hidden;margin-top:8px;margin-bottom:4px}'
@@ -1368,7 +1404,6 @@
       + '.zrz-master-progress-lbl{font-size:11px;font-weight:700;color:var(--muted);'
       +   'text-transform:uppercase;letter-spacing:0.5px}'
 
-      /* Бейдж оплаты */
       + '.zrz-badge-pay{background:linear-gradient(135deg,rgba(217,146,74,0.20),rgba(217,146,74,0.10));'
       +   'color:#8a5a0c;border:1px solid rgba(217,146,74,0.40);font-weight:800}'
       + 'html[data-theme="dark"] .zrz-badge-pay{color:#e0a866}'
@@ -1376,7 +1411,6 @@
       + 'html[data-theme="dark"] .zrz-badge-paid{color:#86efac}'
       + '.zrz-row-km{color:var(--muted-2);font-size:11.5px;margin-top:2px}'
 
-      /* Блок прогресса производства в карточке позиции */
       + '.zrz-progress-block{margin-top:14px;padding:16px;border-radius:18px;'
       +   'background:linear-gradient(180deg,rgba(91,127,184,0.08),rgba(91,127,184,0.02));'
       +   'border:1.5px solid rgba(91,127,184,0.24)}'
@@ -1414,7 +1448,6 @@
   setTimeout(apply, 700);
   setTimeout(apply, 1800);
 
-  /* Перерисовка после установки */
   setTimeout(function(){
     try {
       var u = (typeof currentUser === 'function') ? currentUser() : null;
@@ -1512,7 +1545,6 @@
       });
       r.km = Math.round(r.km * 10) / 10;
 
-      /* Оплаты на сегодня для водителя */
       var events = (window.db && Array.isArray(db.events)) ? db.events : [];
       var tk = todayKey();
       events.forEach(function(e){
@@ -1791,8 +1823,6 @@
 
   /* ============================================================
      SWIPE ACTIONS НА СТРОКАХ .zrz-row
-     · Вправо → Позвонить
-     · Влево → Карта (для событий с адресом)
      ============================================================ */
 
   function bindSwipeRows(){
@@ -1828,12 +1858,10 @@
       if(locked !== 'x') return;
       e.preventDefault();
       dx = cx;
-      /* Ограничим ±90px */
       var maxShift = 90;
       var shift = Math.max(-maxShift, Math.min(maxShift, dx));
       active.style.transform = 'translateX(' + shift + 'px)';
       active.style.transition = 'none';
-      /* Подсветка стороны */
       if(shift > 20) active.classList.add('zrz-swipe-right');
       else if(shift < -20) active.classList.add('zrz-swipe-left');
       else active.classList.remove('zrz-swipe-right','zrz-swipe-left');
@@ -1866,7 +1894,6 @@
   }
 
   function doSwipeRight(row){
-    /* Позвонить */
     try {
       var oid = null;
       var onclick = row.getAttribute('onclick') || '';
@@ -1893,7 +1920,6 @@
   }
 
   function doSwipeLeft(row){
-    /* Карта */
     try {
       var addr = '';
       var onclick = row.getAttribute('onclick') || '';
@@ -1919,7 +1945,7 @@
   }
 
   /* ============================================================
-     BOTTOM SHEET PREVIEW при тапе на событие / заказ
+     BOTTOM SHEET PREVIEW
      ============================================================ */
 
   function openPreviewForOrder(orderId){
@@ -1972,7 +1998,6 @@
     document.body.appendChild(bg);
     bg.addEventListener('click', function(e){ if(e.target === bg) window.zrz13p3Close(); });
 
-    /* Свайп вниз */
     var sheet = bg.querySelector('.zrz-sheet');
     if(sheet){
       var sy = null, dy = 0;
@@ -2075,12 +2100,6 @@
     } else el.remove();
   };
 
-  /* Опционально: открывать preview по долгому тапу? Нет — по тапу оставляем открытие.
-     Вместо этого — режим preview включается по «previewMode» в window.
-     Можно включать тапом на иконку в шапке дашборда — но проще:
-     на дашбордах замерщика/водителя пусть тап на .zrz-row-event открывает preview.
-     На дашборде мастера и админа — открывает заказ. */
-
   function bindPreviewTap(){
     if(window._zrz13P3PreviewBound) return;
     window._zrz13P3PreviewBound = true;
@@ -2091,13 +2110,11 @@
       if(e.target.closest('button')) return;
       if(e.target.closest('.zrz-rp-btn')) return;
 
-      /* Определяем роль */
       var u = (typeof currentUser === 'function') ? currentUser() : null;
       if(!u) return;
       var usePreview = (u.role === 'surveyor' || u.role === 'driver');
       if(!usePreview) return;
 
-      /* Находим id */
       var oc = row.getAttribute('onclick') || '';
       var m = oc.match(/zrzDashOpenOrder\((\d+)\)/);
       if(m){
@@ -2117,7 +2134,7 @@
   }
 
   /* ============================================================
-     ОБЁРТКА renderHome — добавляем водителя
+     ОБЁРТКА renderHome — водитель
      ============================================================ */
 
   function wrapRenderHome(){
@@ -2154,12 +2171,10 @@
     if(document.getElementById('zrz-dash3-css')) return;
     var css = ''
 
-      /* Swipe на строках */
       + '.zrz-row{position:relative;will-change:transform}'
       + '.zrz-row.zrz-swipe-right{background:linear-gradient(90deg,rgba(76,175,125,0.18) 0%,var(--surface) 40%)}'
       + '.zrz-row.zrz-swipe-left{background:linear-gradient(270deg,rgba(59,134,200,0.18) 0%,var(--surface) 40%)}'
 
-      /* Карточка маршрута */
       + '.zrz-route-card{padding:14px;background:var(--surface);border:1.5px solid var(--line);'
       +   'border-radius:16px;margin-bottom:12px}'
       + '.zrz-route-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;'
@@ -2193,7 +2208,6 @@
       + '.zrz-route-btn-primary{background:linear-gradient(135deg,#8badd8,#5b7fb8);'
       +   'color:#fff;border:none;box-shadow:0 4px 14px rgba(91,127,184,0.30)}'
 
-      /* Preview head */
       + '.zrz-preview-head{padding:6px 4px 14px;border-bottom:1px dashed var(--line);margin-bottom:12px}'
       + '.zrz-preview-num{font-family:var(--font-mono);font-size:13px;font-weight:800;'
       +   'color:var(--accent-deep);letter-spacing:-0.02em}'
