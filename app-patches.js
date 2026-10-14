@@ -1,11 +1,14 @@
 /* app-patches.js — динамические патчи «Зерцало»
    Активные фичи:
      v4.2.1 — скрыть OSRM в форме события.
-     v4.2.3 — смелая типографика и выразительная вёрстка.
+     v4.2.3 — смелая типографика.
+     v4.2.4 — цвета фурнитуры душевых (добавлен чёрный).
 */
 (function(){
-  var PATCH_VERSION = '4.2.3';
+  var PATCH_VERSION = '4.2.4';
   var _lock = false;
+
+  /* ─── v4.2.1: скрыть OSRM ─── */
 
   function hideOsrm(){
     var titles = document.querySelectorAll('.modal .section-title');
@@ -23,6 +26,78 @@
     }
   }
 
+  /* ─── v4.2.4: цвета фурнитуры ─── */
+
+  var NEW_FITTING = [
+    { key:'chrome',     label:'Хром',                 hex:'#d8dde3' },
+    { key:'nickel',     label:'Никель',               hex:'#c8c0b5' },
+    { key:'gold',       label:'Золото',               hex:'#d4af37' },
+    { key:'brushgold',  label:'Брош. золото',         hex:'#b8995e' },
+    { key:'black',      label:'Чёрный',               hex:'#1a1a1a' },
+    { key:'bronze',     label:'Бронза',               hex:'#8b6f47' },
+    { key:'gunsteel',   label:'Оруж. сталь',          hex:'#4a4d52' }
+  ];
+
+  function installFittings(){
+    try{ SHOWER_FITTING_COLORS = NEW_FITTING; }catch(e){}
+    try{
+      fittingInfo = function(k){
+        for(var i=0;i<NEW_FITTING.length;i++){
+          if(NEW_FITTING[i].key===k) return NEW_FITTING[i];
+        }
+        return null;
+      };
+    }catch(e){}
+  }
+
+  /* ─── v4.2.3: типографика ─── */
+
+  function injectCss(){
+    if(document.getElementById('zrz-patch-css')) return;
+    var css = ''
+    + '.card{padding:20px 22px 20px 26px !important;border-radius:22px !important;box-shadow:0 4px 20px rgba(90,120,170,0.10) !important;}'
+    + '.card-title{font-size:17.5px !important;font-weight:800 !important;letter-spacing:-0.25px !important;line-height:1.25 !important;margin-bottom:6px !important;}'
+    + '.card-sub{font-size:13.5px !important;line-height:1.5 !important;color:var(--text-soft) !important;}'
+    + '.card-sub+.card-sub{margin-top:3px !important;}'
+    + '.modal h2{font-size:23px !important;font-weight:800 !important;letter-spacing:-0.3px !important;line-height:1.2 !important;}'
+    + '.modal{border-radius:32px 32px 0 0 !important;box-shadow:0 -12px 48px rgba(50,70,100,0.20) !important;}'
+    + '.section-title{font-size:12px !important;font-weight:800 !important;letter-spacing:1.3px !important;padding-bottom:10px !important;margin-top:28px !important;color:var(--accent-deep) !important;}'
+    + '.section-title:first-of-type{margin-top:12px !important;}'
+    + '.info-line{padding:9px 0 !important;font-size:14px !important;}'
+    + '.info-line .lbl{font-size:13.5px !important;font-weight:600 !important;}'
+    + '.info-line .val{font-size:14.5px !important;font-weight:600 !important;}'
+    + '.btn{padding:16px 22px !important;font-size:16px !important;font-weight:700 !important;border-radius:18px !important;letter-spacing:0.1px !important;transition:transform .14s cubic-bezier(.2,.7,.3,1),box-shadow .18s ease,filter .15s ease !important;}'
+    + '.btn:active{transform:scale(0.955) !important;filter:brightness(0.95);}'
+    + '.btn-primary{background:linear-gradient(135deg,#8badd8 0%,#5b7fb8 55%,#4a6ba5 100%) !important;box-shadow:0 10px 26px rgba(91,127,184,0.34) !important;}'
+    + '.btn-primary:active{box-shadow:0 4px 12px rgba(91,127,184,0.45) !important;}'
+    + '.btn-secondary{font-weight:700 !important;}'
+    + '.btn-row-action{padding:17px 20px !important;font-size:16px !important;border-radius:18px !important;font-weight:800 !important;letter-spacing:0.15px !important;box-shadow:0 8px 22px rgba(91,127,184,0.32) !important;}'
+    + '.btn-row-action:active{transform:scale(0.97) !important;box-shadow:0 4px 12px rgba(91,127,184,0.42) !important;}'
+    + '.chip{padding:10px 17px !important;font-size:14px !important;font-weight:600 !important;transition:transform .12s cubic-bezier(.2,.7,.3,1),background .15s ease,box-shadow .15s ease !important;}'
+    + '.chip:active{transform:scale(0.93) !important;}'
+    + '.chip.active{box-shadow:0 5px 14px rgba(91,127,184,0.35) !important;font-weight:700 !important;}'
+    + '.sort-chip{padding:8px 14px !important;font-size:13px !important;font-weight:700 !important;}'
+    + 'header{padding:11px 16px !important;box-shadow:0 3px 18px rgba(90,120,170,0.09) !important;}'
+    + 'header button{width:44px !important;height:44px !important;border-radius:14px !important;font-size:21px !important;}'
+    + '.progress-wrap{height:5px !important;border-radius:5px !important;}'
+    + '.progress-bar{border-radius:5px !important;}'
+    + '.card.stagger{animation:fadeInUp .42s cubic-bezier(.2,.7,.3,1) forwards !important;}'
+    + '.page-enter{animation-duration:0.32s !important;}'
+    + '.type-badge{font-size:11px !important;font-weight:800 !important;letter-spacing:0.6px !important;padding:4px 11px !important;}'
+    + '.order-num{font-size:12.5px !important;font-weight:800 !important;padding:4px 14px !important;}'
+    + '.order-num-lg{font-size:24px !important;font-weight:800 !important;padding:12px 26px !important;}'
+    + '.order-date-lg{font-size:14px !important;font-weight:600 !important;color:var(--text-soft) !important;}'
+    + '.team-chip{font-size:13.5px !important;padding:9px 15px 9px 11px !important;font-weight:600 !important;}'
+    + '@media (max-width:420px){.card{padding:18px 18px 18px 22px !important;}.modal h2{font-size:21px !important;}.btn{padding:15px 18px !important;font-size:15.5px !important;}}'
+    ;
+    var st = document.createElement('style');
+    st.id = 'zrz-patch-css';
+    st.textContent = css;
+    document.head.appendChild(st);
+  }
+
+  /* ─── индикатор версии ─── */
+
   function tagVersion(){
     var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
     var n;
@@ -36,86 +111,15 @@
     }
   }
 
-  function injectCss(){
-    if(document.getElementById('zrz-patch-css')) return;
-    var css = ''
-
-    /* === ТИПОГРАФИКА === */
-
-    /* Карточка: заголовок заметно крупнее, вес жирнее */
-    + '.card{padding:20px 22px 20px 26px !important;border-radius:22px !important;box-shadow:0 4px 20px rgba(90,120,170,0.10) !important;}'
-    + '.card-title{font-size:17.5px !important;font-weight:800 !important;letter-spacing:-0.25px !important;line-height:1.25 !important;margin-bottom:6px !important;}'
-    + '.card-sub{font-size:13.5px !important;line-height:1.5 !important;color:var(--text-soft) !important;}'
-    + '.card-sub+.card-sub{margin-top:3px !important;}'
-
-    /* Модалка: крупнее H2, чётче */
-    + '.modal h2{font-size:23px !important;font-weight:800 !important;letter-spacing:-0.3px !important;line-height:1.2 !important;}'
-    + '.modal{border-radius:32px 32px 0 0 !important;box-shadow:0 -12px 48px rgba(50,70,100,0.20) !important;}'
-
-    /* Секции: жирные, широкий трекинг */
-    + '.section-title{font-size:12px !important;font-weight:800 !important;letter-spacing:1.3px !important;padding-bottom:10px !important;margin-top:28px !important;color:var(--accent-deep) !important;}'
-    + '.section-title:first-of-type{margin-top:12px !important;}'
-
-    /* Инфо-строки крупнее */
-    + '.info-line{padding:9px 0 !important;font-size:14px !important;}'
-    + '.info-line .lbl{font-size:13.5px !important;font-weight:600 !important;}'
-    + '.info-line .val{font-size:14.5px !important;font-weight:600 !important;}'
-
-    /* === КНОПКИ: выразительные === */
-    + '.btn{padding:16px 22px !important;font-size:16px !important;font-weight:700 !important;border-radius:18px !important;letter-spacing:0.1px !important;transition:transform .14s cubic-bezier(.2,.7,.3,1),box-shadow .18s ease,filter .15s ease !important;}'
-    + '.btn:active{transform:scale(0.955) !important;filter:brightness(0.95);}'
-    + '.btn-primary{background:linear-gradient(135deg,#8badd8 0%,#5b7fb8 55%,#4a6ba5 100%) !important;box-shadow:0 10px 26px rgba(91,127,184,0.34) !important;}'
-    + '.btn-primary:active{box-shadow:0 4px 12px rgba(91,127,184,0.45) !important;}'
-    + '.btn-secondary{font-weight:700 !important;}'
-
-    /* Кнопка-действие на дашборде — крупнее */
-    + '.btn-row-action{padding:17px 20px !important;font-size:16px !important;border-radius:18px !important;font-weight:800 !important;letter-spacing:0.15px !important;box-shadow:0 8px 22px rgba(91,127,184,0.32) !important;}'
-    + '.btn-row-action:active{transform:scale(0.97) !important;box-shadow:0 4px 12px rgba(91,127,184,0.42) !important;}'
-
-    /* === ЧИПЫ: заметнее === */
-    + '.chip{padding:10px 17px !important;font-size:14px !important;font-weight:600 !important;transition:transform .12s cubic-bezier(.2,.7,.3,1),background .15s ease,box-shadow .15s ease !important;}'
-    + '.chip:active{transform:scale(0.93) !important;}'
-    + '.chip.active{box-shadow:0 5px 14px rgba(91,127,184,0.35) !important;font-weight:700 !important;}'
-    + '.sort-chip{padding:8px 14px !important;font-size:13px !important;font-weight:700 !important;}'
-
-    /* === ШАПКА === */
-    + 'header{padding:11px 16px !important;box-shadow:0 3px 18px rgba(90,120,170,0.09) !important;}'
-    + 'header button{width:44px !important;height:44px !important;border-radius:14px !important;font-size:21px !important;}'
-
-    /* === СКРОЛЛ === */
-    + '.progress-wrap{height:5px !important;border-radius:5px !important;}'
-    + '.progress-bar{border-radius:5px !important;}'
-
-    /* Появление карточек — заметнее */
-    + '.card.stagger{animation:fadeInUp .42s cubic-bezier(.2,.7,.3,1) forwards !important;}'
-    + '.page-enter{animation-duration:0.32s !important;}'
-
-    /* Мелочи */
-    + '.type-badge{font-size:11px !important;font-weight:800 !important;letter-spacing:0.6px !important;padding:4px 11px !important;}'
-    + '.order-num{font-size:12.5px !important;font-weight:800 !important;padding:4px 14px !important;}'
-    + '.order-num-lg{font-size:24px !important;font-weight:800 !important;padding:12px 26px !important;}'
-    + '.order-date-lg{font-size:14px !important;font-weight:600 !important;color:var(--text-soft) !important;}'
-    + '.team-chip{font-size:13.5px !important;padding:9px 15px 9px 11px !important;font-weight:600 !important;}'
-
-    /* Мобильная адаптация */
-    + '@media (max-width:420px){'
-    + '  .card{padding:18px 18px 18px 22px !important;}'
-    + '  .modal h2{font-size:21px !important;}'
-    + '  .btn{padding:15px 18px !important;font-size:15.5px !important;}'
-    + '}'
-
-    ;
-    var st = document.createElement('style');
-    st.id = 'zrz-patch-css';
-    st.textContent = css;
-    document.head.appendChild(st);
-  }
-
   function apply(){
     try{ injectCss(); }catch(e){}
+    try{ installFittings(); }catch(e){}
     try{ hideOsrm(); }catch(e){}
     try{ tagVersion(); }catch(e){}
   }
+
+  /* Первичная установка фитингов — до любых модалок */
+  try{ installFittings(); }catch(e){}
 
   var mo = new MutationObserver(function(){
     if(_lock) return;
