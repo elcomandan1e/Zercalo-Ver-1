@@ -1,6 +1,6 @@
-/* app-patches.js — динамические патчи «Зерцало» v4.3.5 */
+/* app-patches.js — динамические патчи «Зерцало» v4.3.6 */
 (function(){
-  var PATCH_VERSION = '4.3.5';
+  var PATCH_VERSION = '4.3.6';
   var AUTHOR_NAME = 'Лютиков А.С.';
   var AUTHOR_TG = '@el_c0mandan1e';
   var _lock = false;
@@ -152,7 +152,7 @@
     ctx.globalAlpha = 1;
     var dx = dimP2.x - dimP1.x, dy = dimP2.y - dimP1.y;
     var len = Math.hypot(dx, dy);
-    if(len < 10){ ctx.restore(); return; }
+    if(len < 8){ ctx.restore(); return; }
     var ux = dx/len, uy = dy/len;
     var nx = -uy, ny = ux;
     ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = 1.6;
@@ -192,16 +192,16 @@
     ctx.restore();
   }
 
-  /* Отрисовка болтов + размеров.
-     Параметры:
-       x0, y0 — верхний левый угол зеркала в пикселях
-       sc3 — масштаб см → px
-       W, H — ширина/высота в см
-       d — позиция
-       containerTopPx — свободное место сверху (в px), куда можно вынести размеры
-       containerLeftPx — свободное место слева
-       containerBottomPx — свободное место снизу */
-  function _zrzDrawBoltsWithDims(ctx, x0, y0, sc3, W, H, d, containerTopPx, containerLeftPx, containerBottomPx){
+  /* Рисуем болты + размеры. Схема:
+     Сверху (в порядке снизу вверх):
+        y0-38 : расстояние между крайними болтами верхнего ряда
+     Слева:
+        x0-40 : Y-отступ (от верхнего края до верхнего левого болта)
+     Снизу (в порядке сверху вниз):
+        y0+H*sc3+44 : X-отступ (от левого края до левого болта)
+        y0+H*sc3+86 : подпись болтов
+  */
+  function _zrzDrawBoltsWithDims(ctx, x0, y0, sc3, W, H, d, contYmin, contYmax){
     if(!d.boltMount) return;
     var cnt = Number(d.boltCount)||0;
     if(cnt<4) return;
@@ -210,37 +210,25 @@
     var r = Math.max(3, Math.min(7, 0.45*sc3));
 
     var DIM_BOLT_COLOR = '#1e4d7b';
+    var pxH = H*sc3;
 
-    /* Порядок сверху вниз:
-         y0 - 66 : расстояние между болтами верхнего ряда
-         y0 - 38 : отступ X (от левого края до первого болта)
-         y0 - 12 : выносная
-    */
+    /* 1. Расстояние между крайними болтами верхнего ряда — сверху */
     var topRow = pts.filter(function(p){ return Math.abs(p.y - off) < 0.01; }).sort(function(a,b){ return a.x - b.x; });
     if(topRow.length >= 2){
       var first = topRow[0], last = topRow[topRow.length-1];
       var gap = last.x - first.x;
-      var dimY2 = y0 - 66;
-      _zrzDimLineFull(ctx,
-        {x:x0 + first.x*sc3, y:y0 - 6},
-        {x:x0 + last.x*sc3,  y:y0 - 6},
-        {x:x0 + first.x*sc3, y:dimY2},
-        {x:x0 + last.x*sc3,  y:dimY2},
-        numFmt(Math.round(gap*10)/10)+' см', DIM_BOLT_COLOR);
+      var dimYtop = y0 - 40;
+      if(dimYtop > contYmin + 10){
+        _zrzDimLineFull(ctx,
+          {x:x0 + first.x*sc3, y:y0 - 4},
+          {x:x0 + last.x*sc3,  y:y0 - 4},
+          {x:x0 + first.x*sc3, y:dimYtop},
+          {x:x0 + last.x*sc3,  y:dimYtop},
+          numFmt(Math.round(gap*10)/10)+' см', DIM_BOLT_COLOR);
+      }
     }
 
-    /* Отступ X: от левого края до первого болта верхнего ряда */
-    if(topRow.length >= 1){
-      var f = topRow[0];
-      _zrzDimLineFull(ctx,
-        {x:x0,           y:y0 - 6},
-        {x:x0 + f.x*sc3, y:y0 - 6},
-        {x:x0,           y:y0 - 38},
-        {x:x0 + f.x*sc3, y:y0 - 38},
-        numFmt(off)+' см', DIM_BOLT_COLOR);
-    }
-
-    /* Отступ Y: от верхнего края до левого верхнего болта */
+    /* 2. Y-отступ — слева от зеркала */
     var leftTopBolt = pts.filter(function(p){ return Math.abs(p.x - off) < 0.01 && Math.abs(p.y - off) < 0.01; })[0];
     if(leftTopBolt){
       _zrzDimLineFull(ctx,
@@ -251,13 +239,27 @@
         numFmt(off)+' см', DIM_BOLT_COLOR);
     }
 
-    /* Сами болты — поверх размеров */
+    /* 3. Сами болты — поверх размеров */
     ctx.save();
     pts.forEach(function(p){ drawBoltCircle(ctx, x0 + p.x*sc3, y0 + p.y*sc3, r); });
     ctx.restore();
 
-    /* Подпись — на 34 px ниже полной высоты */
-    var labelY = y0 + H*sc3 + (containerBottomPx || 60);
+    /* 4. X-отступ — снизу от зеркала */
+    if(topRow.length >= 1){
+      var f = topRow[0];
+      var xDimY = y0 + pxH + 44;
+      if(xDimY < contYmax - 10){
+        _zrzDimLineFull(ctx,
+          {x:x0,           y:y0 + pxH + 4},
+          {x:x0 + f.x*sc3, y:y0 + pxH + 4},
+          {x:x0,           y:xDimY},
+          {x:x0 + f.x*sc3, y:xDimY},
+          numFmt(off)+' см', DIM_BOLT_COLOR);
+      }
+    }
+
+    /* 5. Подпись болтов — ниже X-отступа */
+    var labelY = y0 + pxH + 86;
     ctx.save();
     ctx.fillStyle = '#1e4d7b';
     ctx.font = '700 11px "PT Sans Narrow",Arial';
@@ -267,10 +269,10 @@
     ctx.restore();
   }
 
-  function drawMirrorBolts(ctx, x0, y0, sc3, d, cTop, cLeft, cBottom){
+  function drawMirrorBolts(ctx, x0, y0, sc3, d, contYmin, contYmax){
     var g = null; try{ g = glassDimensions(d); }catch(e){ return; }
     if(!g || !g.w || !g.h) return;
-    _zrzDrawBoltsWithDims(ctx, x0, y0, sc3, g.w, g.h, d, cTop, cLeft, cBottom);
+    _zrzDrawBoltsWithDims(ctx, x0, y0, sc3, g.w, g.h, d, contYmin, contYmax);
   }
 
   function apronTotalWH(d){
@@ -449,22 +451,29 @@
         try{
           if(d.boltMount){
             if(d.type==='MIRROR'){
-              var cx=x+w/2, cy=y+h/2;
+              /* Резервируем место сверху 60px и снизу 120px для размеров болтов */
+              var _padL=64,_padR=88;
+              var _topRes=60,_botRes=120;
+              var _avW=Math.max(80,w-_padL-_padR);
+              var _avH=Math.max(60,h-_topRes-_botRes-40);
               var gd = glassDimensions(d);
-              var _padL=64,_padR=88,_padT=48,_padB=78;
-              var _avW=Math.max(80,w-_padL-_padR), _avH=Math.max(60,h-_padT-_padB);
               var sc3=Math.min(_avW/Math.max(gd.w||1,1), _avH/Math.max(gd.h||1,1));
               var pxW=gd.w*sc3, pxH=gd.h*sc3;
-              var x0=cx-pxW/2, y0=cy-pxH/2+12;
-              drawMirrorBolts(ctx, x0, y0, sc3, d, 90, 90, 54);
+              /* x0 чуть правее, чтобы Y-отступ влез слева */
+              var x0=x+_padL+(_avW-pxW)/2;
+              var y0=y+_topRes+(_avH-pxH)/2;
+              drawMirrorBolts(ctx, x0, y0, sc3, d, y, y+h);
             } else if(d.type==='APRON'){
               var wh = apronTotalWH(d);
               if(wh){
-                var cx2=x+w/2, cy2=y+h/2;
-                var sc3a = Math.min((w-180)/wh.W, (h-120)/wh.H);
-                var x0a = cx2 - (wh.W*sc3a)/2;
-                var y0a = cy2 - (wh.H*sc3a)/2 + 12;
-                _zrzDrawBoltsWithDims(ctx, x0a, y0a, sc3a, wh.W, wh.H, d, 90, 90, 54);
+                var _padL2=64,_padR2=88;
+                var _topRes2=60,_botRes2=120;
+                var _avW2=Math.max(80,w-_padL2-_padR2);
+                var _avH2=Math.max(60,h-_topRes2-_botRes2-40);
+                var sc3a = Math.min(_avW2/wh.W, _avH2/wh.H);
+                var x0a = x+_padL2+(_avW2 - wh.W*sc3a)/2;
+                var y0a = y+_topRes2+(_avH2 - wh.H*sc3a)/2;
+                _zrzDrawBoltsWithDims(ctx, x0a, y0a, sc3a, wh.W, wh.H, d, y, y+h);
               }
             }
           }
@@ -480,25 +489,30 @@
         try{
           if(d.boltMount){
             if(d.type==='MIRROR'){
-              var cx=x+w/2, cy=y+h/2;
+              var _padL=64,_padR=88;
+              var _topRes=60,_botRes=120;
+              var _avW=Math.max(80,w-_padL-_padR);
+              var _avH=Math.max(60,h-_topRes-_botRes-40);
               var gd = glassDimensions(d);
-              var sc3=Math.min((w-80)/Math.max(gd.w||1,1),(h-60)/Math.max(gd.h||1,1));
+              var sc3=Math.min(_avW/Math.max(gd.w||1,1), _avH/Math.max(gd.h||1,1));
               var pxW=gd.w*sc3, pxH=gd.h*sc3;
-              var x0=cx-pxW/2, y0=cy-pxH/2;
-              drawMirrorBolts(ctx, x0, y0, sc3, d, 90, 90, 60);
+              var x0=x+_padL+(_avW-pxW)/2;
+              var y0=y+_topRes+(_avH-pxH)/2;
+              drawMirrorBolts(ctx, x0, y0, sc3, d, y, y+h);
             } else if(d.type==='APRON'){
               var secs = Array.isArray(d.apronSections)?d.apronSections:[];
               if(secs.length){
                 var totalW=0, maxH=0;
                 secs.forEach(function(s){ totalW += Number(s.bottom)||0; maxH = Math.max(maxH, Number(s.left)||0, Number(s.right)||0); });
                 if(totalW>0 && maxH>0){
-                  var cx2=x+w/2, cy2=y+h/2;
-                  var gap = 16;
-                  var sc = Math.min((w-140-gap*(secs.length-1))/totalW, (h-140)/maxH);
-                  var startX = cx2 - (totalW*sc + gap*(secs.length-1))/2;
-                  var baseY = cy2 + maxH*sc/2 - 10;
-                  var y0a = baseY - maxH*sc;
-                  _zrzDrawBoltsWithDims(ctx, startX, y0a, sc, totalW, maxH, d, 90, 90, 60);
+                  var _padL2=64,_padR2=88;
+                  var _topRes2=60,_botRes2=120;
+                  var _avW2=Math.max(80,w-_padL2-_padR2);
+                  var _avH2=Math.max(60,h-_topRes2-_botRes2-40);
+                  var sc3a = Math.min(_avW2/totalW, _avH2/maxH);
+                  var x0a = x+_padL2+(_avW2 - totalW*sc3a)/2;
+                  var y0a = y+_topRes2+(_avH2 - maxH*sc3a)/2;
+                  _zrzDrawBoltsWithDims(ctx, x0a, y0a, sc3a, totalW, maxH, d, y, y+h);
                 }
               }
             }
