@@ -1358,8 +1358,52 @@ var OBJECT_TYPES=[_zrObj('key','flat','label','Квартира','ico','🏢'),_
 function objectTypeInfo(k){for(var i=0;i<OBJECT_TYPES.length;i++){if(OBJECT_TYPES[i].key===k)return OBJECT_TYPES[i];}return null;}
 function objectTypeLabel(k){var o=objectTypeInfo(k);return o?o.label:'';}
 function maskPhoneInput(inp){if(!inp||inp.tagName!=='INPUT'||inp.type!=='tel')return;var v=String(inp.value||'');var digits=v.replace(/D/g,'');if(digits.length&&(digits.charAt(0)==='7'||digits.charAt(0)==='8'))digits=digits.slice(1);digits=digits.slice(0,10);var out='+7';if(digits.length>0)out+=' '+digits.slice(0,3);if(digits.length>3)out+=' '+digits.slice(3,6);if(digits.length>6)out+='-'+digits.slice(6,8);if(digits.length>8)out+='-'+digits.slice(8,10);if(inp.value!==out)inp.value=out;}
-document.addEventListener('input',function(e){var t=e.target;if(t&&t.tagName==='INPUT'&&t.type==='tel')maskPhoneInput(t);},true);
-document.addEventListener('focus',function(e){var t=e.target;if(t&&t.tagName==='INPUT'&&t.type==='tel'&&!String(t.value||'').trim())t.value='+7 ';},true);
+/* v4.1.1 — надёжная маска телефона */
+function _zrFormatPhone(v){
+  var digits=String(v||'').replace(/\D/g,'');
+  if(digits.length&&(digits.charAt(0)==='7'||digits.charAt(0)==='8'))digits=digits.slice(1);
+  digits=digits.slice(0,10);
+  var out='+7';
+  if(digits.length>0)out+=' '+digits.slice(0,3);
+  if(digits.length>3)out+=' '+digits.slice(3,6);
+  if(digits.length>6)out+='-'+digits.slice(6,8);
+  if(digits.length>8)out+='-'+digits.slice(8,10);
+  return out;
+}
+function _zrIsPhoneInput(t){
+  if(!t||t.tagName!=='INPUT')return false;
+  if(String(t.type||'').toLowerCase()==='tel')return true;
+  if(String(t.getAttribute&&t.getAttribute('inputmode')||'').toLowerCase()==='tel')return true;
+  return false;
+}
+function _zrApplyPhoneMask(inp){
+  if(!_zrIsPhoneInput(inp))return;
+  if(inp.dataset&&inp.dataset.zrMasking==='1')return;
+  if(inp.dataset)inp.dataset.zrMasking='1';
+  try{
+    var formatted=_zrFormatPhone(inp.value);
+    if(inp.value!==formatted){
+      inp.value=formatted;
+      try{var L=formatted.length;inp.setSelectionRange(L,L);}catch(_){}
+    }
+    if(typeof DEBUG_MODE!=='undefined'&&DEBUG_MODE){try{console.log('[phone-mask]',inp.id||'',JSON.stringify(inp.value));}catch(_){}}
+  }finally{
+    if(inp.dataset)setTimeout(function(){if(inp.dataset)inp.dataset.zrMasking='0';},0);
+  }
+}
+document.addEventListener('input',function(e){
+  var t=e.target;
+  if(!_zrIsPhoneInput(t))return;
+  _zrApplyPhoneMask(t);
+},false);
+document.addEventListener('focusin',function(e){
+  var t=e.target;
+  if(!_zrIsPhoneInput(t))return;
+  if(!String(t.value||'').trim()){
+    t.value='+7 ';
+    try{var L=t.value.length;t.setSelectionRange(L,L);}catch(_){}
+  }
+},false);
 function setupAddrSuggest(){var inp=document.getElementById('af_addrSearch');var dd=document.getElementById('af_addrSearch_dd');if(!inp||!dd)return;var timer=null;function closeDd(){dd.style.display='none';dd.innerHTML='';}function renderList(list){if(!list.length){dd.innerHTML='<div class="addr-empty">Ничего не найдено</div>';dd.style.display='block';return;}var h='';for(var i=0;i<list.length;i++){h+='<div class="addr-item" data-i="'+i+'">'+esc(list[i].value)+'</div>';}h+='<div class="addr-suggest-dadata">подсказки: DaData</div>';dd.innerHTML=h;dd.style.display='block';dd.querySelectorAll('.addr-item').forEach(function(el){el.addEventListener('mousedown',function(ev){ev.preventDefault();var idx=parseInt(el.getAttribute('data-i'),10);pickSug(list[idx]);});});}function pickSug(s){var d=s.data||_zrObj();var form=inp.closest('.modal')||document;function setV(id,val){var el=form.querySelector('#'+id);if(el&&val!=null)el.value=String(val);}setV('af_region',d.region_with_type||d.region||'');setV('af_district',d.city_district_with_type||d.area_with_type||'');setV('af_settlement',d.settlement_with_type||'');setV('af_city',d.city||d.settlement||'');var street=(d.street_with_type||d.street||'').replace(/^(ул|пр-т|пр-кт|пер|шоссе|ш|б-р|наб|проезд|пл|аллея)s*.?s*/i,'');setV('af_street',street||d.street||'');setV('af_house',d.house||'');setV('af_building',d.block||'');setV('af_postalCode',d.postal_code||'');window._lastAddrGeo=_zrObj('lat',d.geo_lat?parseFloat(d.geo_lat):null,'lon',d.geo_lon?parseFloat(d.geo_lon):null,'postalCode',d.postal_code||'');inp.value=s.value||'';closeDd();}function fetchSug(q){if(!q||q.length<3){closeDd();return;}var url='https://suggestions.dadata.ru/suggestions/api/4_1/rs/suggest/address';var body=_zrObj('query',q,'count',10,'locations',DADATA_LOCATIONS);var headers=_zrObj('Content-Type','application/json','Accept','application/json','Authorization','Token '+DADATA_TOKEN);fetch(url,_zrObj('method','POST','headers',headers,'body',JSON.stringify(body))).then(function(r){return r.ok?r.json():null;}).then(function(j){if(!j||!j.suggestions)return;renderList(j.suggestions);}).catch(function(){closeDd();});}inp.addEventListener('input',function(){clearTimeout(timer);var q=String(inp.value||'').trim();if(q.length<3){closeDd();return;}timer=setTimeout(function(){fetchSug(q);},280);});inp.addEventListener('focus',function(){if(dd.innerHTML)dd.style.display='block';});inp.addEventListener('blur',function(){setTimeout(closeDd,180);});}
 
 var BACKLIGHT_OPTIONS=['Из-за зеркала','На зеркале','По периметру','По 3 сторонам (сверху и по бокам)','По 3 сторонам (снизу и по бокам)','По 2 вертикальным сторонам','По 2 горизонтальным сторонам','По левой стороне','По правой стороне','Снизу','Сверху'];
@@ -15792,7 +15836,7 @@ function renderAuth(){
 
 /* ============ ВЕРСИЯ / BOOT ============ */
 
-var APP_VERSION='4.1.0';/* ZRZ410_DADATA *//* ZRZ40FIX_APPLIED */
+var APP_VERSION='4.1.1';/* ZRZ411_PHONEMASK *//* ZRZ410_DADATA *//* ZRZ40FIX_APPLIED */
 
 var SCHEMA_BUILD='17/notifications/roles/sync/auto-token/rounded/backlight-facet/manual-num/measure-date/event-types/fab-top/cta/back-guard/inline-actions/cad-mirror/cutout-sockets/header-mark/driver-tab/push/morning/test-stand/docs/firebase-security/home-dashboard/order-payment/events-duration-osrm-workload/lights/docs-v4';
 
