@@ -1,6 +1,6 @@
-/* app-patches.js — динамические патчи «Зерцало» v4.3.6 */
+/* app-patches.js — динамические патчи «Зерцало» v4.3.7 */
 (function(){
-  var PATCH_VERSION = '4.3.6';
+  var PATCH_VERSION = '4.3.7';
   var AUTHOR_NAME = 'Лютиков А.С.';
   var AUTHOR_TG = '@el_c0mandan1e';
   var _lock = false;
@@ -112,6 +112,7 @@
     }, true);
   }
 
+  /* ─── болты ─── */
   function getBoltOffset(d){
     var v = Number(d.boltOffset);
     if(!v || v<=0) return 5;
@@ -136,7 +137,89 @@
     ctx.fillStyle = '#1e4d7b'; ctx.fill();
   }
 
-  var DIM_COLOR = '#c14d4d';
+  /* Рисуем болты и выноску.
+     x0,y0 — левый верхний угол зеркала в пикселях
+     sc3 — масштаб см→px
+     W,H — ширина/высота зеркала в см
+     d — позиция
+     calloutLeftLimit — граница слева (в px), до которой не должен вылезать текст */
+  function _zrzDrawBoltsWithCallout(ctx, x0, y0, sc3, W, H, d, calloutLeftLimit){
+    if(!d.boltMount) return;
+    var cnt = Number(d.boltCount)||0;
+    if(cnt<4) return;
+    var off = getBoltOffset(d);
+    var pts = boltLayout(W, H, cnt, off);
+    var r = Math.max(3, Math.min(7, 0.45*sc3));
+
+    /* Болты — точно как в оригинале */
+    ctx.save();
+    pts.forEach(function(p){ drawBoltCircle(ctx, x0 + p.x*sc3, y0 + p.y*sc3, r); });
+    ctx.restore();
+
+    /* Выноска от левого верхнего болта влево */
+    var lt = pts.filter(function(p){ return Math.abs(p.x - off) < 0.01 && Math.abs(p.y - off) < 0.01; })[0];
+    if(!lt) return;
+    var tipX = x0 + lt.x*sc3;
+    var tipY = y0 + lt.y*sc3;
+
+    var lineY = y0 - 8; /* линия выноски идёт по вертикали выше зеркала и уходит влево */
+    var endX = Math.max(calloutLeftLimit + 20, x0 - 110);
+
+    ctx.save();
+    /* Основная линия */
+    ctx.strokeStyle = '#1e4d7b';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(tipX, tipY);
+    ctx.lineTo(tipX - 14, tipY);
+    ctx.lineTo(tipX - 14, lineY);
+    ctx.lineTo(endX, lineY);
+    ctx.stroke();
+    /* Точка на болте */
+    ctx.beginPath();
+    ctx.arc(tipX, tipY, 2.2, 0, Math.PI*2);
+    ctx.fillStyle = '#1e4d7b';
+    ctx.fill();
+
+    /* Текст в 3 строки */
+    var tx = endX + 6;
+    var ty = lineY - 4;
+    ctx.fillStyle = '#1e4d7b';
+    ctx.font = '700 11px "PT Sans Narrow",Arial';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'bottom';
+
+    var line1 = '🔩 '+pts.length+' болтов';
+    var line2 = 'Ø выреза 8 мм';
+    var line3 = 'отступ '+numFmt(off)+' см';
+
+    /* Рисуем строки снизу вверх */
+    ctx.fillText(line3, tx, ty + 32);
+    ctx.fillText(line2, tx, ty + 18);
+    ctx.fillText(line1, tx, ty + 4);
+    ctx.restore();
+  }
+
+  function drawMirrorBolts(ctx, x0, y0, sc3, d, calloutLeftLimit){
+    var g = null; try{ g = glassDimensions(d); }catch(e){ return; }
+    if(!g || !g.w || !g.h) return;
+    _zrzDrawBoltsWithCallout(ctx, x0, y0, sc3, g.w, g.h, d, calloutLeftLimit);
+  }
+
+  function apronTotalWH(d){
+    var secs = Array.isArray(d.apronSections)?d.apronSections:[];
+    if(!secs.length) return null;
+    var totalW = 0, maxH = 0;
+    secs.forEach(function(s){ totalW += Number(s.bottom)||0; maxH = Math.max(maxH, Number(s.left)||0, Number(s.right)||0); });
+    if(totalW<1||maxH<1) return null;
+    return {W: totalW, H: maxH};
+  }
+
+  /* ─── размеры для розеток и бра ─── */
+  var DIM_SOCKET_COLOR = '#a05c26';
+  var DIM_LIGHT_COLOR  = '#7a3d8a';
+  var DIM_COLOR        = '#c14d4d';
+
   function _zrzDimLineFull(ctx, obj1, obj2, dimP1, dimP2, label, color){
     color = color || DIM_COLOR;
     ctx.save();
@@ -152,7 +235,7 @@
     ctx.globalAlpha = 1;
     var dx = dimP2.x - dimP1.x, dy = dimP2.y - dimP1.y;
     var len = Math.hypot(dx, dy);
-    if(len < 8){ ctx.restore(); return; }
+    if(len < 10){ ctx.restore(); return; }
     var ux = dx/len, uy = dy/len;
     var nx = -uy, ny = ux;
     ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = 1.6;
@@ -191,101 +274,6 @@
     }
     ctx.restore();
   }
-
-  /* Рисуем болты + размеры. Схема:
-     Сверху (в порядке снизу вверх):
-        y0-38 : расстояние между крайними болтами верхнего ряда
-     Слева:
-        x0-40 : Y-отступ (от верхнего края до верхнего левого болта)
-     Снизу (в порядке сверху вниз):
-        y0+H*sc3+44 : X-отступ (от левого края до левого болта)
-        y0+H*sc3+86 : подпись болтов
-  */
-  function _zrzDrawBoltsWithDims(ctx, x0, y0, sc3, W, H, d, contYmin, contYmax){
-    if(!d.boltMount) return;
-    var cnt = Number(d.boltCount)||0;
-    if(cnt<4) return;
-    var off = getBoltOffset(d);
-    var pts = boltLayout(W, H, cnt, off);
-    var r = Math.max(3, Math.min(7, 0.45*sc3));
-
-    var DIM_BOLT_COLOR = '#1e4d7b';
-    var pxH = H*sc3;
-
-    /* 1. Расстояние между крайними болтами верхнего ряда — сверху */
-    var topRow = pts.filter(function(p){ return Math.abs(p.y - off) < 0.01; }).sort(function(a,b){ return a.x - b.x; });
-    if(topRow.length >= 2){
-      var first = topRow[0], last = topRow[topRow.length-1];
-      var gap = last.x - first.x;
-      var dimYtop = y0 - 40;
-      if(dimYtop > contYmin + 10){
-        _zrzDimLineFull(ctx,
-          {x:x0 + first.x*sc3, y:y0 - 4},
-          {x:x0 + last.x*sc3,  y:y0 - 4},
-          {x:x0 + first.x*sc3, y:dimYtop},
-          {x:x0 + last.x*sc3,  y:dimYtop},
-          numFmt(Math.round(gap*10)/10)+' см', DIM_BOLT_COLOR);
-      }
-    }
-
-    /* 2. Y-отступ — слева от зеркала */
-    var leftTopBolt = pts.filter(function(p){ return Math.abs(p.x - off) < 0.01 && Math.abs(p.y - off) < 0.01; })[0];
-    if(leftTopBolt){
-      _zrzDimLineFull(ctx,
-        {x:x0 - 6,             y:y0},
-        {x:x0 - 6,             y:y0 + leftTopBolt.y*sc3},
-        {x:x0 - 42,            y:y0},
-        {x:x0 - 42,            y:y0 + leftTopBolt.y*sc3},
-        numFmt(off)+' см', DIM_BOLT_COLOR);
-    }
-
-    /* 3. Сами болты — поверх размеров */
-    ctx.save();
-    pts.forEach(function(p){ drawBoltCircle(ctx, x0 + p.x*sc3, y0 + p.y*sc3, r); });
-    ctx.restore();
-
-    /* 4. X-отступ — снизу от зеркала */
-    if(topRow.length >= 1){
-      var f = topRow[0];
-      var xDimY = y0 + pxH + 44;
-      if(xDimY < contYmax - 10){
-        _zrzDimLineFull(ctx,
-          {x:x0,           y:y0 + pxH + 4},
-          {x:x0 + f.x*sc3, y:y0 + pxH + 4},
-          {x:x0,           y:xDimY},
-          {x:x0 + f.x*sc3, y:xDimY},
-          numFmt(off)+' см', DIM_BOLT_COLOR);
-      }
-    }
-
-    /* 5. Подпись болтов — ниже X-отступа */
-    var labelY = y0 + pxH + 86;
-    ctx.save();
-    ctx.fillStyle = '#1e4d7b';
-    ctx.font = '700 11px "PT Sans Narrow",Arial';
-    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-    ctx.fillText('🔩 '+pts.length+' болтов Ø8 мм · отступ '+numFmt(off)+' см',
-      x0 + (W*sc3)/2, labelY);
-    ctx.restore();
-  }
-
-  function drawMirrorBolts(ctx, x0, y0, sc3, d, contYmin, contYmax){
-    var g = null; try{ g = glassDimensions(d); }catch(e){ return; }
-    if(!g || !g.w || !g.h) return;
-    _zrzDrawBoltsWithDims(ctx, x0, y0, sc3, g.w, g.h, d, contYmin, contYmax);
-  }
-
-  function apronTotalWH(d){
-    var secs = Array.isArray(d.apronSections)?d.apronSections:[];
-    if(!secs.length) return null;
-    var totalW = 0, maxH = 0;
-    secs.forEach(function(s){ totalW += Number(s.bottom)||0; maxH = Math.max(maxH, Number(s.left)||0, Number(s.right)||0); });
-    if(totalW<1||maxH<1) return null;
-    return {W: totalW, H: maxH};
-  }
-
-  var DIM_SOCKET_COLOR = '#a05c26';
-  var DIM_LIGHT_COLOR  = '#7a3d8a';
 
   function _zrzDrawSocketDot(ctx, cx, cy, r){
     ctx.save();
@@ -449,31 +437,23 @@
       window.drawTechIso = function(ctx, x, y, w, h, dims, scale, d){
         var res = origIso.apply(this, arguments);
         try{
-          if(d.boltMount){
+          if(d.boltMount && (d.type==='MIRROR' || d.type==='APRON')){
+            var cx=x+w/2, cy=y+h/2;
+            var _padL=64,_padR=88,_padT=48,_padB=78;
+            var _avW=Math.max(80,w-_padL-_padR), _avH=Math.max(60,h-_padT-_padB);
             if(d.type==='MIRROR'){
-              /* Резервируем место сверху 60px и снизу 120px для размеров болтов */
-              var _padL=64,_padR=88;
-              var _topRes=60,_botRes=120;
-              var _avW=Math.max(80,w-_padL-_padR);
-              var _avH=Math.max(60,h-_topRes-_botRes-40);
               var gd = glassDimensions(d);
               var sc3=Math.min(_avW/Math.max(gd.w||1,1), _avH/Math.max(gd.h||1,1));
               var pxW=gd.w*sc3, pxH=gd.h*sc3;
-              /* x0 чуть правее, чтобы Y-отступ влез слева */
-              var x0=x+_padL+(_avW-pxW)/2;
-              var y0=y+_topRes+(_avH-pxH)/2;
-              drawMirrorBolts(ctx, x0, y0, sc3, d, y, y+h);
-            } else if(d.type==='APRON'){
+              var x0=cx-pxW/2, y0=cy-pxH/2+12;
+              drawMirrorBolts(ctx, x0, y0, sc3, d, x);
+            } else {
               var wh = apronTotalWH(d);
               if(wh){
-                var _padL2=64,_padR2=88;
-                var _topRes2=60,_botRes2=120;
-                var _avW2=Math.max(80,w-_padL2-_padR2);
-                var _avH2=Math.max(60,h-_topRes2-_botRes2-40);
-                var sc3a = Math.min(_avW2/wh.W, _avH2/wh.H);
-                var x0a = x+_padL2+(_avW2 - wh.W*sc3a)/2;
-                var y0a = y+_topRes2+(_avH2 - wh.H*sc3a)/2;
-                _zrzDrawBoltsWithDims(ctx, x0a, y0a, sc3a, wh.W, wh.H, d, y, y+h);
+                var sc3a = Math.min(_avW/wh.W, _avH/wh.H);
+                var x0a = cx - (wh.W*sc3a)/2;
+                var y0a = cy - (wh.H*sc3a)/2 + 12;
+                _zrzDrawBoltsWithCallout(ctx, x0a, y0a, sc3a, wh.W, wh.H, d, x);
               }
             }
           }
@@ -487,32 +467,26 @@
       window.drawTechFront = function(ctx, x, y, w, h, d){
         var res = origFront.apply(this, arguments);
         try{
-          if(d.boltMount){
+          if(d.boltMount && (d.type==='MIRROR' || d.type==='APRON')){
+            var cx=x+w/2, cy=y+h/2;
             if(d.type==='MIRROR'){
-              var _padL=64,_padR=88;
-              var _topRes=60,_botRes=120;
-              var _avW=Math.max(80,w-_padL-_padR);
-              var _avH=Math.max(60,h-_topRes-_botRes-40);
               var gd = glassDimensions(d);
-              var sc3=Math.min(_avW/Math.max(gd.w||1,1), _avH/Math.max(gd.h||1,1));
+              var sc3=Math.min((w-80)/Math.max(gd.w||1,1),(h-60)/Math.max(gd.h||1,1));
               var pxW=gd.w*sc3, pxH=gd.h*sc3;
-              var x0=x+_padL+(_avW-pxW)/2;
-              var y0=y+_topRes+(_avH-pxH)/2;
-              drawMirrorBolts(ctx, x0, y0, sc3, d, y, y+h);
-            } else if(d.type==='APRON'){
+              var x0=cx-pxW/2, y0=cy-pxH/2;
+              drawMirrorBolts(ctx, x0, y0, sc3, d, x);
+            } else {
               var secs = Array.isArray(d.apronSections)?d.apronSections:[];
               if(secs.length){
                 var totalW=0, maxH=0;
                 secs.forEach(function(s){ totalW += Number(s.bottom)||0; maxH = Math.max(maxH, Number(s.left)||0, Number(s.right)||0); });
                 if(totalW>0 && maxH>0){
-                  var _padL2=64,_padR2=88;
-                  var _topRes2=60,_botRes2=120;
-                  var _avW2=Math.max(80,w-_padL2-_padR2);
-                  var _avH2=Math.max(60,h-_topRes2-_botRes2-40);
-                  var sc3a = Math.min(_avW2/totalW, _avH2/maxH);
-                  var x0a = x+_padL2+(_avW2 - totalW*sc3a)/2;
-                  var y0a = y+_topRes2+(_avH2 - maxH*sc3a)/2;
-                  _zrzDrawBoltsWithDims(ctx, x0a, y0a, sc3a, totalW, maxH, d, y, y+h);
+                  var gap = 16;
+                  var sc = Math.min((w-80-gap*(secs.length-1))/totalW, (h-60)/maxH);
+                  var startX = cx - (totalW*sc + gap*(secs.length-1))/2;
+                  var baseY = cy + maxH*sc/2 - 10;
+                  var y0a = baseY - maxH*sc;
+                  _zrzDrawBoltsWithCallout(ctx, startX, y0a, sc, totalW, maxH, d, x);
                 }
               }
             }
@@ -536,7 +510,7 @@
     var html = '<div id="zrz_bolt_block" style="margin-top:14px">'
       + '<div class="section-title" style="margin-top:0">🔩 Декоративные болты</div>'
       + '<div class="checkbox-row" style="background:linear-gradient(180deg,rgba(59,92,143,0.10),rgba(59,92,143,0.04));border:1.5px solid rgba(59,92,143,0.28)">'
-      + '<input type="checkbox" id="zrz_bolt_chk"><label for="zrz_bolt_chk">Крепление на декоративные болты</label>'
+      + '<input type="checkbox" id="zrz_bolt_chk"><label for="zrz_bolt_chk">Крепление на декоративные болты (Ø выреза 8 мм)</label>'
       + '</div>'
       + '<div id="zrz_bolt_count_wrap" style="display:none;margin-top:10px">'
       + '  <label style="margin-top:0">Количество</label>'
@@ -554,7 +528,7 @@
       + '    <button type="button" class="chip" data-off="15">15</button>'
       + '  </div>'
       + '  <input id="zrz_bolt_offset_input" type="text" inputmode="decimal" placeholder="Своё значение, см" value="'+numFmt(off)+'">'
-      + '  <div class="shower-hint" style="text-align:left;margin-top:6px">От 1 до 30 см. Учитывается на чертеже.</div>'
+      + '  <div class="shower-hint" style="text-align:left;margin-top:6px">От 1 до 30 см. Вырез под болт — Ø8 мм.</div>'
       + '</div></div>';
     anchor.insertAdjacentHTML('beforebegin', html);
     var chk = document.getElementById('zrz_bolt_chk');
@@ -701,7 +675,7 @@
           if(src.boltMount){
             var cnt = Number(src.boltCount)||4;
             var off = getBoltOffset(src);
-            it.rows.push({k:'🔩 Болты', v:cnt+' шт, Ø8 мм, отступ '+numFmt(off)+' см от углов'});
+            it.rows.push({k:'🔩 Болты', v:cnt+' шт, Ø выреза 8 мм, отступ '+numFmt(off)+' см от углов'});
           }
           if(src.socketsMount && Array.isArray(src.socketsList) && src.socketsList.length){
             var sockTxt = src.socketsList.map(function(s){
