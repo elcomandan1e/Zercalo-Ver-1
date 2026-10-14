@@ -1993,6 +1993,9 @@ function migrateItem(i){
 function migrateOrder(o){if(!o)return o;if(o.liftNeeded==null)o.liftNeeded=false;if(o.liftFloor==null)o.liftFloor=0;if(o.parkingCarry==null)o.parkingCarry=false;if(o.needPass==null)o.needPass=false;if(o.paid==null)o.paid=false;if(o.paidAmount==null)o.paidAmount=0;if(o.orderTotal==null)o.orderTotal=0;if(o.orderPaid==null)o.orderPaid=0;if(o.manualNum==null)o.manualNum=false;if(o.clientNote==null)o.clientNote='';if(o.orderNote==null)o.orderNote='';if(o.masterComment==null)o.masterComment='';if(o.status==null)o.status='new';if(o.createdBy==null)o.createdBy=null;if(!Array.isArray(o.assignedUserIds))o.assignedUserIds=null;if(o.measureDate==null)o.measureDate=null;
   if(o.isDraft==null)o.isDraft=false;
   if(o.estimatedTotal==null)o.estimatedTotal=0;
+  if(!Array.isArray(o.estimateLines))o.estimateLines=[];
+  if(o.measurePaid==null)o.measurePaid=!!o.paid;
+  if(o.measurePaidAmount==null)o.measurePaidAmount=Number(o.paidAmount)||0;
 
   if(o.clientId==null)o.clientId=null;
 
@@ -8697,6 +8700,9 @@ function renderDetail(){
     html+='<button type="button" class="btn-row-action btn-row-compact" onclick="markOrderAsMeasured('+o.id+')">📏 Замерить (уточнить)</button>';
   }
   html+='<div class="progress-wrap"><div class="progress-bar" id="orderProgressBar" data-val="'+progress+'"></div></div>';
+  var _mpCls=o.measurePaid?'background:linear-gradient(180deg,#e6f4ec,#d6efdf);border-color:#a8d6bc;color:#2c7a54':'';
+  var _mpTxt=o.measurePaid?('💰 Замер оплачен'+(o.measurePaidAmount?' на '+numFmt(o.measurePaidAmount)+' ₽':'')):'💰 Замер не оплачен';
+  html+='<div class="draft-notice" style="margin-top:0;'+_mpCls+'">'+_mpTxt+' · <a class="tap-link" onclick="openMeasurePaidModal('+o.id+')">изменить</a></div>';
 
   var cb='';
 
@@ -8943,6 +8949,8 @@ function openNewOrder(presetClientId,asLead){
   newOrderWizard={
 
     isLead:asLead!==false,
+    estType:'MIRROR',
+    lines:[],
 
     step:1,
 
@@ -9227,9 +9235,22 @@ function renderOrderWizardStep3(){
 
     '<div class="shower-hint" style="text-align:left">Необязательно. Если указать — замер появится в календаре.</div>'+
 
+    '<div class="section-title">💰 Оплата замера</div>'+
+    '<div class="chips" id="wz_chips_paid">'+
+      '<button type="button" class="chip '+(!s.paid?'active':'')+'" data-val="no" onclick="wzSetPaid(false)">✕ Не оплачен</button>'+
+      '<button type="button" class="chip '+(s.paid?'active':'')+'" data-val="yes" onclick="wzSetPaid(true)">✓ Оплачен</button>'+
+    '</div>'+
+    '<div id="wz_paid_amount_wrap" style="display:'+(s.paid?'block':'none')+'">'+
+      '<label>Сумма, ₽</label>'+
+      '<input id="wz_paid_amount" type="text" inputmode="decimal" value="'+(s.paidAmount?numFmt(s.paidAmount):'')+'" oninput="wzSetPaidAmount(this.value)">'+
+      '<div class="shower-hint" style="text-align:left">Если клиент оплатил выезд замерщика. Замерщик может уточнить по факту.</div>'+
+    '</div>'+
+
     '<div class="section-title">Команда</div>'+
 
     '<div class="team-grid" id="wzTeamGrid">'+teamChips+'</div>'+
+
+    wzEstRenderBlock()+
 
     '<div class="section-title">Примечания</div>'+
 
@@ -9307,6 +9328,90 @@ function wzSetLead(v){
   var s=newOrderWizard;if(!s)return;
   s.isLead=!!v;
   haptic(6);
+  renderOrderWizardStep3();
+}
+function wzEstSnapshotFields(){
+  var s=newOrderWizard;if(!s)return;
+  var d=document.getElementById('wz_eventDate');if(d)s.eventDate=d.value||'';
+  var t=document.getElementById('wz_eventTime');if(t)s.eventTime=t.value||'';
+  var cn=document.getElementById('wz_clientNote');if(cn)s.clientNote=cn.value||'';
+  var on=document.getElementById('wz_orderNote');if(on)s.orderNote=on.value||'';
+  var num=document.getElementById('wz_orderNum');if(num){s.customOrderNum=num.value||'';s.customOrderNumChanged=true;}
+}
+function wzEstRenderBlock(){
+  var s=newOrderWizard;if(!s)return '';
+  var lines=Array.isArray(s.lines)?s.lines:[];
+  var t=s.estType||'MIRROR';
+  var h='<div class="section-title">📐 Примерные параметры (по телефону)</div>';
+  h+='<div class="shower-hint" style="text-align:left;margin:-4px 0 8px">Введите приблизительные размеры и опции клиента. Стоимость посчитается автоматически по прайсу. Замерщик уточнит на объекте.</div>';
+  h+='<div class="chips" style="margin-bottom:8px;flex-wrap:wrap">';
+  ITEM_TYPES.forEach(function(tp){
+    h+='<button type="button" class="chip '+(t===tp.key?'active':'')+'" onclick="wzEstSetType(&#39;'+tp.key+'&#39;)">'+tp.ico+' '+esc(tp.label)+'</button>';
+  });
+  h+='</div>';
+  h+='<div class="row2"><div><label>Ширина, см</label><input id="wz_est_w" type="text" inputmode="decimal" placeholder="60"></div><div><label>Высота, см</label><input id="wz_est_h" type="text" inputmode="decimal" placeholder="80"></div></div>';
+  h+='<label>Количество, шт</label><input id="wz_est_qty" type="number" inputmode="numeric" value="1">';
+  if(t==='MIRROR'){
+    h+='<div class="checkbox-row"><input type="checkbox" id="wz_est_chk_backlight"><label for="wz_est_chk_backlight">💡 Подсветка</label></div>';
+    h+='<div class="checkbox-row"><input type="checkbox" id="wz_est_chk_socket"><label for="wz_est_chk_socket">🔌 Розетки</label></div>';
+    h+='<div class="checkbox-row"><input type="checkbox" id="wz_est_chk_light"><label for="wz_est_chk_light">💡 Светильник (бра)</label></div>';
+    h+='<div class="checkbox-row"><input type="checkbox" id="wz_est_chk_round"><label for="wz_est_chk_round">⭕ Скругление</label></div>';
+  }
+  h+='<button type="button" class="btn btn-secondary" style="margin-top:10px;padding:11px;font-size:14px" onclick="wzEstAddLine()">+ Добавить позицию</button>';
+  if(lines.length){
+    h+='<div class="section-title" style="margin-top:14px">Добавленные</div>';
+    lines.forEach(function(L,idx){
+      var ico=(L.type==='MIRROR'?'🪞':L.type==='SHOWER'?'🚿':L.type==='APRON'?'🍳':L.type==='PANNO'?'🖼':'🗄');
+      h+='<div class="shower-item" style="margin-bottom:6px;padding:10px 12px"><div class="shower-item-head"><span class="shower-item-num">'+(idx+1)+'</span><span class="shower-item-type">'+ico+' '+esc(L.title||'')+'</span><button type="button" class="shower-item-del" onclick="wzEstRemoveLine('+idx+')">✕</button></div><div class="card-sub" style="margin-top:4px">'+esc(L.sub||'')+'</div><div style="text-align:right;font-weight:700;color:var(--accent-deep);font-family:var(--font-mono);margin-top:4px">'+numFmt(L.sum||0)+' ₽</div></div>';
+    });
+  }
+  var tot=0;lines.forEach(function(L){tot+=Number(L.sum)||0;});
+  h+='<div class="calc-box" style="margin-top:14px"><span class="calc-title">Ориентировочно</span><div class="calc-row" style="font-size:22px;font-weight:800;color:var(--accent-deep);font-family:var(--font-mono);text-align:center;padding:8px 0">'+numFmt(tot)+' ₽</div><div style="font-size:11.5px;color:var(--muted);text-align:center;line-height:1.5">Позиций: '+lines.length+'. Не является офертой.</div></div>';
+  return h;
+}
+function wzEstSetType(k){
+  var s=newOrderWizard;if(!s)return;
+  wzEstSnapshotFields();
+  s.estType=k;
+  renderOrderWizardStep3();
+}
+function wzEstAddLine(){
+  var s=newOrderWizard;if(!s)return;
+  var w=parseFloat(String((document.getElementById('wz_est_w')||{}).value||'').replace(',','.'))||0;
+  var h=parseFloat(String((document.getElementById('wz_est_h')||{}).value||'').replace(',','.'))||0;
+  var qty=parseInt((document.getElementById('wz_est_qty')||{}).value||'1',10)||1;
+  if(!w||!h){uiAlert('Введите ширину и высоту');return;}
+  var t=s.estType||'MIRROR';
+  var L={};
+  L.type=t;L.w=w;L.h=h;L.qty=qty;
+  if(t==='MIRROR'){
+    L.backlight=!!(document.getElementById('wz_est_chk_backlight')||{}).checked;
+    L.socket=!!(document.getElementById('wz_est_chk_socket')||{}).checked;
+    L.light=!!(document.getElementById('wz_est_chk_light')||{}).checked;
+    L.round=!!(document.getElementById('wz_est_chk_round')||{}).checked;
+  }
+  var tInfo=typeInfo(L.type);
+  L.title=tInfo.label;
+  var parts=[];
+  parts.push(numFmt(w)+'×'+numFmt(h)+' см');
+  if(qty>1)parts.push('×'+qty);
+  if(L.backlight)parts.push('подсветка');
+  if(L.socket)parts.push('розетки');
+  if(L.light)parts.push('светильник');
+  if(L.round)parts.push('скругление');
+  L.sub=parts.join(' • ');
+  L.sum=_estCalcLineSum(L);
+  if(!Array.isArray(s.lines))s.lines=[];
+  s.lines.push(L);
+  wzEstSnapshotFields();
+  haptic(8);
+  renderOrderWizardStep3();
+}
+function wzEstRemoveLine(idx){
+  var s=newOrderWizard;if(!s||!Array.isArray(s.lines))return;
+  wzEstSnapshotFields();
+  s.lines.splice(idx,1);
+  haptic(8);
   renderOrderWizardStep3();
 }
 function wzCancel(){
@@ -9417,7 +9522,8 @@ async function wzSave(){
 
     liftNeeded:!!a.liftNeeded,liftFloor:a.liftFloor||0,parkingCarry:!!a.parkingCarry,needPass:!!a.needPass,
 
-    paid:!!s.paid,paidAmount:s.paid?Number(s.paidAmount)||0:0,
+    paid:false,paidAmount:0,
+    measurePaid:!!s.paid,measurePaidAmount:s.paid?(Number(s.paidAmount)||0):0,
     createdAt:createdAt,updatedAt:createdAt,
     clientNote:s.clientNote||'',orderNote:s.orderNote||'',masterComment:'',
 
@@ -9429,6 +9535,12 @@ async function wzSave(){
 
   });
 
+  var _newOrd=db.orders[db.orders.length-1];
+  if(_newOrd){
+    _newOrd.estimateLines=(s.lines||[]).slice();
+    var _tt=0;(_newOrd.estimateLines||[]).forEach(function(L){_tt+=Number(L.sum)||0;});
+    _newOrd.estimatedTotal=_tt;
+  }
   renumberDayOrders(dateKey);
 
   if(s.eventDate){
@@ -12988,17 +13100,221 @@ async function markOrderAsMeasured(orderId){
 function renderEstimatedBlock(o){
   var est=Number(o.estimatedTotal)||0;
   var canEdit=userCan('orders.payment');
+  var lines=Array.isArray(o.estimateLines)?o.estimateLines:[];
   var h='<div class="card no-tap" style="padding-left:20px">';
   h+='<div class="section-title" style="margin-top:0">📋 Предварительная оценка</div>';
+  if(lines.length){
+    h+='<div style="margin-bottom:8px">';
+    lines.forEach(function(L){
+      var ico=(L.type==='MIRROR'?'🪞':L.type==='SHOWER'?'🚿':L.type==='APRON'?'🍳':L.type==='PANNO'?'🖼':'🗄');
+      h+='<div class="info-line" style="padding:6px 0"><span class="lbl" style="min-width:0;flex:1"><b>'+ico+' '+esc(L.title||'')+'</b><br><span style="font-size:11.5px;color:var(--muted)">'+esc(L.sub||'')+'</span></span><span class="val" style="font-weight:700;color:var(--accent-deep);font-family:var(--font-mono)">'+numFmt(L.sum||0)+' ₽</span></div>';
+    });
+    h+='</div>';
+  }
   if(canEdit){
     h+='<label>Ориентировочно, ₽</label>';
     h+='<input type="text" inputmode="decimal" value="'+(est?numFmt(est):'')+'" oninput="saveEstTotal('+o.id+',this.value)">';
+    h+='<button class="btn btn-primary" style="margin-top:10px;padding:11px;font-size:14px" onclick="openEstimateCalc('+o.id+')">🧮 Рассчитать по прайсу</button>';
     h+='<div style="font-size:11.5px;color:var(--muted);margin-top:6px;line-height:1.5">Назовите клиенту по телефону. Точная сумма — после замера.</div>';
   }else{
     h+='<div style="font-size:16px;color:var(--text);font-weight:700">'+(est?numFmt(est)+' ₽':'— не указано —')+'</div>';
   }
   h+='</div>';
   return h;
+}
+function openEstimateCalc(orderId){
+  var o=db.orders.find(function(x){return x.id===orderId;});
+  if(!o){uiAlert('Заказ не найден');return;}
+  if(!userCan('orders.payment')){uiAlert('Нет прав');return;}
+  window._estCalc={orderId:orderId,lines:JSON.parse(JSON.stringify(o.estimateLines||[])),type:'MIRROR'};
+  renderEstimateCalc();
+}
+function _priceGet(gk,ik){
+  var pb=ensurePriceBook();
+  for(var i=0;i<pb.groups.length;i++){
+    if(pb.groups[i].key!==gk)continue;
+    for(var j=0;j<pb.groups[i].items.length;j++){
+      if(pb.groups[i].items[j].key===ik)return Number(pb.groups[i].items[j].price)||0;
+    }
+  }
+  return 0;
+}
+function _estCalcLineSum(L){
+  var w=Number(L.w)||0,h=Number(L.h)||0,qty=Math.max(1,Number(L.qty)||1);
+  var area=(w/100)*(h/100);
+  var perim=2*((w/100)+(h/100));
+  var sum=0;
+  if(L.type==='MIRROR'){
+    sum+=_priceGet('mirror','base_silver_4')*area;
+    sum+=_priceGet('mirror','edge_polish')*perim;
+    if(L.backlight)sum+=_priceGet('mirror','backlight_behind')*perim;
+    if(L.socket)sum+=_priceGet('mirror','socket_mount');
+    if(L.light)sum+=_priceGet('mirror','light_fixture');
+    if(L.round)sum+=_priceGet('mirror','corner_round')*4;
+    sum+=_priceGet('works','install_mirror');
+  }else if(L.type==='SHOWER'){
+    sum+=_priceGet('shower','base_8')*area;
+    sum+=_priceGet('shower','hinge')*2;
+    sum+=_priceGet('shower','handle_bow');
+    sum+=_priceGet('shower','profile_wall')*perim*0.5;
+    sum+=_priceGet('works','install_shower');
+  }else if(L.type==='APRON'){
+    sum+=_priceGet('apron','base_clear')*area;
+    sum+=_priceGet('apron','edge_polish')*perim;
+    sum+=_priceGet('works','install_apron')*area;
+  }else if(L.type==='PANNO'){
+    sum+=_priceGet('panno','base')*area;
+    sum+=_priceGet('works','install_panno');
+  }else if(L.type==='SHELF'){
+    sum+=_priceGet('shelf','base')*area;
+    sum+=_priceGet('shelf','bracket')*2;
+  }
+  return Math.round(sum*qty);
+}
+function _estCalcTotal(){
+  var st=window._estCalc;
+  if(!st)return 0;
+  var t=0;
+  st.lines.forEach(function(L){t+=Number(L.sum)||0;});
+  return t;
+}
+function estCalcSetType(t){
+  if(!window._estCalc)return;
+  window._estCalc.type=t;
+  renderEstimateCalc();
+}
+function estCalcAddLine(){
+  var st=window._estCalc;
+  if(!st)return;
+  var w=parseFloat(String((document.getElementById('est_w')||{}).value||'').replace(',','.'))||0;
+  var h=parseFloat(String((document.getElementById('est_h')||{}).value||'').replace(',','.'))||0;
+  var qty=parseInt((document.getElementById('est_qty')||{}).value||'1',10)||1;
+  if(!w||!h){uiAlert('Введите ширину и высоту');return;}
+  var L={type:st.type,w:w,h:h,qty:qty};
+  if(st.type==='MIRROR'){
+    L.backlight=!!(document.getElementById('est_chk_backlight')||{}).checked;
+    L.socket=!!(document.getElementById('est_chk_socket')||{}).checked;
+    L.light=!!(document.getElementById('est_chk_light')||{}).checked;
+    L.round=!!(document.getElementById('est_chk_round')||{}).checked;
+  }
+  var tInfo=typeInfo(L.type);
+  L.title=tInfo.label;
+  var parts=[];
+  parts.push(numFmt(w)+'×'+numFmt(h)+' см');
+  if(qty>1)parts.push('×'+qty);
+  if(L.backlight)parts.push('подсветка');
+  if(L.socket)parts.push('розетки');
+  if(L.light)parts.push('светильник');
+  if(L.round)parts.push('скругление');
+  L.sub=parts.join(' • ');
+  L.sum=_estCalcLineSum(L);
+  st.lines.push(L);
+  haptic(8);
+  renderEstimateCalc();
+}
+function estCalcRemoveLine(idx){
+  var st=window._estCalc;
+  if(!st||!st.lines[idx])return;
+  st.lines.splice(idx,1);
+  haptic(8);
+  renderEstimateCalc();
+}
+function estCalcApply(){
+  var st=window._estCalc;
+  if(!st)return;
+  var o=db.orders.find(function(x){return x.id===st.orderId;});
+  if(!o){uiAlert('Заказ не найден');return;}
+  o.estimateLines=st.lines.slice();
+  o.estimatedTotal=_estCalcTotal();
+  touch(o);
+  save();
+  haptic([15,40,15]);
+  closeModal();
+  render();
+}
+function renderEstimateCalc(){
+  var st=window._estCalc;
+  if(!st)return;
+  var t=st.type;
+  var html='<h2>'+LOGO_MARK(30)+' 🧮 Расчёт по прайсу</h2>';
+  html+='<div class="draft-notice">Черновая ориентировка по прайсу. Не является офертой.</div>';
+  /* Список добавленных */
+  if(st.lines.length){
+    html+='<div class="section-title" style="margin-top:10px">Добавленные позиции</div>';
+    html+='<div style="margin-bottom:8px">';
+    st.lines.forEach(function(L,idx){
+      var ico=(L.type==='MIRROR'?'🪞':L.type==='SHOWER'?'🚿':L.type==='APRON'?'🍳':L.type==='PANNO'?'🖼':'🗄');
+      html+='<div class="shower-item" style="margin-bottom:6px;padding:10px 12px"><div class="shower-item-head"><span class="shower-item-num">'+(idx+1)+'</span><span class="shower-item-type">'+ico+' '+esc(L.title||'')+'</span><button type="button" class="shower-item-del" onclick="estCalcRemoveLine('+idx+')">✕</button></div><div class="card-sub" style="margin-top:4px">'+esc(L.sub||'')+'</div><div style="text-align:right;font-weight:700;color:var(--accent-deep);font-family:var(--font-mono);margin-top:4px">'+numFmt(L.sum||0)+' ₽</div></div>';
+    });
+    html+='</div>';
+  }
+  /* Форма добавления */
+  html+='<div class="section-title">Добавить позицию</div>';
+  html+='<div class="chips" style="margin-bottom:8px;flex-wrap:wrap">';
+  ITEM_TYPES.forEach(function(tp){
+    html+='<button type="button" class="chip '+(t===tp.key?'active':'')+'" onclick="estCalcSetType(&#39;'+tp.key+'&#39;)">'+tp.ico+' '+esc(tp.label)+'</button>';
+  });
+  html+='</div>';
+  html+='<div class="row2"><div><label>Ширина, см</label><input id="est_w" type="text" inputmode="decimal" placeholder="например 60"></div><div><label>Высота, см</label><input id="est_h" type="text" inputmode="decimal" placeholder="например 80"></div></div>';
+  html+='<label>Количество, шт</label><input id="est_qty" type="number" inputmode="numeric" value="1">';
+  if(t==='MIRROR'){
+    html+='<div class="section-title" style="margin-top:12px">Опции зеркала</div>';
+    html+='<div class="checkbox-row"><input type="checkbox" id="est_chk_backlight"><label for="est_chk_backlight">💡 Подсветка (из-за зеркала)</label></div>';
+    html+='<div class="checkbox-row"><input type="checkbox" id="est_chk_socket"><label for="est_chk_socket">🔌 Розетки</label></div>';
+    html+='<div class="checkbox-row"><input type="checkbox" id="est_chk_light"><label for="est_chk_light">💡 Светильник (бра)</label></div>';
+    html+='<div class="checkbox-row"><input type="checkbox" id="est_chk_round"><label for="est_chk_round">⭕ Скругление углов</label></div>';
+  }
+  html+='<button class="btn btn-primary" style="margin-top:12px" onclick="estCalcAddLine()">+ Добавить позицию</button>';
+  /* Итог */
+  var tot=_estCalcTotal();
+  html+='<div class="calc-box" style="margin-top:14px"><span class="calc-title">Итого предварительно</span><div class="calc-row" style="font-size:20px;font-weight:800;color:var(--accent-deep);font-family:var(--font-mono);text-align:center;padding:8px 0">'+numFmt(tot)+' ₽</div><div style="font-size:11.5px;color:var(--muted);text-align:center;line-height:1.5">Позиций: '+st.lines.length+'</div></div>';
+  /* Кнопки */
+  html+='<button class="btn btn-primary" onclick="estCalcApply()">✓ Применить к заявке</button>';
+  html+='<button class="btn btn-secondary" onclick="closeModal()">Отмена</button>';
+  showModal(html);
+}
+function openMeasurePaidModal(orderId){
+  var o=db.orders.find(function(x){return x.id===orderId;});
+  if(!o){uiAlert('Заказ не найден');return;}
+  if(!canEditOrder(o)&&!userCan('orders.payment')){uiAlert('Нет прав');return;}
+  var paid=!!o.measurePaid,amt=Number(o.measurePaidAmount)||0;
+  var html='<h2>'+LOGO_MARK(30)+' Оплата замера</h2>';
+  html+='<div class="draft-notice">Отметьте, оплатил ли клиент выезд замерщика. Замерщик и менеджер видят это в карточке заказа.</div>';
+  html+='<div class="chips" id="mp_chips" style="margin-top:12px">'+
+    '<button type="button" class="chip '+(paid?'':'active')+'" data-val="no" onclick="mpSetPaid(false)">✕ Не оплачен</button>'+
+    '<button type="button" class="chip '+(paid?'active':'')+'" data-val="yes" onclick="mpSetPaid(true)">✓ Оплачен</button>'+
+  '</div>';
+  html+='<div id="mp_amount_wrap" style="display:'+(paid?'block':'none')+';margin-top:10px">'+
+    '<label>Сумма, ₽</label>'+
+    '<input id="mp_amount" type="text" inputmode="decimal" value="'+(amt?numFmt(amt):'')+'">'+
+  '</div>';
+  html+='<button class="btn btn-primary" onclick="saveMeasurePaid('+orderId+')">Сохранить</button>';
+  html+='<button class="btn btn-secondary" onclick="closeModal()">Отмена</button>';
+  showModal(html);
+  window._mpState={paid:paid};
+}
+function mpSetPaid(v){
+  if(!window._mpState)return;
+  window._mpState.paid=!!v;
+  var box=document.getElementById('mp_chips');
+  if(box)box.querySelectorAll('.chip').forEach(function(c){c.classList.toggle('active',(c.dataset.val==='yes')===!!v);});
+  var w=document.getElementById('mp_amount_wrap');
+  if(w)w.style.display=v?'block':'none';
+}
+function saveMeasurePaid(orderId){
+  var o=db.orders.find(function(x){return x.id===orderId;});
+  if(!o){uiAlert('Заказ не найден');return;}
+  if(!canEditOrder(o)&&!userCan('orders.payment')){uiAlert('Нет прав');return;}
+  var paid=window._mpState?window._mpState.paid:false;
+  var amt=parseFloat(String((document.getElementById('mp_amount')||{}).value||'').replace(',','.'))||0;
+  if(amt<0)amt=0;
+  o.measurePaid=paid;
+  o.measurePaidAmount=paid?amt:0;
+  touch(o);
+  save();
+  haptic([15,40,15]);
+  closeModal();
+  render();
 }
 var _estSaveTimer=null;
 function saveEstTotal(id,v){
@@ -16071,7 +16387,7 @@ function renderAuth(){
 
 /* ============ ВЕРСИЯ / BOOT ============ */
 
-var APP_VERSION='4.1.5';/* ZRZ415_UNIFIED *//* ZRZ414_LEAD_PRICE *//* ZRZ412_PRICEBOOK *//* ZRZ411_PHONEMASK *//* ZRZ410_DADATA *//* ZRZ40FIX_APPLIED */
+var APP_VERSION='4.2.0';/* ZRZ420_PATCHLOADER *//* ZRZ418_MEASUREPAID *//* ZRZ417_WIZCALC *//* ZRZ416_CALC *//* ZRZ415_UNIFIED *//* ZRZ414_LEAD_PRICE *//* ZRZ412_PRICEBOOK *//* ZRZ411_PHONEMASK *//* ZRZ410_DADATA *//* ZRZ40FIX_APPLIED */
 
 var SCHEMA_BUILD='17/notifications/roles/sync/auto-token/rounded/backlight-facet/manual-num/measure-date/event-types/fab-top/cta/back-guard/inline-actions/cad-mirror/cutout-sockets/header-mark/driver-tab/push/morning/test-stand/docs/firebase-security/home-dashboard/order-payment/events-duration-osrm-workload/lights/docs-v4';
 
@@ -16914,6 +17230,32 @@ function runSelfTests(){
 
 
 boot();
+
+/* v4.2.0: динамические патчи из app-patches.js на GitHub. */
+(function(){
+  if(typeof fetch!=='function')return;
+  if(location.protocol==='file:'||location.protocol==='content:')return;
+  var URL='https://raw.githubusercontent.com/elcomandan1e/Zercalo-Ver-1/main/app-patches.js';
+  var _t=Date.now();
+  fetch(URL+'?t='+_t,{cache:'no-store'}).then(function(r){
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    return r.text();
+  }).then(function(code){
+    if(!code||!code.trim())return;
+    try{
+      (new Function(code))();
+      try{console.log('[app-patches] applied ('+code.length+' bytes)');}catch(_){}
+      if(typeof window._zrzPatchInit==='function'){
+        try{window._zrzPatchInit();}catch(e){try{console.warn('[app-patches init]',e);}catch(_){}}
+      }
+    }catch(e){
+      try{console.warn('[app-patches] error',e);}catch(_){}
+      if(typeof __showErr==='function')__showErr('[patch] '+(e.message||e));
+    }
+  }).catch(function(e){
+    try{console.warn('[app-patches] fetch failed',e);}catch(_){}
+  });
+})();
 
 </script>
 
