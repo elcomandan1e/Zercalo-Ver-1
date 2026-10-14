@@ -1,13 +1,8 @@
-/* app-patches.js — загрузчик модулей «Зерцало» v6.0.0
-   Модули лежат в patches/*.js и подгружаются параллельно.
-   При обновлении меняй только нужный модуль.
-*/
+/* app-patches.js — загрузчик модулей «Зерцало» v6.0.0 */
 (function(){
   var PATCH_VERSION = '6.0.0';
   var BASE = 'https://raw.githubusercontent.com/elcomandan1e/Zercalo-Ver-1/main/patches/';
 
-  /* Список модулей. Порядок ВАЖЕН — модули выполняются по очереди.
-     Если фича не нужна — закомментируй строку. */
   var MODULES = [
     '01-core.js',
     '02-draw.js',
@@ -20,13 +15,12 @@
     '11-status-picker.js',
     '12-statuses-extra.js',
     '13-dashboard.js',
-    '14-attention.js'
+    '14-attention.js',
+    '15-tests.js'
   ];
 
-  /* Защита от повторного запуска */
   if(window._zrzLoaderRunning) return;
   window._zrzLoaderRunning = true;
-
   var stamp = Date.now();
 
   function loadOne(name){
@@ -51,8 +45,6 @@
       });
   }
 
-  /* Параллельная загрузка. Все модули независимы друг от друга —
-     каждый сам проверяет, что нужные ему функции/данные есть. */
   function boot(){
     var tasks = MODULES.map(loadOne);
     Promise.all(tasks).then(function(){
@@ -69,8 +61,5 @@
     document.addEventListener('DOMContentLoaded', boot, {once:true});
   }
 
-  /* Экспорт в консоль для отладки */
-  window.zrzReloadPatches = function(){
-    MODULES.forEach(loadOne);
-  };
+  window.zrzReloadPatches = function(){ MODULES.forEach(loadOne); };
 })();
