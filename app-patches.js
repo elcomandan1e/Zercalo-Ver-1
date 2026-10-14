@@ -1,8 +1,4 @@
-/* app-patches.js — загрузчик модулей «Зерцало» v6.1.0
-   · Прелоадер: модули грузятся за занавесом → нет мигания
-   · Версионирование модулей — HTTP-кеш работает
-   · Плавное появление после полной загрузки
-*/
+/* app-patches.js — загрузчик модулей «Зерцало» v6.1.0 */
 (function(){
   var PATCH_VERSION = '6.1.0';
   var BASE = 'https://raw.githubusercontent.com/elcomandan1e/Zercalo-Ver-1/main/patches/';
@@ -14,6 +10,7 @@
     '04-docs.js',
     '05-ui.js',
     '06-nav.js',
+    '07-gestures.js',
     '08-order-num.js',
     '10-statuses.js',
     '11-status-picker.js',
@@ -26,11 +23,7 @@
   if(window._zrzLoaderRunning) return;
   window._zrzLoaderRunning = true;
 
-  /* ============================================================
-     ПРЕЛОАДЕР
-     ============================================================ */
   var _preloader = null;
-  var _preloaderHideTimer = null;
 
   function buildPreloader(){
     if(_preloader) return;
@@ -58,13 +51,10 @@
   }
 
   function hidePreloader(){
-    if(_preloaderHideTimer){ clearTimeout(_preloaderHideTimer); _preloaderHideTimer = null; }
     if(!_preloader) return;
     _preloader.classList.add('zrz-pre-hide');
     setTimeout(function(){
-      if(_preloader && _preloader.parentNode){
-        _preloader.parentNode.removeChild(_preloader);
-      }
+      if(_preloader && _preloader.parentNode) _preloader.parentNode.removeChild(_preloader);
       _preloader = null;
     }, 350);
   }
@@ -74,8 +64,7 @@
     var st = document.createElement('style');
     st.id = 'zrz-preloader-css';
     st.textContent =
-      '#zrz-preloader{position:fixed;inset:0;z-index:9998;'
-      + 'background:#f6f8fc;'
+      '#zrz-preloader{position:fixed;inset:0;z-index:9998;background:#f6f8fc;'
       + 'display:flex;align-items:center;justify-content:center;'
       + 'transition:opacity .32s ease,visibility .32s ease;'
       + 'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}'
@@ -94,39 +83,25 @@
       + '.zrz-pre-dot:nth-child(3){animation-delay:.3s;background:#8fbce2}'
       + '@keyframes zrz-pre-pop{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}'
       + '@keyframes zrz-pre-bounce{0%,60%,100%{transform:translateY(0);opacity:.5}'
-      +   '30%{transform:translateY(-8px);opacity:1}}'
-      ;
+      +   '30%{transform:translateY(-8px);opacity:1}}';
     (document.head || document.documentElement).appendChild(st);
   }
 
-  /* Показываем прелоадер как можно раньше */
   function showPreloaderNow(){
     injectPreloaderCss();
-    if(document.body){
-      buildPreloader();
-    } else {
-      /* body ещё нет — ждём минимально возможный момент */
+    if(document.body) buildPreloader();
+    else {
       var iv = setInterval(function(){
-        if(document.body){
-          clearInterval(iv);
-          buildPreloader();
-        }
+        if(document.body){ clearInterval(iv); buildPreloader(); }
       }, 10);
       setTimeout(function(){ clearInterval(iv); }, 1000);
     }
   }
 
-  /* ============================================================
-     ЗАГРУЗКА МОДУЛЕЙ
-     ============================================================ */
-
   var _loaded = 0;
   var _total = MODULES.length;
-  var _failed = 0;
 
   function loadOne(name){
-    /* ?v=PATCH_VERSION — браузер кеширует по этому URL.
-       При обновлении модуля — бампаем PATCH_VERSION. */
     var url = BASE + name + '?v=' + PATCH_VERSION;
     return fetch(url, {cache:'default'})
       .then(function(r){
@@ -140,37 +115,27 @@
           _loaded++;
           try { console.log('[patch] ' + name + ' — OK (' + code.length + ' bytes)'); } catch(_){}
         } catch(e){
-          _failed++;
           try { console.warn('[patch] ' + name + ' — error:', e); } catch(_){}
           if(typeof __showErr === 'function') __showErr('[patch:' + name + '] ' + (e.message || e));
         }
       })
       .catch(function(e){
-        _failed++;
         try { console.warn('[patch] ' + name + ' — fetch failed:', e); } catch(_){}
       });
   }
 
   function boot(){
-    /* Прелоадер уже висит — грузим модули за ним */
     var tasks = MODULES.map(loadOne);
     Promise.all(tasks).then(function(){
       try { console.log('[app-patches] loader v' + PATCH_VERSION + ' — загружено ' + _loaded + '/' + _total); } catch(_){}
       if(typeof window._zrzPatchInit === 'function'){
         try { window._zrzPatchInit(); } catch(e){}
       }
-      /* Даём всем отложенным setTimeout/render'ам в модулях шанс отработать */
       setTimeout(hidePreloader, 450);
-    }).catch(function(){
-      /* Что-то пошло совсем не так — всё равно прячем через таймаут */
-      setTimeout(hidePreloader, 200);
     });
-
-    /* Жёсткий fallback: убрать прелоадер через 4 секунды в любом случае */
     setTimeout(hidePreloader, 4000);
   }
 
-  /* Стартуем немедленно */
   showPreloaderNow();
 
   if(document.readyState === 'complete' || document.readyState === 'interactive'){
@@ -179,7 +144,5 @@
     document.addEventListener('DOMContentLoaded', boot, {once:true});
   }
 
-  window.zrzReloadPatches = function(){
-    MODULES.forEach(loadOne);
-  };
+  window.zrzReloadPatches = function(){ MODULES.forEach(loadOne); };
 })();
