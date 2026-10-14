@@ -1,6 +1,6 @@
-/* app-patches.js — динамические патчи «Зерцало» v4.3.3 */
+/* app-patches.js — динамические патчи «Зерцало» v4.3.4 */
 (function(){
-  var PATCH_VERSION = '4.3.3';
+  var PATCH_VERSION = '4.3.4';
   var AUTHOR_NAME = 'Лютиков А.С.';
   var AUTHOR_TG = '@el_c0mandan1e';
   var _lock = false;
@@ -112,7 +112,7 @@
     }, true);
   }
 
-  /* ─── v4.3.3: болты с настраиваемым отступом ─── */
+  /* ─── болты: геометрия ─── */
   function getBoltOffset(d){
     var v = Number(d.boltOffset);
     if(!v || v<=0) return 5;
@@ -120,7 +120,6 @@
     if(v>30) v = 30;
     return v;
   }
-
   function boltLayout(W, H, cnt, offCm){
     var off = offCm || 5;
     if(W < 2*off+1) off = Math.max(1, W/8);
@@ -137,75 +136,9 @@
     ctx.beginPath(); ctx.arc(px, py, Math.max(1.2, r*0.35), 0, Math.PI*2);
     ctx.fillStyle = '#1e4d7b'; ctx.fill();
   }
-  function apronTotalWH(d){
-    var secs = Array.isArray(d.apronSections)?d.apronSections:[];
-    if(!secs.length) return null;
-    var totalW = 0, maxH = 0;
-    secs.forEach(function(s){ totalW += Number(s.bottom)||0; maxH = Math.max(maxH, Number(s.left)||0, Number(s.right)||0); });
-    if(totalW<1||maxH<1) return null;
-    return {W: totalW, H: maxH};
-  }
-  function drawMirrorBolts(ctx, x0, y0, sc3, d){
-    if(!d.boltMount) return;
-    var cnt = Number(d.boltCount)||0;
-    if(cnt<4) return;
-    var g = null; try{ g = glassDimensions(d); }catch(e){ return; }
-    if(!g || !g.w || !g.h) return;
-    var off = getBoltOffset(d);
-    var pts = boltLayout(g.w, g.h, cnt, off);
-    var r = Math.max(3, Math.min(7, 0.45*sc3));
-    ctx.save();
-    pts.forEach(function(p){ drawBoltCircle(ctx, x0 + p.x*sc3, y0 + p.y*sc3, r); });
-    ctx.fillStyle = '#1e4d7b'; ctx.font = '700 11px "PT Sans Narrow",Arial';
-    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-    ctx.fillText('🔩 '+pts.length+' болтов Ø8 мм · отступ '+numFmt(off)+' см', x0 + (g.w*sc3)/2, y0 + g.h*sc3 + 14);
-    ctx.restore();
-  }
-  function drawApronBoltsIso(ctx, x, y, w, h, d){
-    var wh = apronTotalWH(d); if(!wh) return;
-    var cnt = Number(d.boltCount)||0; if(cnt<4) return;
-    var off = getBoltOffset(d);
-    var pts = boltLayout(wh.W, wh.H, cnt, off);
-    var cx=x+w/2, cy=y+h/2;
-    var sc3 = Math.min((w-160)/wh.W, (h-80)/wh.H);
-    var pxW = wh.W*sc3, pxH = wh.H*sc3;
-    var x0 = cx - pxW/2, y0 = cy - pxH/2 + 12;
-    var r = Math.max(3, Math.min(7, 0.45*sc3));
-    ctx.save();
-    pts.forEach(function(p){ drawBoltCircle(ctx, x0 + p.x*sc3, y0 + p.y*sc3, r); });
-    ctx.fillStyle = '#1e4d7b'; ctx.font = '700 11px "PT Sans Narrow",Arial';
-    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-    ctx.fillText('🔩 '+pts.length+' болтов Ø8 мм · отступ '+numFmt(off)+' см', cx, y0 + pxH + 14);
-    ctx.restore();
-  }
-  function drawApronBoltsFront(ctx, x, y, w, h, d){
-    var secs = Array.isArray(d.apronSections)?d.apronSections:[];
-    if(!secs.length) return;
-    var cnt = Number(d.boltCount)||0; if(cnt<4) return;
-    var totalW = 0, maxH = 0;
-    secs.forEach(function(s){ totalW += Number(s.bottom)||0; maxH = Math.max(maxH, Number(s.left)||0, Number(s.right)||0); });
-    if(totalW<1||maxH<1) return;
-    var off = getBoltOffset(d);
-    var cx=x+w/2, cy=y+h/2;
-    var gap = 16;
-    var sc = Math.min((w-80-gap*(secs.length-1))/totalW, (h-60)/maxH);
-    var startX = cx - (totalW*sc + gap*(secs.length-1))/2;
-    var baseY = cy + maxH*sc/2 - 10;
-    var pts = boltLayout(totalW, maxH, cnt, off);
-    var r = Math.max(3, Math.min(7, 0.45*sc));
-    ctx.save();
-    pts.forEach(function(p){ drawBoltCircle(ctx, startX + p.x*sc, baseY - maxH*sc + p.y*sc, r); });
-    ctx.fillStyle = '#1e4d7b'; ctx.font = '700 11px "PT Sans Narrow",Arial';
-    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-    ctx.fillText('🔩 '+pts.length+' болтов Ø8 мм · отступ '+numFmt(off)+' см', startX + (totalW*sc)/2, baseY + 30);
-    ctx.restore();
-  }
 
-  /* ─── v4.3.2: размеры розеток и бра ─── */
-  var DIM_SOCKET_COLOR = '#a05c26';
-  var DIM_LIGHT_COLOR  = '#7a3d8a';
-  var DIM_COLOR        = '#c14d4d';
-
+  /* размерная линия (универсальная) */
+  var DIM_COLOR = '#c14d4d';
   function _zrzDimLineFull(ctx, obj1, obj2, dimP1, dimP2, label, color){
     color = color || DIM_COLOR;
     ctx.save();
@@ -221,7 +154,7 @@
     ctx.globalAlpha = 1;
     var dx = dimP2.x - dimP1.x, dy = dimP2.y - dimP1.y;
     var len = Math.hypot(dx, dy);
-    if(len < 15){ ctx.restore(); return; }
+    if(len < 12){ ctx.restore(); return; }
     var ux = dx/len, uy = dy/len;
     var nx = -uy, ny = ux;
     ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = 1.6;
@@ -243,23 +176,103 @@
     ctx.lineTo(dimP2.x - ux*arr + nx*aw, dimP2.y - uy*arr + ny*aw);
     ctx.closePath(); ctx.fill();
     if(label){
-      ctx.font = '800 14px "PT Sans Narrow",Arial';
+      ctx.font = '800 13px "PT Sans Narrow",Arial';
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       var mx = (dimP1.x+dimP2.x)/2, my = (dimP1.y+dimP2.y)/2;
-      var tw = ctx.measureText(label).width + 14;
+      var tw = ctx.measureText(label).width + 12;
       ctx.save();
       ctx.translate(mx, my);
       if(Math.abs(uy) > 0.7) ctx.rotate(-Math.PI/2);
       ctx.fillStyle = '#fff';
-      ctx.fillRect(-tw/2, -10, tw, 20);
-      ctx.strokeStyle = color; ctx.lineWidth = 1.2;
-      ctx.strokeRect(-tw/2, -10, tw, 20);
+      ctx.fillRect(-tw/2, -9, tw, 18);
+      ctx.strokeStyle = color; ctx.lineWidth = 1;
+      ctx.strokeRect(-tw/2, -9, tw, 18);
       ctx.fillStyle = color;
       ctx.fillText(label, 0, 0);
       ctx.restore();
     }
     ctx.restore();
   }
+
+  /* Отрисовка болтов + размеров (для зеркала и фартука) */
+  function _zrzDrawBoltsWithDims(ctx, x0, y0, sc3, W, H, d, sidePxW, sidePxH){
+    if(!d.boltMount) return;
+    var cnt = Number(d.boltCount)||0;
+    if(cnt<4) return;
+    var off = getBoltOffset(d);
+    var pts = boltLayout(W, H, cnt, off);
+    var r = Math.max(3, Math.min(7, 0.45*sc3));
+    /* Сами болты */
+    ctx.save();
+    pts.forEach(function(p){ drawBoltCircle(ctx, x0 + p.x*sc3, y0 + p.y*sc3, r); });
+    ctx.restore();
+
+    var DIM_BOLT_COLOR = '#1e4d7b';
+
+    /* Размер отступа сверху: от левого верхнего угла до верхнего левого болта */
+    var topLeftBolt = {x:off, y:off};
+    /* Горизонтальный отступ — над верхним рядом */
+    _zrzDimLineFull(ctx,
+      {x:x0 + 0,      y:y0 + 0 - 4},
+      {x:x0 + off*sc3, y:y0 + 0 - 4},
+      {x:x0 + 0,      y:y0 - 18},
+      {x:x0 + off*sc3, y:y0 - 18},
+      numFmt(off)+' см', DIM_BOLT_COLOR);
+
+    /* Вертикальный отступ — слева от левого верхнего болта */
+    _zrzDimLineFull(ctx,
+      {x:x0 - 4,       y:y0 + 0},
+      {x:x0 - 4,       y:y0 + off*sc3},
+      {x:x0 - 22,      y:y0 + 0},
+      {x:x0 - 22,      y:y0 + off*sc3},
+      numFmt(off)+' см', DIM_BOLT_COLOR);
+
+    /* Если верхний ряд содержит больше 2 болтов — размер между болтами */
+    var topRow = pts.filter(function(p){ return Math.abs(p.y - off) < 0.01; }).sort(function(a,b){ return a.x - b.x; });
+    if(topRow.length >= 2){
+      var first = topRow[0], last = topRow[topRow.length-1];
+      var gap = last.x - first.x;
+      var dimY = y0 - 40;
+      _zrzDimLineFull(ctx,
+        {x:x0 + first.x*sc3, y:y0 - 4},
+        {x:x0 + last.x*sc3,  y:y0 - 4},
+        {x:x0 + first.x*sc3, y:dimY},
+        {x:x0 + last.x*sc3,  y:dimY},
+        numFmt(Math.round(gap*10)/10)+' см', DIM_BOLT_COLOR);
+    }
+
+    /* Подпись — внизу, ниже размерной линии ширины */
+    ctx.save();
+    ctx.fillStyle = '#1e4d7b';
+    ctx.font = '700 11px "PT Sans Narrow",Arial';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.fillText('🔩 '+pts.length+' болтов Ø8 мм · отступ '+numFmt(off)+' см',
+      x0 + (W*sc3)/2, y0 + H*sc3 + 34);
+    ctx.restore();
+  }
+
+  function drawMirrorBolts(ctx, x0, y0, sc3, d){
+    var g = null; try{ g = glassDimensions(d); }catch(e){ return; }
+    if(!g || !g.w || !g.h) return;
+    _zrzDrawBoltsWithDims(ctx, x0, y0, sc3, g.w, g.h, d);
+  }
+
+  function apronTotalWH(d){
+    var secs = Array.isArray(d.apronSections)?d.apronSections:[];
+    if(!secs.length) return null;
+    var totalW = 0, maxH = 0;
+    secs.forEach(function(s){ totalW += Number(s.bottom)||0; maxH = Math.max(maxH, Number(s.left)||0, Number(s.right)||0); });
+    if(totalW<1||maxH<1) return null;
+    return {W: totalW, H: maxH};
+  }
+
+  function _zrzDrawApronBolts(ctx, x0, y0, sc3, W, H, d){
+    _zrzDrawBoltsWithDims(ctx, x0, y0, sc3, W, H, d);
+  }
+
+  /* ─── размеры для розеток и бра ─── */
+  var DIM_SOCKET_COLOR = '#a05c26';
+  var DIM_LIGHT_COLOR  = '#7a3d8a';
 
   function _zrzDrawSocketDot(ctx, cx, cy, r){
     ctx.save();
@@ -308,7 +321,6 @@
       var baseX = info.baseX, baseY = info.baseY;
       var dx = Number(s.distX)||0;
       var dy = Number(s.distY)||0;
-
       var minY = Math.min.apply(null, pts.map(function(p){return p.y;}));
       var maxY = Math.max.apply(null, pts.map(function(p){return p.y;}));
       var xDimY = maxY + 40;
@@ -317,7 +329,6 @@
         {x:edgeXpx, y:maxY + 6}, {x:baseX, y:maxY + 6},
         {x:edgeXpx, y:xDimY}, {x:baseX, y:xDimY},
         numFmt(dx)+' см', DIM_SOCKET_COLOR);
-
       var minX = Math.min.apply(null, pts.map(function(p){return p.x;}));
       var maxX = Math.max.apply(null, pts.map(function(p){return p.x;}));
       var yDimX = (s.edgeX==='right') ? (minX - 46) : (maxX + 46);
@@ -326,7 +337,6 @@
         {x:maxX + 6, y:edgeYpx}, {x:maxX + 6, y:baseY},
         {x:yDimX, y:edgeYpx}, {x:yDimX, y:baseY},
         numFmt(dy)+' см', DIM_SOCKET_COLOR);
-
       if(pts.length > 1){
         if(info.or === 'horizontal'){
           var yStep = (s.edgeY==='top') ? (maxY + 20) : (minY - 28);
@@ -362,7 +372,8 @@
         numFmt(dx)+' см', DIM_LIGHT_COLOR);
       var yDimX = (s.edgeX==='right') ? (baseX - 46) : (baseX + 46);
       _zrzDimLineFull(ctx,
-        {x:baseX + (s.edgeX==='right' ? 6 : -6), y:edgeYpx}, {x:baseX + (s.edgeX==='right' ? 6 : -6), y:baseY},
+        {x:baseX + (s.edgeX==='right' ? 6 : -6), y:edgeYpx},
+        {x:baseX + (s.edgeX==='right' ? 6 : -6), y:baseY},
         {x:yDimX, y:edgeYpx}, {x:yDimX, y:baseY},
         numFmt(dy)+' см', DIM_LIGHT_COLOR);
     }
@@ -376,7 +387,6 @@
     var sc3=Math.min((w-80)/Math.max(gd.w||1,1),(h-60)/Math.max(gd.h||1,1));
     var pxW=gd.w*sc3, pxH=gd.h*sc3;
     var x0=cx-pxW/2, y0=cy-pxH/2;
-
     if(d.socketsMount && Array.isArray(d.socketsList)){
       var sockR = Math.max(5, (7/2)*sc3);
       d.socketsList.forEach(function(s){
@@ -437,7 +447,14 @@
               var x0=cx-pxW/2, y0=cy-pxH/2+12;
               drawMirrorBolts(ctx, x0, y0, sc3, d);
             } else if(d.type==='APRON'){
-              drawApronBoltsIso(ctx, x, y, w, h, d);
+              var wh = apronTotalWH(d);
+              if(wh){
+                var cx2=x+w/2, cy2=y+h/2;
+                var sc3a = Math.min((w-160)/wh.W, (h-80)/wh.H);
+                var x0a = cx2 - (wh.W*sc3a)/2;
+                var y0a = cy2 - (wh.H*sc3a)/2 + 12;
+                _zrzDrawApronBolts(ctx, x0a, y0a, sc3a, wh.W, wh.H, d);
+              }
             }
           }
           _zrzDrawSocketLightDimsIso(ctx, x, y, w, h, d);
@@ -459,7 +476,20 @@
               var x0=cx-pxW/2, y0=cy-pxH/2;
               drawMirrorBolts(ctx, x0, y0, sc3, d);
             } else if(d.type==='APRON'){
-              drawApronBoltsFront(ctx, x, y, w, h, d);
+              var secs = Array.isArray(d.apronSections)?d.apronSections:[];
+              if(secs.length){
+                var totalW=0, maxH=0;
+                secs.forEach(function(s){ totalW += Number(s.bottom)||0; maxH = Math.max(maxH, Number(s.left)||0, Number(s.right)||0); });
+                if(totalW>0 && maxH>0){
+                  var cx2=x+w/2, cy2=y+h/2;
+                  var gap = 16;
+                  var sc = Math.min((w-80-gap*(secs.length-1))/totalW, (h-60)/maxH);
+                  var startX = cx2 - (totalW*sc + gap*(secs.length-1))/2;
+                  var baseY = cy2 + maxH*sc/2 - 10;
+                  var y0a = baseY - maxH*sc;
+                  _zrzDrawApronBolts(ctx, startX, y0a, sc, totalW, maxH, d);
+                }
+              }
             }
           }
           _zrzDrawSocketsAndLightsFront(ctx, x, y, w, h, d);
@@ -469,7 +499,6 @@
     }
   }
 
-  /* UI болтов с настраиваемым отступом */
   function injectBoltUI(){
     var m = document.querySelector('.modal');
     if(!m) return;
@@ -513,7 +542,6 @@
     var cnt = Number(d.boltCount) || 4;
     chs.querySelectorAll('.chip').forEach(function(c){ c.classList.toggle('active', Number(c.dataset.v)===cnt); });
     offs.querySelectorAll('.chip').forEach(function(c){ c.classList.toggle('active', Number(c.dataset.off)===off); });
-
     function setOffset(v){
       v = parseFloat(String(v).replace(',','.'))||0;
       if(v<1) v=1;
@@ -524,9 +552,7 @@
         offs.querySelectorAll('.chip').forEach(function(c){ c.classList.toggle('active', Number(c.dataset.off)===v); });
       }
       if(typeof saveDraft==='function') saveDraft();
-      if(typeof calcPreview==='function' && window._editDraft) calcPreview(window._editDraft);
     }
-
     chk.onchange = function(){
       if(window._editDraft) window._editDraft.boltMount = chk.checked;
       ww.style.display = chk.checked ? 'block' : 'none';
@@ -666,7 +692,7 @@
     window._zrzReceiptWrapped = true;
   }
 
-  /* v4.2.8 защита базы */
+  /* защита базы */
   window._zrzStartTime = Date.now();
   var _zrzFirstPullDone = false;
   var _zrzServerEmpty = false;
@@ -842,7 +868,6 @@
     };
     window._zrzOpenSettingsWrapped = true;
   }
-
   function _zrzInjectAuthorSignature(){
     var modal = document.querySelector('.modal');
     if(!modal) return;
