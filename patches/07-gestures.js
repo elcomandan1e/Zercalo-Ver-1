@@ -540,3 +540,217 @@
      Перехватываем pointerup и на всякий случай откладываем открытие через RAF */
   try{ console.log('[07-gestures v7.0.2] click-through fix активен'); }catch(_){}
 })();
+/* ============ ZERZALO · RADIAL FAB · 07-gestures part2 ============ */
+(function () {
+  'use strict';
+  if (window._zrzFabLoaded) return;
+  window._zrzFabLoaded = true;
+
+  var DIST = window.innerWidth < 360 ? 88 : 105;
+
+  var ACTIONS = [
+    { id:'order',  label:'Новый заказ',  color:'#4A90E2', angle:-60,
+      svg:'<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>' },
+    { id:'client', label:'Новый клиент', color:'#34C759', angle:-20,
+      svg:'<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.6"/><path d="M5 20c0-3.6 3.1-6.2 7-6.2s7 2.6 7 6.2"/></svg>' },
+    { id:'event',  label:'Событие',      color:'#FF9500', angle: 20,
+      svg:'<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="6" width="16" height="14" rx="2.5"/><path d="M8 3v5M16 3v5M4 11h16"/></svg>' },
+    { id:'route',  label:'Маршрут',      color:'#AF52DE', angle: 60,
+      svg:'<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 18-9-5-9 5z"/></svg>' }
+  ];
+
+  function gesturesDisabled() {
+    try {
+      if (localStorage.getItem('zrz_gestures_disabled') === '1') return true;
+      var p = JSON.parse(localStorage.getItem('zrz_user_prefs') || '{}');
+      if (p && p.gestures === false) return true;
+    } catch (e) {}
+    return false;
+  }
+  function buzz(ms) { try { if (navigator.vibrate) navigator.vibrate(ms || 12); } catch (e) {} }
+
+  var st = document.createElement('style');
+  st.setAttribute('data-zrz', 'fab');
+  st.textContent = [
+    '#zrz-fab-root{position:fixed;inset:0;pointer-events:none;z-index:9000;font-family:Onest,system-ui,-apple-system,sans-serif}',
+    '#zrz-fab-backdrop{position:absolute;inset:0;background:rgba(0,0,0,0);backdrop-filter:blur(0);-webkit-backdrop-filter:blur(0);transition:background .25s ease,backdrop-filter .25s ease;pointer-events:none}',
+    '#zrz-fab-root.open #zrz-fab-backdrop{background:rgba(0,0,0,.32);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);pointer-events:auto}',
+    '#zrz-fab-main{position:absolute;left:50%;bottom:calc(84px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);width:62px;height:62px;border-radius:50%;border:none;padding:0;background:linear-gradient(135deg,#4A90E2 0%,#2D6FD1 100%);color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 24px rgba(45,111,209,.42),0 2px 6px rgba(0,0,0,.18);pointer-events:auto;cursor:pointer;transition:transform .3s cubic-bezier(.34,1.56,.64,1);-webkit-tap-highlight-color:transparent;touch-action:none;user-select:none}',
+    '#zrz-fab-main svg{display:block;pointer-events:none;transition:transform .3s cubic-bezier(.34,1.56,.64,1)}',
+    '#zrz-fab-root.open #zrz-fab-main svg{transform:rotate(135deg)}',
+    '.zrz-fab-action{position:absolute;left:50%;bottom:calc(84px + env(safe-area-inset-bottom,0px));width:54px;height:54px;border-radius:50%;border:none;padding:0;display:flex;align-items:center;justify-content:center;color:#fff;box-shadow:0 6px 16px rgba(0,0,0,.22);cursor:pointer;pointer-events:none;opacity:0;transform:translate(-50%,0) scale(.3);transition:transform .32s cubic-bezier(.34,1.56,.64,1),opacity .2s ease,box-shadow .2s;-webkit-tap-highlight-color:transparent;touch-action:none}',
+    '.zrz-fab-action svg{display:block;pointer-events:none}',
+    '.zrz-fab-lbl{position:absolute;left:50%;top:-28px;transform:translateX(-50%);white-space:nowrap;font-size:11px;font-weight:600;color:#fff;background:rgba(0,0,0,.75);padding:3px 8px;border-radius:8px;opacity:0;transition:opacity .2s;pointer-events:none}',
+    '.zrz-fab-action.zrz-fab-preview .zrz-fab-lbl{opacity:1}',
+    '.zrz-fab-action.zrz-fab-preview{box-shadow:0 0 0 4px rgba(255,255,255,.6),0 12px 26px rgba(0,0,0,.3)}'
+  ].join('');
+  if (!document.querySelector('style[data-zrz="fab"]')) document.head.appendChild(st);
+
+  var root = document.createElement('div');
+  root.id = 'zrz-fab-root';
+  root.innerHTML =
+    '<div id="zrz-fab-backdrop"></div>' +
+    '<div id="zrz-fab-actions"></div>' +
+    '<button id="zrz-fab-main" type="button" aria-label="Быстрые действия">' +
+      '<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>' +
+    '</button>';
+
+  var actionEls = [];
+  var isOpen = false, swipeMode = false, pointerId = null, pointerStart = null, previewIdx = -1, moved = false;
+
+  function buildActions() {
+    var wrap = root.querySelector('#zrz-fab-actions');
+    wrap.innerHTML = '';
+    actionEls = [];
+    ACTIONS.forEach(function (a) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'zrz-fab-action';
+      b.dataset.id = a.id;
+      b.style.background = a.color;
+      b.innerHTML = a.svg + '<span class="zrz-fab-lbl">' + a.label + '</span>';
+      wrap.appendChild(b);
+      actionEls.push(b);
+    });
+  }
+
+  function positions(open) {
+    actionEls.forEach(function (el, i) {
+      var a = ACTIONS[i];
+      var rad = a.angle * Math.PI / 180;
+      var x = Math.sin(rad) * DIST;
+      var y = -Math.cos(rad) * DIST;
+      if (open) {
+        el.style.transform = 'translate(calc(-50% + ' + x + 'px), ' + y + 'px) scale(1)';
+        el.style.opacity = '1';
+        el.style.pointerEvents = 'auto';
+        el.style.transitionDelay = (i * 30) + 'ms';
+      } else {
+        el.style.transform = 'translate(-50%, 0) scale(.3)';
+        el.style.opacity = '0';
+        el.style.pointerEvents = 'none';
+        el.style.transitionDelay = '0ms';
+      }
+    });
+  }
+
+  function open()   { if (isOpen) return; isOpen = true; root.classList.add('open'); positions(true); buzz(10); }
+  function close()  { if (!isOpen && !swipeMode) return; isOpen = false; swipeMode = false; previewIdx = -1; root.classList.remove('open'); positions(false); actionEls.forEach(function (el) { el.classList.remove('zrz-fab-preview'); }); }
+  function toggle() { isOpen ? close() : open(); }
+
+  function nearestAction(dx, dy) {
+    var ang = Math.atan2(dx, -dy) * 180 / Math.PI;
+    var best = 0, bestDiff = 1e9;
+    ACTIONS.forEach(function (a, i) {
+      var d = Math.abs(ang - a.angle);
+      if (d > 180) d = 360 - d;
+      if (d < bestDiff) { bestDiff = d; best = i; }
+    });
+    return best;
+  }
+  function previewAt(idx) {
+    if (idx === previewIdx) return;
+    previewIdx = idx;
+    actionEls.forEach(function (el, i) { el.classList.toggle('zrz-fab-preview', i === idx); });
+    if (idx >= 0) buzz(6);
+  }
+
+  function runAction(id) {
+    buzz(18);
+    try { document.dispatchEvent(new CustomEvent('zrz:fab-action', { detail: { id: id } })); } catch (e) {}
+    var FUNC_MAP = {
+      order:  ['zrzOpenNewOrder','openNewOrder','newOrder'],
+      client: ['zrzOpenNewClient','openNewClient','newClient'],
+      event:  ['zrzOpenNewEvent','openNewEvent','newEvent'],
+      route:  ['zrzOpenRoute','openRoute','showRoute','zrzRoute']
+    };
+    var names = FUNC_MAP[id] || [];
+    for (var i = 0; i < names.length; i++) {
+      var fn = window[names[i]];
+      if (typeof fn === 'function') {
+        try { fn(); return; } catch (e) { console.warn('[zrzFab] action err', id, e); }
+      }
+    }
+    console.info('[zrzFab] action', id, '— handler not found (слушай zrz:fab-action)');
+  }
+
+  function bind() {
+    var main = root.querySelector('#zrz-fab-main');
+    var backdrop = root.querySelector('#zrz-fab-backdrop');
+
+    main.addEventListener('pointerdown', function (e) {
+      if (pointerId !== null) return;
+      pointerId = e.pointerId;
+      pointerStart = { x: e.clientX, y: e.clientY };
+      moved = false; swipeMode = false;
+      try { main.setPointerCapture(e.pointerId); } catch (err) {}
+    });
+
+    main.addEventListener('pointermove', function (e) {
+      if (pointerId !== e.pointerId || !pointerStart) return;
+      var dx = e.clientX - pointerStart.x;
+      var dy = e.clientY - pointerStart.y;
+      var dist = Math.sqrt(dx * dx + dy * dy);
+      if (!moved && dist > 14) {
+        moved = true;
+        if (!gesturesDisabled()) {
+          swipeMode = true;
+          if (!isOpen) open();
+        }
+      }
+      if (swipeMode) {
+        e.preventDefault();
+        previewAt(nearestAction(dx, dy));
+      }
+    }, { passive: false });
+
+    function endPointer(e) {
+      if (pointerId !== e.pointerId) return;
+      var dx = e.clientX - pointerStart.x;
+      var dy = e.clientY - pointerStart.y;
+      var dist = Math.sqrt(dx * dx + dy * dy);
+      var wasSwipe = swipeMode;
+      var idx = previewIdx;
+      pointerId = null; pointerStart = null; swipeMode = false; previewIdx = -1;
+
+      if (wasSwipe) {
+        if (dist > 42 && idx >= 0) {
+          var id = ACTIONS[idx].id;
+          close();
+          setTimeout(function () { runAction(id); }, 60);
+        } else { close(); }
+        moved = false;
+        return;
+      }
+      if (!moved) toggle();
+      moved = false;
+    }
+    main.addEventListener('pointerup', endPointer);
+    main.addEventListener('pointercancel', function (e) {
+      if (pointerId === e.pointerId) { pointerId = null; pointerStart = null; swipeMode = false; previewIdx = -1; close(); }
+    });
+
+    actionEls.forEach(function (el) {
+      el.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        var id = el.dataset.id;
+        close();
+        setTimeout(function () { runAction(id); }, 60);
+      });
+    });
+
+    backdrop.addEventListener('click', function () { close(); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && isOpen) close(); });
+    window.addEventListener('scroll', function () { if (isOpen) close(); }, { passive: true });
+  }
+
+  function mount() {
+    if (!document.body) { setTimeout(mount, 60); return; }
+    if (!document.getElementById('zrz-fab-root')) document.body.appendChild(root);
+    buildActions();
+    bind();
+  }
+  mount();
+
+  window.zrzFab = { open: open, close: close, toggle: toggle };
+})();
