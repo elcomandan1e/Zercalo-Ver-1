@@ -1,14 +1,14 @@
-/* app-patches.js — динамические патчи «Зерцало» v4.6.0
-   Фичи: [все предыдущие v4.2.x–v4.4.x]
-   v4.5.0 — полностью обновлённая встроенная документация:
-     README, CHANGELOG, DATA_MODEL, PRIVACY, BACKUP, AUTHOR,
-     + новая вкладка TECH (техническая документация).
-   v4.6.0 — SVG-иконки вместо эмодзи (runtime, Phosphor-стиль).
-     Вставляет спрайт <symbol> в <body>, MutationObserver ловит
-     эмодзи в текстовых узлах DOM и заменяет на <svg><use/></svg>.
+/* app-patches.js — динамические патчи «Зерцало» v5.0.0
+   v4.2.x–4.4.x — базовые фичи патчей.
+   v4.5.0 — обновлённая документация (7 вкладок).
+   v4.6.0 — SVG-иконки вместо эмодзи.
+   v5.0.0 — Волна 1 навигации:
+     • Ролевой таббар (свой набор вкладок под каждую роль).
+     • Хлебные крошки в модалках (откуда пришли).
+     • Уведомления — отдельная вкладка для админа/менеджера/мастера.
 */
 (function(){
-  var PATCH_VERSION = '4.6.0';
+  var PATCH_VERSION = '5.0.0';
   var AUTHOR_NAME = 'Лютиков А.С.';
   var AUTHOR_TG = '@el_c0mandan1e';
   var _lock = false;
@@ -1105,7 +1105,7 @@
   }
 
   /* ═══════════════════════════════════════════════════════════
-     v4.5.0 — ОБНОВЛЁННАЯ ДОКУМЕНТАЦИЯ (7 вкладок)
+     v4.5.0 — ДОКУМЕНТАЦИЯ (7 вкладок)
      ═══════════════════════════════════════════════════════════ */
   function buildDocs(){
     var d = {};
@@ -1153,56 +1153,36 @@
     d.CHANGELOG = { title:'📋 CHANGELOG', content:[
 '# История версий',
 '',
+'## v5.0.0 — Навигация, Волна 1',
+'▸ Ролевой таббар: своя навигация под каждую роль.',
+'▸ Хлебные крошки в модалках (откуда открыли).',
+'▸ Уведомления — отдельная вкладка (админ/менеджер/мастер).',
+'',
 '## v4.6.0 — SVG-иконки вместо эмодзи',
 '▸ Все эмодзи заменяются на контурные SVG (runtime).',
 '▸ Единый стиль: stroke 1.75, размер 24×24, currentColor.',
-'▸ Работает и с ядром, и с патчами.',
 '',
 '## v4.5.0 — Обновление документации',
 '▸ Полностью переписаны все вкладки.',
 '▸ Новая вкладка «🛠 Техдокументация».',
 '',
 '## v4.4.2 — Вырез с отступом, фацет как рамка',
-'▸ Вырез: размеры внутри зеркала, отступы от края.',
-'▸ Фацет: только жирная рамка (без дублирования).',
-'▸ Фикс openTechDraw — берёт данные из формы.',
 '',
 '## v4.4.0 — Размеры вырезов, фацета, скруглений',
-'▸ Размеры X/Y/W/H/Ø для вырезов.',
-'▸ Размеры ширины фацета.',
-'▸ Выноски R для скруглений углов.',
-'▸ Типографика v2.',
 '',
 '## v4.3.7 — Выноска для болтов',
-'▸ Компактная выноска слева от зеркала.',
-'▸ Отступ от края стал настраиваемым.',
 '',
 '## v4.3.0–4.3.2 — Размеры розеток и бра',
-'▸ X/Y от краёв, шаг между розетками.',
-'▸ Ориентация ↔ / ↕.',
-'',
-'## v4.2.9 — Документация + подпись',
 '',
 '## v4.2.8 — Защита базы',
-'▸ Push не отправляет users/roles/settings до первого pull.',
-'▸ Первый pull заменяет метаданные серверными.',
 '',
 '## v4.2.7 — Декоративные болты',
 '',
 '## v4.2.0 — Модуль патчей',
-'▸ index.html подгружает app-patches.js с GitHub.',
 '',
 '## v4.1.x — Предзаказы, прайс, DaData',
-'▸ Статусы «Заявка» и «Отказ».',
-'▸ Прайс-конструктор (7 групп, ~70 позиций).',
-'▸ Автозаполнение адресов DaData.',
-'▸ Автомаска +7 для телефонов.',
 '',
 '## v4.0.x — Ядро',
-'▸ Оплата заказа (orderTotal / orderPaid).',
-'▸ 10 типов событий, авторасчёт длительности.',
-'▸ Расчёт расстояний (Nominatim + OSRM).',
-'▸ Светильники (бра), дашборд, таббар, роли.',
 ''
     ].join('\n') };
 
@@ -1213,103 +1193,74 @@
 'Синхронизация: Firebase Realtime Database, ветка zerzalo.',
 'Конфликт: last-write-wins по updatedAt.',
 '',
-'## db.orders — заказы',
-'id, orderNum, manualNum.',
-'clientId, addressId, snapshot {clientName, clientPhone, addressFull}.',
-'Статус: lead | new | work | ready | installed | declined | cancelled.',
-'Даты: createdAt, updatedAt, measureDate.',
-'Оплата заказа: orderTotal, orderPaid.',
-'Оплата замера: measurePaid, measurePaidAmount.',
-'Предзаказ: isDraft, estimatedTotal, estimateLines[].',
+'## db.orders',
+'id, orderNum, manualNum, clientId, addressId.',
+'snapshot {clientName, clientPhone, addressFull}.',
+'Статус: lead|new|work|ready|installed|declined|cancelled.',
+'createdAt, updatedAt, measureDate.',
+'orderTotal, orderPaid, measurePaid, measurePaidAmount.',
+'isDraft, estimatedTotal, estimateLines[].',
 'assignedUserIds[], clientNote, orderNote, masterComment, createdBy.',
 '',
-'## db.items — позиции',
+'## db.items',
 'id, orderId, type (MIRROR|SHOWER|APRON|SHELF|PANNO),',
 'shape (RECT|RECT4|CIRCLE|OVAL|FIGURED|TEMPLATE).',
-'Размеры: w, h, T, B, L, R (см), th (мм), qty.',
-'',
-'Стекло: glass, edge, facetWidth.',
-'Рама: frameColor, frameThickness.',
-'Крепление: mountType, mountCustom.',
-'',
-'Декоративные болты:',
-'  boltMount (bool), boltCount (4|6|8), boltOffset (см).',
-'  Ø выреза всегда 8 мм.',
-'',
-'Вырез:',
-'  cutoutEnabled (bool), cutoutShape (rect|circle),',
-'  cutoutW, cutoutH (см),',
-'  cutoutCenter (bool), cutoutDistX, cutoutDistY,',
-'  cutoutEdgeX (left|right), cutoutEdgeY (top|bottom).',
-'',
-'Розетки:',
-'  socketsMount, socketsList[{count, step, distX, distY,',
-'    edgeX, edgeY, orientation (vertical|horizontal)}].',
-'',
-'Светильники (бра):',
-'  lightsMount, lightsList[{distX, distY, edgeX, edgeY}].',
-'',
-'Разрезы: cutV, cutVPos, cutH, cutHPos.',
-'',
-'Зеркало в нишу: mirrorMeasureMode, mirrorInset,',
-'  mirrorNicheCutMode, mirrorNicheRefCorner.',
-'',
-'Душевая: showerH, showerPanels, showerProfiles, showerHandle,',
-'  hingeCount, showerFitting (7 цветов), sillType.',
-'',
-'Фартук: apronMaterial, apronShape, apronDirection,',
-'  apronSections, apronMeasureMode, apronInset.',
-'',
-'Панно: pannoLayout. Полка: shelfDepth.',
-'Фото: photos[photoId]. Чертёж: drawingIsoId, drawingFrontId.',
-'Скругление: roundedCorners, cornerRadius (мм).',
+'w, h, T, B, L, R (см), th (мм), qty.',
+'glass, edge, facetWidth, frameColor, frameThickness.',
+'mountType, mountCustom.',
+'boltMount, boltCount (4|6|8), boltOffset (см).',
+'cutoutEnabled, cutoutShape, cutoutW, cutoutH, cutoutCenter,',
+'cutoutDistX, cutoutDistY, cutoutEdgeX, cutoutEdgeY.',
+'socketsMount, socketsList[{count,step,distX,distY,edgeX,edgeY,orientation}].',
+'lightsMount, lightsList[{distX,distY,edgeX,edgeY}].',
+'cutV, cutVPos, cutH, cutHPos.',
+'mirrorMeasureMode, mirrorInset, mirrorNicheCutMode, mirrorNicheRefCorner.',
+'showerH, showerPanels, showerProfiles, showerHandle,',
+'hingeCount, showerFitting, sillType.',
+'apronMaterial, apronShape, apronDirection, apronSections,',
+'apronMeasureMode, apronInset.',
+'pannoLayout, shelfDepth.',
+'photos[photoId], drawingIsoId, drawingFrontId, note.',
+'roundedCorners, cornerRadius (мм).',
 '',
 '## db.clients',
 'id, lastName, firstName, middleName, phone, phoneExtra,',
-'email, note, tags[], archived, createdAt, createdBy.',
+'email, note, tags[], archived.',
 '',
 '## db.addresses',
-'id, clientId, label.',
-'region, district, settlement, city, street, house, building,',
-'postalCode, entrance, floor, apartment, intercom.',
-'liftNeeded, liftFloor, parkingCarry, needPass.',
-'objectType (flat|house|snt|office|commercial),',
-'complexName, accessNote, geoLat, geoLon, geoNote.',
+'id, clientId, label, region, district, settlement, city,',
+'street, house, building, postalCode, entrance, floor,',
+'apartment, intercom, liftNeeded, liftFloor, parkingCarry,',
+'needPass, objectType, complexName, accessNote, geoLat, geoLon, geoNote.',
 '',
 '## db.events',
-'id, type (measure|remeasure|install|demontage|delivery|purchase|',
-'return|tempering_out|tempering_in|meeting),',
-'orderId, date, time, duration, assignedUserIds[],',
-'note, status, legFromPrev {km, minutes}.',
+'id, type (10 типов), orderId, date, time, duration,',
+'assignedUserIds[], note, status, legFromPrev{km,minutes}.',
 '',
 '## db.routes',
-'id, title, date, assignedUserId.',
-'points[{kind, refId, addressId, label, note, time, legFromPrev}].',
+'id, title, date, assignedUserId,',
+'points[{kind,refId,addressId,label,note,time,legFromPrev}].',
 '',
 '## db.contractors',
-'id, name, category, contactName, phone, email, addressId,',
-'note, archived.',
+'id, name, category, contactName, phone, email, addressId, note, archived.',
 '',
 '## db.notifications',
-'id, userId, type, title, body,',
-'linkOrderId, linkEventId, linkRouteId, createdAt, readAt.',
+'id, userId, type, title, body, linkOrderId, linkEventId, linkRouteId,',
+'createdAt, readAt.',
 '',
 '## db.users',
-'id, name, role, login, phone, pinHash, pinPlain,',
-'active, mustChangePassword, permsOverride, lastLogin.',
+'id, name, role (admin|manager|master|surveyor|driver),',
+'login, phone, pinHash, active, mustChangePassword, permsOverride.',
 '',
-'## db.roles — кастомные права ролей',
-'{roleKey: {permKey: bool}} или null.',
+'## db.roles',
+'{roleKey:{permKey:bool}} или null.',
 '',
 '## db.settings',
 'phone, email, website, telegram, slogan, baseAddress.',
-'prices (legacy), priceBook (7 групп, ~70 позиций).',
-'morningDigest, appCheckSiteKey.',
+'prices (legacy), priceBook, morningDigest, appCheckSiteKey.',
 '',
-'## db.trash, db.sync',
-'Корзина: {type, deletedAt, deletedBy, order/item}.',
-'Синхронизация: enabled, deviceId, status, lastPullAt,',
-'  lastPushAt, lastError, authUid, authStatus, acStatus.',
+'## db.trash / db.sync',
+'Корзина и состояние синхронизации.',
 '',
 '## Счётчики',
 'nextOrder, nextItem, nextUser, nextClient, nextAddress,',
@@ -1319,43 +1270,40 @@
     d.PRIVACY = { title:'🔒 PRIVACY', content:[
 '# Приватность и данные',
 '',
-'## Локально (на устройстве)',
+'## Локально',
 '▸ Вся база приложения.',
-'▸ Фото и чертежи (IndexedDB, zerzalo_photos_v1).',
-'▸ Черновики (sessionStorage, 24 часа).',
-'▸ Настройки темы и сортировки.',
+'▸ Фото и чертежи (IndexedDB).',
+'▸ Черновики (sessionStorage, 24 ч).',
 '',
 '## В Firebase',
 '▸ Заказы, позиции, клиенты, адреса, события.',
 '▸ Маршруты, контрагенты, уведомления.',
 '▸ Оплата заказа и замера.',
-'▸ Болты, розетки, светильники, вырезы.',
 '▸ Пользователи и роли (PIN не уходит).',
-'▸ Прайс и настройки компании.',
+'▸ Прайс и настройки.',
 '',
 'Фото и чертежи в Firebase не уходят.',
 '',
 '## Внешние сервисы',
 '▸ Firebase Realtime Database (Google).',
 '▸ Google Fonts.',
-'▸ DaData Suggestions API.',
-'▸ Nominatim (OpenStreetMap).',
-'▸ OSRM.',
-'▸ Яндекс.Карты / Apple Maps (только по тапу).',
+'▸ DaData Suggestions.',
+'▸ Nominatim, OSRM.',
+'▸ Яндекс.Карты / Apple Maps (по тапу).',
 '',
 '## Доступ',
-'▸ apiKey Firebase публичный — это норма для веба.',
-'▸ Security Rules требуют auth != null.',
-'▸ PIN хешируется SHA-256 с солью user.id.',
+'▸ apiKey публичный — норма для веба.',
+'▸ Security Rules: auth != null.',
+'▸ PIN — SHA-256 с солью user.id.',
 '',
 '## Чего нет',
 '▸ Куки для трекинга.',
-'▸ Аналитики (Google/Яндекс).',
+'▸ Аналитики.',
 '▸ Передачи данных третьим лицам.',
 '',
 '## Отзыв данных',
-'▸ Экспорт: Настройки → 📥 Экспорт (JSON).',
-'▸ Удаление: Настройки → 🗑 Удалить все данные.'
+'▸ Настройки → Экспорт (JSON).',
+'▸ Настройки → Удалить все данные.'
     ].join('\n') };
 
     d.BACKUP = { title:'💾 BACKUP', content:[
@@ -1363,20 +1311,6 @@
 '',
 '## Экспорт',
 'Настройки → 📥 Экспорт (JSON).',
-'Файл: zerzalo-backup-YYYY-MM-DD.json.',
-'',
-'Что в бэкапе:',
-'▸ Все заказы, позиции, клиенты, адреса.',
-'▸ Оплата заказа и замера.',
-'▸ Болты, розетки, светильники, вырезы.',
-'▸ События, маршруты, контрагенты.',
-'▸ Пользователи, уведомления.',
-'▸ Прайс, настройки.',
-'',
-'Что не входит:',
-'▸ Токен Firebase.',
-'▸ Черновики.',
-'▸ PIN в открытом виде.',
 '',
 '## Импорт',
 'Только для admin.',
@@ -1384,129 +1318,97 @@
 'Полностью заменяет текущую базу.',
 '',
 '## Синхронизация',
-'При включённой синхронизации:',
-'▸ изменения уходят в облако через ~1,5 сек;',
-'▸ свежие данные подтягиваются при запуске;',
+'▸ Изменения уходят в облако за ~1,5 сек.',
+'▸ Свежие данные подтягиваются при запуске.',
 '▸ last-write-wins по updatedAt.',
 '',
-'Защита (v4.2.8):',
-'▸ до первого pull метаданные не уходят;',
-'▸ первый pull заменяет их серверными;',
-'▸ кнопки «📥 Только подтянуть» и «📤 Отправить сейчас».',
+'## Защита (v4.2.8)',
+'▸ До первого pull метаданные не уходят.',
+'▸ Первый pull заменяет их серверными.',
+'▸ Кнопки в Настройках: «📥 Только подтянуть», «📤 Отправить сейчас».',
 '',
 '## Сценарии восстановления',
-'1. Потерял телефон → новый, синхронизация → всё подтянется.',
-'2. Случайное удаление → восстановить из JSON.',
-'3. Сломалась база → Firebase Backups (30 дней).',
+'1. Потеря телефона → новый + синхронизация.',
+'2. Случайное удаление → JSON-бэкап.',
+'3. Сломана база → Firebase Backups (30 дней).',
 '',
 '## Рекомендации',
 '▸ Экспорт раз в неделю.',
-'▸ Бэкапы в трёх местах.',
-'▸ Перед крупными изменениями — экспорт.'
+'▸ Бэкапы в трёх местах.'
     ].join('\n') };
 
     d.AUTHOR = { title:'👤 Об авторе', content:[
 '# Об авторе',
 '',
 'Зерцало — внутренний инструмент стекольной компании.',
-'Разработано под задачи замеров и монтажа зеркал, стекла,',
-'душевых перегородок, фартуков, полок и панно.',
 '',
 '## Разработчик',
 'AUTHOR_NAME_PLACEHOLDER',
 '',
 'Telegram: AUTHOR_TG_PLACEHOLDER',
 '',
-'## Год',
-'© 2026. Все права у заказчика.',
-'',
-'## Обратная связь',
-'Все вопросы, идеи и баги — в Telegram разработчику.',
-''
+'© 2026. Все права у заказчика.'
     ].join('\n').replace('AUTHOR_NAME_PLACEHOLDER', AUTHOR_NAME).replace('AUTHOR_TG_PLACEHOLDER', AUTHOR_TG) };
 
     d.TECH = { title:'🛠 Техдокументация', content:[
 '# Техническая документация',
 '',
 '## Архитектура',
-'index.html — ядро приложения (HTML+CSS+JS, без сборки).',
-'app-patches.js — динамические патчи, подгружаются',
-'  из GitHub при каждом запуске.',
+'index.html — ядро (HTML+CSS+JS, без сборки).',
+'app-patches.js — динамические патчи (fetch с GitHub).',
 '',
-'## Файлы и репозиторий',
+'## Репозиторий',
 'github.com/elcomandan1e/Zercalo-Ver-1',
 '· index.html — ядро.',
 '· app-patches.js — активные патчи.',
-'· Статика GitHub Pages.',
 '',
 '## Стек',
-'· HTML5, CSS3 (grid, flexbox, custom properties).',
-'· JavaScript ES2017 (async/await, без транспиляции).',
-'· Firebase Realtime Database v10 (compat-режим).',
-'· Firebase Anonymous Auth.',
-'· IndexedDB (фото, чертежи).',
-'· Service Worker + PWA-манифест.',
+'HTML5, CSS3, JavaScript ES2017, Firebase v10 (compat),',
+'Anonymous Auth, IndexedDB, Service Worker, PWA.',
 '',
 '## Внешние сервисы',
-'· Firebase Realtime Database — синхронизация.',
-'· DaData — автозаполнение адресов (Москва + 8 областей).',
-'· Nominatim — геокодирование.',
-'· OSRM — маршруты (км, минуты).',
-'· Google Fonts — Montserrat, PT Sans Narrow.',
+'Firebase RTDB, DaData, Nominatim, OSRM, Google Fonts.',
 '',
 '## Схема синхронизации',
-'push — при каждом save() через 1500 мс дебаунс.',
-'pull — подписка .on("value") + фолбэк .once() при возврате.',
-'merge — last-write-wins по updatedAt сущностей.',
+'push — debounce 1500 мс при каждом save().',
+'pull — .on("value") + фолбэк .once() при возврате.',
+'merge — last-write-wins по updatedAt.',
 '',
 '## Патчи — как работает',
-'1. В конце index.html есть загрузчик app-patches.js.',
-'2. При запуске делается fetch с ?t=Date.now() — обход кэша.',
-'3. Код оборачивается в new Function() и выполняется.',
-'4. Если код падает — приложение работает как есть.',
-'5. Для отрисовки после загрузки — window._zrzPatchInit().',
+'1. В конце index.html загрузчик app-patches.js.',
+'2. fetch с ?t=Date.now() — обход кэша.',
+'3. new Function() → выполнение.',
+'4. window._zrzPatchInit() — отрисовка после патча.',
 '',
 '## Маркеры состояний',
-'window._zrzCardRippleBound — ripple на карточках.',
-'window._zrzTechDrawWrapped — обёртки чертежа.',
-'window._zrzOpenTechDrawWrapped — фикс openTechDraw.',
-'window._zrzOpenItemWrapped — UI болтов, вырезов.',
-'window._zrzOpenSettingsWrapped — блок защиты в настройках.',
-'window._zrzSvgIcons — SVG-иконки вместо эмодзи.',
+'window._zrzCardRippleBound, _zrzTechDrawWrapped,',
+'_zrzOpenTechDrawWrapped, _zrzOpenItemWrapped,',
+'_zrzOpenSettingsWrapped, _zrzSvgIcons, _zrzShowModalWrapped,',
+'_zrzRenderWrapped.',
 '',
-'## SVG-иконки (v4.6.0)',
-'Спрайт <symbol id="ic-xxx"> вставляется в <body>.',
-'Все эмодзи в текстовых узлах DOM заменяются на',
-'<span class="zrz-ic"><svg><use href="#ic-xxx"/></svg></span>.',
-'Стиль: stroke 1.75, 24×24, currentColor.',
-'Тёмная тема — автоматически через currentColor.',
+'## v5.0.0 — Навигация',
+'· renderTabs переопределён — ролевой таббар.',
+'· showModal обёрнут — вставляет хлебные крошки.',
+'· render обёрнут — поддержка вкладки «Уведомления».',
 '',
 '## CSS-классы патча',
-'zrz-card-ripple — волна на карточках.',
-'zrz-orientation-chips — чипы ориентации розеток.',
-'zrz-cutout-ui — UI отступа выреза.',
-'zrz-ic — контейнер SVG-иконки.',
+'zrz-card-ripple, zrz-orientation-chips, zrz-cutout-ui,',
+'zrz-ic, zrz-crumbs, zrz-crumb, zrz-crumb-cur.',
 '',
 '## Отладка',
-'Режим отладки: URL ?debug=1 — красная полоса ошибок сверху.',
-'Консоль: [app-patches] vX.Y.Z активен — код загружен.',
-'Команды: zrzPullOnly(), zrzPushNow() — вручную.',
+'?debug=1 — красная полоса ошибок.',
+'Консоль: [app-patches] vX.Y.Z активен.',
+'zrzPullOnly(), zrzPushNow() — вручную.',
 '',
 '## Хранилище',
 'localStorage — mirror_orders_v2.',
-'sessionStorage — черновики позиций.',
-'IndexedDB — zerzalo_photos_v1 (фото и чертежи).',
-'',
-'## Безопасность',
-'PIN — SHA-256 с солью user.id.',
-'Security Rules Firebase — auth != null.',
-'Push при первом запуске — без users/roles/settings.',
+'sessionStorage — черновики.',
+'IndexedDB — zerzalo_photos_v1.',
 '',
 '## Версии',
-'SCHEMA_VERSION — версия схемы (миграции).',
-'APP_VERSION — ядро (в index.html).',
-'PATCH_VERSION — активный патч (в app-patches.js).',
-''
+'SCHEMA_VERSION — схема (миграции).',
+'APP_VERSION — ядро.',
+'PATCH_VERSION — активный патч.'
     ].join('\n') };
 
     return d;
@@ -1571,20 +1473,16 @@
 })();
 
 /* ============================================================
-   v4.6.0 · SVG-ИКОНКИ ВМЕСТО ЭМОДЗИ (runtime, Phosphor-стиль)
-   Вставляет спрайт <symbol> в <body>, MutationObserver
-   подменяет эмодзи в текстовых узлах DOM на <svg><use/></svg>.
-   Ничего в index.html не меняет. Работает с любым патчем.
+   v4.6.0 · SVG-ИКОНКИ ВМЕСТО ЭМОДЗИ
    ============================================================ */
 (function(){
   if (window._zrzSvgIcons) return;
   window._zrzSvgIcons = true;
 
-  var BS  = String.fromCharCode(92); // backslash
+  var BS  = String.fromCharCode(92);
   var NS  = 'http://www.w3.org/2000/svg';
   var XLK = 'http://www.w3.org/1999/xlink';
 
-  /* ---------- Определения иконок: 24×24, stroke, currentColor ---------- */
   var DEFS = {
     'ic-mirror':     '<rect x="5" y="2" width="14" height="18" rx="3"/><path d="M9 7l3-3"/>',
     'ic-shower':     '<path d="M4 12a8 8 0 0 1 16 0"/><path d="M12 4v8"/><path d="M8 15v2"/><path d="M12 15v3"/><path d="M16 15v2"/>',
@@ -1620,7 +1518,6 @@
     'ic-trash':      '<path d="M4 6h16"/><path d="M9 3h6l1 3H8z"/><path d="M6 6l1 14a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-14"/><path d="M10 10v8"/><path d="M14 10v8"/>',
     'ic-plus':       '<path d="M12 4v16"/><path d="M4 12h16"/>',
     'ic-arrow-left': '<path d="M19 12H5"/><path d="M12 5l-7 7 7 7"/>',
-    'ic-arrow-right':'<path d="M5 12h14"/><path d="M12 5l7 7-7 7"/>',
     'ic-check':      '<path d="M4 12l5 5 11-11"/>',
     'ic-cross':      '<path d="M6 6l12 12"/><path d="M18 6L6 18"/>',
     'ic-warn':       '<path d="M12 3L1 21h22L12 3z"/><path d="M12 10v5"/><circle cx="12" cy="18.5" r="0.7" fill="currentColor"/>',
@@ -1631,7 +1528,6 @@
     'ic-electric':   '<path d="M13 2L4 14h7l-1 8 9-12h-7l1-8z"/>',
     'ic-building':   '<rect x="4" y="3" width="16" height="18"/><path d="M8 7h2v2H8z"/><path d="M14 7h2v2h-2z"/><path d="M8 12h2v2H8z"/><path d="M14 12h2v2h-2z"/><path d="M10 18h4v3h-4z"/>',
     'ic-package':    '<path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 7v10l9 4 9-4V7"/><path d="M12 11v10"/>',
-    'ic-pin-off':    '<circle cx="12" cy="12" r="9"/><path d="M5 5l14 14"/>',
     'ic-tray':       '<path d="M3 12h5l1 3h6l1-3h5"/><path d="M5 5h14l2 7v7H3v-7l2-7z"/>',
     'ic-square':     '<rect x="4" y="4" width="16" height="16" rx="1"/>',
     'ic-bath':       '<path d="M3 12h18v3a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4v-3z"/><path d="M6 12V5a2 2 0 0 1 4 0"/><path d="M6 21l-1 1"/><path d="M18 21l1 1"/>',
@@ -1665,32 +1561,20 @@
     'ic-sunset':     '<path d="M3 18h18"/><path d="M3 21h18"/><path d="M8 14a4 4 0 1 1 8 0"/><path d="M12 4v6"/><path d="M8 8l4-4 4 4"/>'
   };
 
-  /* ---------- Соответствие эмодзи → id иконки ---------- */
   var MAP = {
-    /* Изделия */
     '🪞':'ic-mirror', '🚿':'ic-shower', '🍳':'ic-apron', '🗄':'ic-shelf', '🖼':'ic-panno',
-    /* События */
     '📏':'ic-measure', '📐':'ic-remeasure', '🔧':'ic-install', '🔨':'ic-demontage',
     '🚚':'ic-delivery', '🛒':'ic-purchase', '↩':'ic-return', '🔥':'ic-tempering',
-    '☕':'ic-meeting',
-    /* Роли */
-    '👑':'ic-crown', '💼':'ic-case', '👤':'ic-user', '👥':'ic-users',
-    /* Дом / объекты */
+    '☕':'ic-meeting', '👑':'ic-crown', '💼':'ic-case', '👤':'ic-user', '👥':'ic-users',
     '🏠':'ic-home', '🏢':'ic-building', '🏪':'ic-building', '🌳':'ic-tree',
-    /* Прочее */
     '📋':'ic-doc', '📦':'ic-package', '🤝':'ic-handshake', '🏭':'ic-factory',
     '📍':'ic-pin', '🛁':'ic-bath', '⬜':'ic-square',
-    /* Таббар / шапка */
     '🔔':'ic-bell', '⚙':'ic-settings', '☰':'ic-menu', '📅':'ic-calendar', '📆':'ic-calendar',
-    /* Поиск / фильтры */
     '🔍':'ic-search', '🔎':'ic-search', '🎛':'ic-filter',
-    /* Элементы позиций */
     '💡':'ic-light', '🔌':'ic-socket', '✂':'ic-cut', '⭕':'ic-rounded', '🔩':'ic-bolt',
-    /* Действия */
     '💰':'ic-money', '📤':'ic-send', '🖨':'ic-print', '📷':'ic-camera',
     '✏':'ic-edit', '🗑':'ic-trash', '💾':'ic-save', '⚡':'ic-electric',
     '🔒':'ic-lock', '🔐':'ic-lock', '📞':'ic-phone', '⌫':'ic-backspace',
-    /* Разное */
     '☀':'ic-sun', '🌙':'ic-moon', '☁':'ic-cloud', '📥':'ic-download',
     '🧹':'ic-trash', '📖':'ic-book', '📚':'ic-book-open', '🚪':'ic-door',
     '🌅':'ic-sunset', '⚠':'ic-warn', '✔':'ic-check', '✓':'ic-check',
@@ -1698,16 +1582,13 @@
     '🟡':'ic-circle-dot', '🔴':'ic-circle-dot', '⚪':'ic-circle-dot',
     '🗺':'ic-map', '🔗':'ic-link', '🩺':'ic-info',
     '❓':'ic-help', '🎨':'ic-palette', '📊':'ic-doc', '🕐':'ic-info',
-    '⏱':'ic-info', '❕':'ic-info', '‼':'ic-warn',
-    /* Скобки-символы */
-    '◯':'ic-circle-dot'
+    '⏱':'ic-info', '❕':'ic-info', '‼':'ic-warn', '◯':'ic-circle-dot'
   };
 
   var KEYS = Object.keys(MAP).sort(function(a,b){ return b.length - a.length; });
   var ALT  = KEYS.join('|');
   var RE   = new RegExp('(' + ALT + ')' + BS + 'uFE0F?', 'g');
 
-  /* ---------- CSS ---------- */
   function injectCss(){
     if (document.getElementById('zrz-svg-icons-css')) return;
     var st = document.createElement('style');
@@ -1721,7 +1602,6 @@
     (document.head || document.documentElement).appendChild(st);
   }
 
-  /* ---------- SVG-спрайт ---------- */
   function buildSprite(){
     if (document.getElementById('zrz-svg-sprite')) return;
     var wrap = document.createElement('div');
@@ -1751,7 +1631,6 @@
     }
   }
 
-  /* ---------- Создание span с SVG ---------- */
   function makeIcon(id){
     var span = document.createElement('span');
     span.className = 'zrz-ic';
@@ -1773,7 +1652,6 @@
     return span;
   }
 
-  /* ---------- Замена текстового узла ---------- */
   function replaceInTextNode(node){
     var t = node.nodeValue;
     if (!t) return;
@@ -1803,7 +1681,6 @@
     try { parent.replaceChild(frag, node); } catch(e){}
   }
 
-  /* ---------- Обход дерева ---------- */
   function walk(node){
     if (!node) return;
     if (node.nodeType === 3){ replaceInTextNode(node); return; }
@@ -1822,7 +1699,6 @@
     }
   }
 
-  /* ---------- Старт ---------- */
   function boot(){
     injectCss();
     buildSprite();
@@ -1847,4 +1723,362 @@
 
   if (document.body) boot();
   else document.addEventListener('DOMContentLoaded', boot, {once:true});
+})();
+
+/* ============================================================
+   v5.0.0 · НАВИГАЦИЯ — Волна 1
+   • Ролевой таббар
+   • Хлебные крошки в модалках
+   • Уведомления как отдельная вкладка
+   ============================================================ */
+(function(){
+  if(window._zrzNavApplied) return;
+  window._zrzNavApplied = true;
+
+  /* ---------- 1. РОЛЕВОЙ ТАББАР ---------- */
+
+  function tabsForRole(u){
+    if(!u) return [];
+    var role = u.role;
+    var unread = 0;
+    try { unread = (typeof unreadNotificationsCount === 'function') ? unreadNotificationsCount(u.id) : 0; } catch(e){}
+    if(role === 'driver'){
+      return [
+        {key:'orders',           ico:'🏠', label:'Сегодня'},
+        {key:'calendar-routes',  ico:'🚚', label:'Маршруты'},
+        {key:'calendar',         ico:'📅', label:'Календарь'},
+        {key:'more',             ico:'☰', label:'Ещё'}
+      ];
+    }
+    if(role === 'master'){
+      return [
+        {key:'orders',           ico:'🔧', label:'Работа'},
+        {key:'calendar',         ico:'📅', label:'Календарь'},
+        {key:'notifications',    ico:'🔔', label:'События', badge:unread},
+        {key:'more',             ico:'☰', label:'Ещё'}
+      ];
+    }
+    if(role === 'surveyor'){
+      return [
+        {key:'orders',           ico:'🏠', label:'Сегодня'},
+        {key:'clients',          ico:'👥', label:'Клиенты'},
+        {key:'calendar',         ico:'📅', label:'Календарь'},
+        {key:'more',             ico:'☰', label:'Ещё'}
+      ];
+    }
+    /* admin / manager */
+    return [
+      {key:'orders',           ico:'🏠', label:'Сегодня'},
+      {key:'clients',          ico:'👥', label:'Клиенты'},
+      {key:'calendar',         ico:'📅', label:'Календарь'},
+      {key:'notifications',    ico:'🔔', label:'Уведомл.', badge:unread},
+      {key:'more',             ico:'☰', label:'Ещё'}
+    ];
+  }
+
+  function normalizeActiveTab(){
+    var a = (typeof activeTab !== 'undefined') ? activeTab : 'orders';
+    try {
+      if(a === 'route_detail') return 'calendar-routes';
+      if(a === 'calendar' && calState && calState.section === 'routes') return 'calendar-routes';
+      if(a === 'contractors') return 'more';
+    } catch(e){}
+    return a;
+  }
+
+  function renderRoleTabs(){
+    var el = document.getElementById('tabbar');
+    if(!el) return;
+    var u = (typeof currentUser === 'function') ? currentUser() : null;
+    if(!u){ el.style.display = 'none'; return; }
+    if(document.getElementById('authScreen')){ el.style.display = 'none'; return; }
+    el.style.display = 'flex';
+    var tabs = tabsForRole(u);
+    var activeKey = normalizeActiveTab();
+    /* 5 вкладок — на телефоне они сжимаются, добавим компактный вид */
+    if(tabs.length >= 5) el.classList.add('zrz-tabs-5');
+    else el.classList.remove('zrz-tabs-5');
+    el.innerHTML = tabs.map(function(t){
+      var badge = t.badge ? '<span class="tabbar-badge">'+(t.badge>99?'99+':t.badge)+'</span>' : '';
+      var isActive = (activeKey === t.key);
+      return '<button type="button" class="tabbar-btn'+(isActive?' active':'')+'" data-tab="'+t.key+'" onclick="zrzSwitchTab(\''+t.key+'\')"><span class="tb-ico">'+t.ico+badge+'</span><span>'+t.label+'</span></button>';
+    }).join('');
+  }
+
+  window.zrzSwitchTab = function(tab){
+    try{
+      if(tab === 'calendar-routes'){
+        activeTab = 'calendar';
+        try { calState.section = 'routes'; } catch(e){}
+        if(typeof haptic === 'function') haptic(6);
+        if(typeof withViewTransition === 'function'){
+          withViewTransition(function(){ render(); window.scrollTo(0,0); });
+        } else { render(); window.scrollTo(0,0); }
+        return;
+      }
+      if(tab === 'notifications'){
+        activeTab = 'notifications';
+        if(typeof haptic === 'function') haptic(6);
+        if(typeof withViewTransition === 'function'){
+          withViewTransition(function(){ render(); window.scrollTo(0,0); });
+        } else { render(); window.scrollTo(0,0); }
+        return;
+      }
+      if(tab === 'more'){
+        activeTab = 'more';
+        if(typeof haptic === 'function') haptic(6);
+        if(typeof withViewTransition === 'function'){
+          withViewTransition(function(){ render(); window.scrollTo(0,0); });
+        } else { render(); window.scrollTo(0,0); }
+        return;
+      }
+      if(tab === 'orders'){
+        if(typeof switchTab === 'function') switchTab('orders');
+        else { activeTab = 'orders'; render(); window.scrollTo(0,0); }
+        return;
+      }
+      if(tab === 'clients'){
+        if(typeof switchTab === 'function') switchTab('clients');
+        else { activeTab = 'clients'; render(); window.scrollTo(0,0); }
+        return;
+      }
+      if(tab === 'calendar'){
+        activeTab = 'calendar';
+        try { calState.section = 'events'; } catch(e){}
+        if(typeof haptic === 'function') haptic(6);
+        if(typeof withViewTransition === 'function'){
+          withViewTransition(function(){ render(); window.scrollTo(0,0); });
+        } else { render(); window.scrollTo(0,0); }
+        return;
+      }
+      if(typeof switchTab === 'function') switchTab(tab);
+    }catch(e){ try{console.warn('[nav] switchTab', e);}catch(_){} }
+  };
+
+  /* Переопределяем ядровую renderTabs */
+  window.renderTabs = renderRoleTabs;
+
+  /* ---------- 2. УВЕДОМЛЕНИЯ КАК ВКЛАДКА ---------- */
+
+  function renderNotificationsTab(){
+    var u = (typeof currentUser === 'function') ? currentUser() : null;
+    if(!u) return '';
+    var list = [];
+    try { list = (typeof notificationsOfUser === 'function') ? notificationsOfUser(u.id) : []; } catch(e){}
+    var unread = 0;
+    try { unread = (typeof unreadNotificationsCount === 'function') ? unreadNotificationsCount(u.id) : 0; } catch(e){}
+    var html = '<div class="section-title" style="margin-top:8px">🔔 Уведомления</div>';
+    if(!list.length){
+      html += '<div class="empty-cta"><span class="ec-ico">🔔</span><div class="ec-title">Пока нет уведомлений</div><div class="ec-sub">Здесь появятся назначения на события, изменения и маршруты.</div></div>';
+      html += '<div class="footer-brand" style="margin-top:20px">'+(typeof LOGO_MARK==='function'?LOGO_MARK(20):'')+'<span>Зерцало • уведомления</span></div>';
+      return html;
+    }
+    html += '<div class="chips sort-chips" style="margin-bottom:12px">';
+    html += '<button type="button" class="chip sort-chip" onclick="markAllNotifRead();render()">✓ Прочитать все</button>';
+    html += '<button type="button" class="chip sort-chip" onclick="clearReadNotif()">🧹 Удалить прочитанные</button>';
+    html += '</div>';
+    var readCnt = list.length - unread;
+    html += '<div style="display:flex;gap:18px;font-size:12.5px;color:var(--muted);font-weight:600;margin-bottom:12px;padding:0 4px">';
+    html += '<span>Непрочитанных: <b style="color:var(--accent-deep)">'+unread+'</b></span>';
+    html += '<span>Прочитанных: <b>'+readCnt+'</b></span>';
+    html += '<span>Всего: <b>'+list.length+'</b></span>';
+    html += '</div>';
+    html += list.map(function(n){
+      var cls = n.readAt ? '' : ' unread';
+      var ico = n.type === 'assigned' ? '📅' : (n.type === 'moved' ? '📆' : (n.type === 'removed' ? '🗑' : (n.type === 'route' ? '🚚' : '🔔')));
+      return '<div class="notif-item'+cls+'" onclick="onNotifClick('+n.id+')">' +
+        '<div class="notif-ico '+(n.type||'')+'">'+ico+'</div>' +
+        '<div class="notif-body">' +
+          '<div class="notif-title">'+esc(n.title||'')+'</div>' +
+          '<div class="notif-text">'+esc(n.body||'')+'</div>' +
+          '<div class="notif-time">'+new Date(n.createdAt).toLocaleString('ru-RU')+(n.readAt?' • прочитано':'')+'</div>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+    html += '<div class="footer-brand" style="margin-top:20px">'+(typeof LOGO_MARK==='function'?LOGO_MARK(20):'')+'<span>Зерцало • уведомления</span></div>';
+    return html;
+  }
+  window.renderNotificationsTab = renderNotificationsTab;
+
+  /* Обёртка render() для поддержки activeTab === 'notifications' */
+  function wrapRender(){
+    if(window._zrzRenderWrapped) return;
+    if(typeof window.render !== 'function') return;
+    var orig = window.render;
+    window.render = function(){
+      var isNotif = (typeof activeTab !== 'undefined' && activeTab === 'notifications');
+      if(isNotif) activeTab = 'more'; /* временно подменяем, чтобы ядро отрисовало что-то валидное */
+      var res = orig.apply(this, arguments);
+      if(isNotif){
+        activeTab = 'notifications';
+        var appEl = document.getElementById('app');
+        if(appEl) appEl.innerHTML = renderNotificationsTab();
+        /* Скрываем кнопки шапки, которые не нужны на этой вкладке */
+        var backBtn = document.getElementById('backBtn');
+        var shareBtn = document.getElementById('shareBtn');
+        var settingsBtn = document.getElementById('settingsBtn');
+        var logoutBtn = document.getElementById('logoutBtn');
+        var notifBtn = document.getElementById('notifBtn');
+        if(backBtn) backBtn.style.display = 'none';
+        if(shareBtn) shareBtn.style.display = 'none';
+        if(settingsBtn) settingsBtn.style.display = 'none';
+        if(logoutBtn) logoutBtn.style.display = 'none';
+        if(notifBtn) notifBtn.style.display = 'none';
+        if(typeof renderRoleTabs === 'function') renderRoleTabs();
+      }
+      return res;
+    };
+    window._zrzRenderWrapped = true;
+  }
+
+  /* ---------- 3. ХЛЕБНЫЕ КРОШКИ В МОДАЛКАХ ---------- */
+
+  function buildCrumbsForModal(){
+    var crumbs = [];
+    var curTab = (typeof activeTab !== 'undefined') ? activeTab : 'orders';
+    /* Корень */
+    var rootLabel = 'Назад';
+    if(curTab === 'orders') rootLabel = 'Заказы';
+    else if(curTab === 'clients') rootLabel = 'Клиенты';
+    else if(curTab === 'calendar') rootLabel = 'Календарь';
+    else if(curTab === 'contractors') rootLabel = 'Контрагенты';
+    else if(curTab === 'routes') rootLabel = 'Маршруты';
+    else if(curTab === 'route_detail') rootLabel = 'Маршруты';
+    else if(curTab === 'more') rootLabel = 'Ещё';
+    else if(curTab === 'notifications') rootLabel = 'Уведомления';
+    crumbs.push({label:rootLabel, closable:true});
+    /* Промежуточные контексты */
+    if(curTab === 'orders' && typeof currentOrderId !== 'undefined' && currentOrderId){
+      try {
+        var o = db.orders.find(function(x){return x.id === currentOrderId;});
+        if(o) crumbs.push({label:'Заказ № ' + (o.orderNum || '—'), closable:false});
+      } catch(e){}
+    }
+    if(curTab === 'clients' && typeof currentClientId !== 'undefined' && currentClientId){
+      try {
+        var c = db.clients.find(function(x){return x.id === currentClientId;});
+        if(c){
+          var nm = (typeof clientFullName === 'function') ? clientFullName(c) : '';
+          crumbs.push({label:'Клиент: ' + (nm || 'Без имени'), closable:false});
+        }
+      } catch(e){}
+    }
+    if((curTab === 'route_detail' || curTab === 'routes') && typeof currentRouteId !== 'undefined' && currentRouteId){
+      try {
+        var r = db.routes.find(function(x){return x.id === currentRouteId;});
+        if(r) crumbs.push({label:r.title || 'Маршрут', closable:false});
+      } catch(e){}
+    }
+    return crumbs;
+  }
+
+  function injectCrumbs(){
+    var modal = document.querySelector('.modal');
+    if(!modal) return;
+    if(modal.querySelector('.zrz-crumbs')) return;
+    if(modal.querySelector('.modal-crumbs')) return;
+    var crumbs = buildCrumbsForModal();
+    if(!crumbs.length) return;
+    var html = '<div class="zrz-crumbs">';
+    crumbs.forEach(function(c, i){
+      var isLast = (i === crumbs.length - 1);
+      var cls = 'zrz-crumb' + (isLast ? ' zrz-crumb-cur' : '');
+      var action = (!isLast && c.closable) ? ' onclick="closeModalWithConfirm()"' : '';
+      html += '<span class="'+cls+'"'+action+'>'+esc(c.label)+'</span>';
+      if(!isLast) html += '<span class="bc-sep">›</span>';
+    });
+    html += '</div>';
+    var h2 = modal.querySelector('h2');
+    if(h2) h2.insertAdjacentHTML('afterend', html);
+    else modal.insertAdjacentHTML('afterbegin', html);
+  }
+
+  function wrapShowModal(){
+    if(window._zrzShowModalWrapped) return;
+    if(typeof window.showModal !== 'function') return;
+    var orig = window.showModal;
+    window.showModal = function(){
+      var res = orig.apply(this, arguments);
+      setTimeout(injectCrumbs, 30);
+      return res;
+    };
+    window._zrzShowModalWrapped = true;
+  }
+
+  /* ---------- 4. CSS ---------- */
+
+  function injectNavCss(){
+    if(document.getElementById('zrz-nav-css')) return;
+    var css = ''
+      /* Крошки */
+      + '.zrz-crumbs{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:4px 0 10px;margin-bottom:4px;font-size:12px;color:var(--muted);font-weight:600}'
+      + '.zrz-crumb{padding:3px 9px;background:var(--accent-soft);border-radius:8px;color:var(--accent-deep);transition:background .15s ease}'
+      + '.zrz-crumb[onclick]{cursor:pointer}'
+      + '.zrz-crumb[onclick]:active{background:var(--accent-line)}'
+      + '.zrz-crumb-cur{background:transparent !important;color:var(--muted) !important;font-weight:800;padding-left:0}'
+      + '.zrz-crumbs .bc-sep{color:var(--muted-2);font-weight:700}'
+      /* Компактный таббар при 5 вкладках */
+      + '.tabbar.zrz-tabs-5 .tabbar-btn{padding:8px 2px 6px;font-size:10px}'
+      + '.tabbar.zrz-tabs-5 .tabbar-btn .tb-ico{font-size:20px}'
+      + '.tabbar.zrz-tabs-5 .tabbar-btn span:last-child{font-size:9.5px;letter-spacing:-0.2px}'
+      ;
+    var st = document.createElement('style');
+    st.id = 'zrz-nav-css';
+    st.textContent = css;
+    document.head.appendChild(st);
+  }
+
+  /* ---------- 5. Запуск ---------- */
+
+  function navApply(){
+    try { injectNavCss(); } catch(e){}
+    try { wrapShowModal(); } catch(e){}
+    try { wrapRender(); } catch(e){}
+    try {
+      /* Перерисовать таббар — если приложение уже залогинено */
+      if(typeof currentUser === 'function' && currentUser()){
+        renderRoleTabs();
+      }
+    } catch(e){}
+  }
+
+  /* Хук: сразу после загрузки + небольшой интервал для случая,
+     когда ядро ещё не успело отрисовать шапку/таббар */
+  if(document.body) navApply();
+  else document.addEventListener('DOMContentLoaded', navApply, {once:true});
+  setTimeout(navApply, 400);
+  setTimeout(navApply, 1200);
+
+  /* Также вызываем при каждом открытии модалки — обрабатывается отдельно
+     через wrapShowModal. И при перерисовке страницы — обновляем таббар. */
+  var _navInterval = setInterval(function(){
+    try {
+      var el = document.getElementById('tabbar');
+      if(!el) return;
+      var u = (typeof currentUser === 'function') ? currentUser() : null;
+      if(!u) return;
+      /* Если таббар пустой или показывает старые 4 вкладки — перерисуем */
+      var wantRole = tabsForRole(u).length;
+      var haveCount = el.querySelectorAll('.tabbar-btn').length;
+      if(haveCount !== wantRole){
+        renderRoleTabs();
+      }
+    } catch(e){}
+  }, 1500);
+  setTimeout(function(){ clearInterval(_navInterval); }, 60000);
+
+  /* Клики по старым кнопкам ядра (если они ещё остались) — перехватываем */
+  document.addEventListener('click', function(e){
+    var btn = e.target.closest && e.target.closest('.tabbar-btn');
+    if(!btn) return;
+    var tab = btn.getAttribute('data-tab');
+    if(!tab) return;
+    /* Если это уже наш обработчик — не мешаем */
+    if(btn.getAttribute('onclick') && btn.getAttribute('onclick').indexOf('zrzSwitchTab') >= 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    window.zrzSwitchTab(tab);
+  }, true);
+
+  try{console.log('[nav v5.0.0] Ролевой таббар + крошки + уведомления — активны');}catch(_){}
 })();
