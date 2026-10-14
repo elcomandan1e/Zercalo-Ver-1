@@ -1,23 +1,15 @@
-/* app-patches.js — динамические патчи «Зерцало» v4.4.0
-   Фичи:
-     v4.2.1 — скрыть OSRM.
-     v4.2.3 — типографика v1.
-     v4.2.4 — цвета фурнитуры.
-     v4.2.5 — конфетти, пульс, пружина.
-     v4.2.6 — усиленный ripple.
-     v4.2.7 — болты для зеркал и фартуков.
-     v4.2.8 — защита базы.
-     v4.2.9 — документация + подпись автора.
-     v4.3.0-7 — размеры для розеток, бра, болтов + выноски.
-     v4.4.0 — размеры вырезов, фацета, скруглений + типографика v2.
+/* app-patches.js — динамические патчи «Зерцало» v4.4.1
+   Фичи: [все предыдущие] + v4.4.1:
+   - openTechDraw берёт данные ИЗ ФОРМЫ (а не из базы)
+   - поля для отступа выреза X/Y
+   - более заметная подпись фацета
 */
 (function(){
-  var PATCH_VERSION = '4.4.0';
+  var PATCH_VERSION = '4.4.1';
   var AUTHOR_NAME = 'Лютиков А.С.';
   var AUTHOR_TG = '@el_c0mandan1e';
   var _lock = false;
 
-  /* ─── v4.2.1 ─── */
   function hideOsrm(){
     var titles = document.querySelectorAll('.modal .section-title');
     for(var i=0;i<titles.length;i++){
@@ -34,7 +26,6 @@
     }
   }
 
-  /* ─── v4.2.4 ─── */
   var NEW_FITTING = [
     { key:'chrome',     label:'Хром',         hex:'#d8dde3' },
     { key:'nickel',     label:'Никель',       hex:'#c8c0b5' },
@@ -54,7 +45,6 @@
     }catch(e){}
   }
 
-  /* ─── v4.2.5 ─── */
   function fireConfetti(){
     if(document.getElementById('zrz-confetti')) return;
     var colors = ['#5b7fb8','#4caf7d','#d9924a','#c96565','#8b5cf6','#f0b400','#229ED9','#25D366'];
@@ -127,7 +117,7 @@
     }, true);
   }
 
-  /* ─── размерная линия (базовая) ─── */
+  /* ─── общие ─── */
   var DIM_COLOR = '#c14d4d';
   function _zrzDimLineFull(ctx, obj1, obj2, dimP1, dimP2, label, color){
     color = color || DIM_COLOR;
@@ -253,7 +243,7 @@
     return {W: totalW, H: maxH};
   }
 
-  /* ─── розетки и бра ─── */
+  /* ─── розетки / бра ─── */
   var DIM_SOCKET_COLOR = '#a05c26';
   var DIM_LIGHT_COLOR  = '#7a3d8a';
   function _zrzDrawSocketDot(ctx, cx, cy, r){
@@ -334,65 +324,73 @@
     }
   }
 
-  /* ═══════════════════════════════════════════════════════════
-     v4.4.0 — ВЫРЕЗЫ, ФАЦЕТ, СКРУГЛЕНИЯ
-     ═══════════════════════════════════════════════════════════ */
-
+  /* ═══ v4.4.1: ВЫРЕЗ С ОТСТУПОМ ═══ */
   var DIM_CUT_COLOR  = '#c95a1e';
   var DIM_FACET_COLOR= '#c95a1e';
   var DIM_ROUND_COLOR= '#c14d4d';
 
-  function _zrzDrawCutout(ctx, x0, y0, pxW, pxH, sc3, d){
-    if(!d.cutoutEnabled) return;
+  function _zrzCutoutRect(d, x0, y0, pxW, pxH, sc3){
+    /* Возвращает {x, y, w, h} в пикселях — позиция выреза */
     var w = Number(d.cutoutW)||0;
-    if(w <= 0) return;
+    if(w<=0) return null;
     var shape = (d.cutoutShape==='circle') ? 'circle' : 'rect';
-    var cx = x0 + pxW/2;
-    var cy = y0 + pxH/2;
     var wPx = w * sc3;
     var hPx = (shape==='circle' ? w : (Number(d.cutoutH)||w)) * sc3;
-    var xCut = cx - wPx/2;
-    var yCut = cy - hPx/2;
+    var xCut, yCut;
+    if(d.cutoutCenter===false && (d.cutoutDistX!=null||d.cutoutDistY!=null)){
+      var dx = Number(d.cutoutDistX)||0;
+      var dy = Number(d.cutoutDistY)||0;
+      if(d.cutoutEdgeX==='right') xCut = x0 + pxW - dx*sc3 - wPx;
+      else xCut = x0 + dx*sc3;
+      if(d.cutoutEdgeY==='bottom') yCut = y0 + pxH - dy*sc3 - hPx;
+      else yCut = y0 + dy*sc3;
+    } else {
+      xCut = x0 + (pxW - wPx)/2;
+      yCut = y0 + (pxH - hPx)/2;
+    }
+    return {x:xCut, y:yCut, w:wPx, h:hPx, wCm:w, hCm:Number(d.cutoutH)||w, shape:shape};
+  }
 
-    /* Контур выреза */
+  function _zrzDrawCutout(ctx, x0, y0, pxW, pxH, sc3, d){
+    if(!d.cutoutEnabled) return;
+    var r = _zrzCutoutRect(d, x0, y0, pxW, pxH, sc3);
+    if(!r) return;
+    var cx = r.x + r.w/2;
+    var cy = r.y + r.h/2;
+
     ctx.save();
     ctx.strokeStyle = DIM_CUT_COLOR;
     ctx.lineWidth = 1.6;
     ctx.setLineDash([5,3]);
     ctx.beginPath();
-    if(shape === 'circle'){ ctx.arc(cx, cy, wPx/2, 0, Math.PI*2); }
-    else { ctx.rect(xCut, yCut, wPx, hPx); }
+    if(r.shape === 'circle'){ ctx.arc(cx, cy, r.w/2, 0, Math.PI*2); }
+    else { ctx.rect(r.x, r.y, r.w, r.h); }
     ctx.stroke();
     ctx.setLineDash([]);
     ctx.restore();
 
-    /* X — от левого края зеркала до левого края выреза (сверху) */
-    _zrzDimLineFull(ctx,
-      {x:x0,   y:yCut - 6}, {x:xCut, y:yCut - 6},
-      {x:x0,   y:yCut - 32}, {x:xCut, y:yCut - 32},
-      numFmt((xCut - x0)/sc3)+' см', DIM_CUT_COLOR);
+    /* Размеры от края до выреза */
+    var isCenter = (d.cutoutCenter!==false);
+    if(!isCenter || d.cutoutDistX!=null || d.cutoutDistY!=null){
+      /* X — от края до ближайшей стороны выреза */
+      var edgeX = (d.cutoutEdgeX==='right') ? (x0 + pxW) : x0;
+      var refX = (d.cutoutEdgeX==='right') ? (r.x + r.w) : r.x;
+      _zrzDimLineFull(ctx, {x:edgeX, y:r.y - 6}, {x:refX, y:r.y - 6}, {x:edgeX, y:r.y - 32}, {x:refX, y:r.y - 32}, numFmt(d.cutoutDistX||0)+' см', DIM_CUT_COLOR);
+      /* Y — от края до ближайшей стороны выреза */
+      var edgeY = (d.cutoutEdgeY==='bottom') ? (y0 + pxH) : y0;
+      var refY = (d.cutoutEdgeY==='bottom') ? (r.y + r.h) : r.y;
+      _zrzDimLineFull(ctx, {x:r.x - 6, y:edgeY}, {x:r.x - 6, y:refY}, {x:r.x - 32, y:edgeY}, {x:r.x - 32, y:refY}, numFmt(d.cutoutDistY||0)+' см', DIM_CUT_COLOR);
+    }
 
-    /* Y — от верхнего края зеркала до верхнего края выреза (слева) */
-    _zrzDimLineFull(ctx,
-      {x:xCut - 6, y:y0}, {x:xCut - 6, y:yCut},
-      {x:xCut - 32, y:y0}, {x:xCut - 32, y:yCut},
-      numFmt((yCut - y0)/sc3)+' см', DIM_CUT_COLOR);
-
-    /* Размер ширины выреза — снизу */
-    _zrzDimLineFull(ctx,
-      {x:xCut, y:yCut + hPx + 6}, {x:xCut + wPx, y:yCut + hPx + 6},
-      {x:xCut, y:yCut + hPx + 30}, {x:xCut + wPx, y:yCut + hPx + 30},
-      shape === 'circle' ? ('Ø '+numFmt(w)+' см') : (numFmt(w)+' см'), DIM_CUT_COLOR);
-
-    /* Размер высоты — справа (только rect) */
-    if(shape === 'rect'){
-      _zrzDimLineFull(ctx,
-        {x:xCut + wPx + 6, y:yCut}, {x:xCut + wPx + 6, y:yCut + hPx},
-        {x:xCut + wPx + 30, y:yCut}, {x:xCut + wPx + 30, y:yCut + hPx},
-        numFmt(Number(d.cutoutH)||w)+' см', DIM_CUT_COLOR);
+    /* Размер ширины */
+    _zrzDimLineFull(ctx, {x:r.x, y:r.y + r.h + 6}, {x:r.x + r.w, y:r.y + r.h + 6}, {x:r.x, y:r.y + r.h + 30}, {x:r.x + r.w, y:r.y + r.h + 30}, r.shape === 'circle' ? ('Ø '+numFmt(r.wCm)+' см') : (numFmt(r.wCm)+' см'), DIM_CUT_COLOR);
+    /* Размер высоты — только для rect */
+    if(r.shape === 'rect'){
+      _zrzDimLineFull(ctx, {x:r.x + r.w + 6, y:r.y}, {x:r.x + r.w + 6, y:r.y + r.h}, {x:r.x + r.w + 30, y:r.y}, {x:r.x + r.w + 30, y:r.y + r.h}, numFmt(r.hCm)+' см', DIM_CUT_COLOR);
     }
   }
 
+  /* ═══ v4.4.1: фацет с крупной подписью ═══ */
   function _zrzDrawFacetDims(ctx, x0, y0, pxW, pxH, sc3, d){
     if(d.type !== 'MIRROR') return;
     if(d.edge !== 'Фацет') return;
@@ -402,13 +400,36 @@
     if(fwPx <= 2) return;
     if(fwPx*2 >= pxW || fwPx*2 >= pxH) return;
 
-    /* Размер ширины фацета — сверху слева от верхнего края */
-    var x1 = x0 + 6;
-    var x2 = x0 + fwPx;
+    /* Рисуем жирную внутреннюю рамку (дублирует родную, но ярче) */
+    ctx.save();
+    ctx.strokeStyle = DIM_FACET_COLOR;
+    ctx.lineWidth = 1.6;
+    ctx.setLineDash([4,3]);
+    ctx.beginPath();
+    ctx.rect(x0 + fwPx, y0 + fwPx, pxW - 2*fwPx, pxH - 2*fwPx);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+
+    /* Размер ширины фацета — сверху от левого верхнего угла */
     _zrzDimLineFull(ctx,
-      {x:x1, y:y0 - 4}, {x:x2, y:y0 - 4},
-      {x:x1, y:y0 - 24}, {x:x2, y:y0 - 24},
+      {x:x0 + 4, y:y0 - 4}, {x:x0 + fwPx, y:y0 - 4},
+      {x:x0 + 4, y:y0 - 26}, {x:x0 + fwPx, y:y0 - 26},
       numFmt(fwMm)+' мм', DIM_FACET_COLOR);
+
+    /* Крупная подпись сверху справа */
+    ctx.save();
+    ctx.font = '800 14px "PT Sans Narrow",Arial';
+    ctx.textAlign = 'right'; ctx.textBaseline = 'top';
+    var label = '✂️ Фацет '+numFmt(fwMm)+' мм';
+    var tw = ctx.measureText(label).width + 16;
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(x0 + pxW - tw, y0 + pxH - 26, tw, 20);
+    ctx.strokeStyle = DIM_FACET_COLOR; ctx.lineWidth = 1.2;
+    ctx.strokeRect(x0 + pxW - tw, y0 + pxH - 26, tw, 20);
+    ctx.fillStyle = DIM_FACET_COLOR;
+    ctx.fillText(label, x0 + pxW - 6, y0 + pxH - 23);
+    ctx.restore();
   }
 
   function _zrzDrawRoundedCorners(ctx, x0, y0, pxW, pxH, sc3, d){
@@ -419,8 +440,6 @@
     if(rMm <= 0) return;
     var rPx = rMm/10 * sc3;
     if(rPx < 3) return;
-
-    /* Отмечаем дугу в каждом углу */
     ctx.save();
     ctx.strokeStyle = DIM_ROUND_COLOR;
     ctx.lineWidth = 2;
@@ -429,8 +448,6 @@
     ctx.beginPath(); ctx.arc(x0 + pxW - rPx, y0 + pxH - rPx, rPx, 0, 0.5*Math.PI); ctx.stroke();
     ctx.beginPath(); ctx.arc(x0 + rPx, y0 + pxH - rPx, rPx, 0.5*Math.PI, Math.PI); ctx.stroke();
     ctx.restore();
-
-    /* Выноска R — от правого верхнего угла вверх */
     var tx = x0 + pxW - rPx;
     var ty = y0 + rPx;
     ctx.save();
@@ -443,7 +460,6 @@
     ctx.stroke();
     ctx.beginPath(); ctx.arc(tx, ty, 2, 0, Math.PI*2);
     ctx.fillStyle = DIM_ROUND_COLOR; ctx.fill();
-    /* Подпись */
     ctx.font = '800 12px "PT Sans Narrow",Arial';
     ctx.fillStyle = '#fff';
     var label = 'R'+numFmt(rMm)+' мм';
@@ -510,7 +526,6 @@
   function wrapTechDraw(){
     if(window._zrzTechDrawWrapped) return;
     window._zrzTechDrawWrapped = true;
-
     if(typeof window.drawTechIso === 'function'){
       var origIso = window.drawTechIso;
       window.drawTechIso = function(ctx, x, y, w, h, dims, scale, d){
@@ -542,7 +557,6 @@
         return res;
       };
     }
-
     if(typeof window.drawTechFront === 'function'){
       var origFront = window.drawTechFront;
       window.drawTechFront = function(ctx, x, y, w, h, d){
@@ -578,6 +592,44 @@
         return res;
       };
     }
+  }
+
+  /* ═══ v4.4.1: фикс openTechDraw — из формы, а не из базы ═══ */
+  function wrapOpenTechDraw(){
+    if(window._zrzOpenTechDrawWrapped) return;
+    if(typeof window.openTechDraw !== 'function') return;
+    var orig = window.openTechDraw;
+    window.openTechDraw = function(itemId){
+      /* Если открыт чертёж для сохранённой позиции, и та же позиция сейчас в форме —
+         берём данные ИЗ ФОРМЫ, а не из базы. */
+      try{
+        var numId = parseInt(itemId,10)||0;
+        if(numId>0 && window._editId===numId && window._editDraft && typeof collectDraft==='function'){
+          /* Подменяем данные в db временно — чтобы оригинальная openTechDraw взяла свежак */
+          var idx = -1;
+          for(var i=0;i<db.items.length;i++){ if(db.items[i].id===numId){ idx=i; break; } }
+          if(idx>=0){
+            var backup = JSON.parse(JSON.stringify(db.items[idx]));
+            var fresh = collectDraft(window._editDraft);
+            /* Копируем свежие поля в db.items[idx] */
+            for(var k in fresh){
+              if(Object.prototype.hasOwnProperty.call(fresh,k)) db.items[idx][k] = fresh[k];
+            }
+            try{
+              var res = orig.apply(this, arguments);
+              return res;
+            } finally {
+              /* Восстанавливаем (чтобы не пушить в базу случайно) */
+              for(var k2 in backup){
+                if(Object.prototype.hasOwnProperty.call(backup,k2)) db.items[idx][k2] = backup[k2];
+              }
+            }
+          }
+        }
+      }catch(e){ try{console.warn('[patch] openTechDraw wrapper', e);}catch(_){} }
+      return orig.apply(this, arguments);
+    };
+    window._zrzOpenTechDrawWrapped = true;
   }
 
   /* ─── UI формы ─── */
@@ -666,6 +718,91 @@
     }
   }
 
+  /* ═══ v4.4.1: UI отступа выреза ═══ */
+  function injectCutoutUI(){
+    var m = document.querySelector('.modal');
+    if(!m) return;
+    var d = window._editDraft || {};
+    if(d.type !== 'MIRROR') return;
+    var wrap = document.getElementById('cutout_wrap');
+    if(!wrap) return;
+    /* Уже вставлен */
+    if(document.getElementById('zrz_cutout_ui')) return;
+    /* Вырез включён? */
+    var chk = document.getElementById('e_cutout');
+    if(!chk || !chk.checked) return;
+
+    var isCenter = d.cutoutCenter !== false;
+    var dx = Number(d.cutoutDistX)||0;
+    var dy = Number(d.cutoutDistY)||0;
+    var ex = d.cutoutEdgeX || 'left';
+    var ey = d.cutoutEdgeY || 'top';
+
+    var html = '<div id="zrz_cutout_ui" style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--accent-line)">'
+      + '<label style="margin-top:0">Расположение выреза</label>'
+      + '<div class="chips" id="zrz_cutout_pos_chips" style="margin-top:4px">'
+      + '<button type="button" class="chip '+(isCenter?'active':'')+'" data-v="center">По центру</button>'
+      + '<button type="button" class="chip '+(!isCenter?'active':'')+'" data-v="custom">Свой отступ</button>'
+      + '</div>'
+      + '<div id="zrz_cutout_custom" style="display:'+(isCenter?'none':'block')+';margin-top:10px">'
+      + '<div class="row2">'
+      + '<div><label style="font-size:11px;color:#8894a9">X, см</label><input id="zrz_cut_x" type="text" inputmode="decimal" value="'+numFmt(dx)+'" placeholder="30"><div class="chips" style="margin-top:6px"><button type="button" class="chip '+(ex==='left'?'active':'')+'" data-edge="left" data-axis="X">← лево</button><button type="button" class="chip '+(ex==='right'?'active':'')+'" data-edge="right" data-axis="X">право →</button></div></div>'
+      + '<div><label style="font-size:11px;color:#8894a9">Y, см</label><input id="zrz_cut_y" type="text" inputmode="decimal" value="'+numFmt(dy)+'" placeholder="30"><div class="chips" style="margin-top:6px"><button type="button" class="chip '+(ey==='top'?'active':'')+'" data-edge="top" data-axis="Y">верх ↑</button><button type="button" class="chip '+(ey==='bottom'?'active':'')+'" data-edge="bottom" data-axis="Y">↓ низ</button></div></div>'
+      + '</div></div></div>';
+    wrap.insertAdjacentHTML('beforeend', html);
+
+    var posChips = document.getElementById('zrz_cutout_pos_chips');
+    var customDiv = document.getElementById('zrz_cutout_custom');
+    var xInp = document.getElementById('zrz_cut_x');
+    var yInp = document.getElementById('zrz_cut_y');
+
+    function setPos(v){
+      posChips.querySelectorAll('.chip').forEach(function(x){x.classList.toggle('active', x.dataset.v===v);});
+      customDiv.style.display = (v==='custom') ? 'block' : 'none';
+      if(window._editDraft){
+        window._editDraft.cutoutCenter = (v==='center');
+        if(v==='custom'){
+          if(window._editDraft.cutoutDistX==null) window._editDraft.cutoutDistX = 30;
+          if(window._editDraft.cutoutDistY==null) window._editDraft.cutoutDistY = 30;
+          xInp.value = numFmt(window._editDraft.cutoutDistX);
+          yInp.value = numFmt(window._editDraft.cutoutDistY);
+        }
+      }
+      if(typeof saveDraft==='function') saveDraft();
+    }
+    posChips.onclick = function(e){
+      var c = e.target.closest('.chip'); if(!c) return;
+      setPos(c.dataset.v);
+    };
+    xInp.oninput = function(){
+      if(window._editDraft){
+        var v = parseFloat(String(xInp.value).replace(',','.'))||0;
+        window._editDraft.cutoutDistX = v;
+      }
+      if(typeof saveDraft==='function') saveDraft();
+    };
+    yInp.oninput = function(){
+      if(window._editDraft){
+        var v = parseFloat(String(yInp.value).replace(',','.'))||0;
+        window._editDraft.cutoutDistY = v;
+      }
+      if(typeof saveDraft==='function') saveDraft();
+    };
+    customDiv.querySelectorAll('button[data-edge]').forEach(function(b){
+      b.onclick = function(){
+        var axis = b.dataset.axis;
+        var edge = b.dataset.edge;
+        customDiv.querySelectorAll('button[data-axis="'+axis+'"]').forEach(function(x){x.classList.remove('active');});
+        b.classList.add('active');
+        if(window._editDraft){
+          if(axis==='X') window._editDraft.cutoutEdgeX = edge;
+          else window._editDraft.cutoutEdgeY = edge;
+        }
+        if(typeof saveDraft==='function') saveDraft();
+      };
+    });
+  }
+
   function injectSocketOrientationUI(){
     var box = document.getElementById('socketsList');
     if(!box) return;
@@ -719,6 +856,7 @@
       var res = orig.apply(this, arguments);
       setTimeout(function(){
         injectBoltUI();
+        injectCutoutUI();
         injectSocketOrientationUI();
       }, 60);
       return res;
@@ -737,6 +875,11 @@
           r.boltMount = !!window._editDraft.boltMount;
           r.boltCount = Number(window._editDraft.boltCount)||4;
           r.boltOffset = getBoltOffset(window._editDraft);
+          r.cutoutCenter = (window._editDraft.cutoutCenter !== false);
+          r.cutoutDistX = Number(window._editDraft.cutoutDistX)||0;
+          r.cutoutDistY = Number(window._editDraft.cutoutDistY)||0;
+          r.cutoutEdgeX = window._editDraft.cutoutEdgeX==='right'?'right':'left';
+          r.cutoutEdgeY = window._editDraft.cutoutEdgeY==='bottom'?'bottom':'top';
         }
       }catch(e){}
       return r;
@@ -765,6 +908,17 @@
               return (Number(s.count)||1)+' мест ('+or+')';
             }).join(' • ');
             it.rows.push({k:'🔌 Розетки', v:sockTxt});
+          }
+          if(src.cutoutEnabled && Number(src.cutoutW)>0){
+            var cutTxt = (src.cutoutShape==='circle'?'Ø ':'')+numFmt(src.cutoutW)+(src.cutoutShape==='circle'?'':('×'+numFmt(src.cutoutH||src.cutoutW)))+' см';
+            if(src.cutoutCenter===false && (src.cutoutDistX||src.cutoutDistY)){
+              var ex2 = src.cutoutEdgeX==='right'?'от правого':'от левого';
+              var ey2 = src.cutoutEdgeY==='bottom'?'от низа':'от верха';
+              cutTxt += ' • '+ex2+' '+numFmt(src.cutoutDistX||0)+' см, '+ey2+' '+numFmt(src.cutoutDistY||0)+' см';
+            } else {
+              cutTxt += ' • по центру';
+            }
+            it.rows.push({k:'✂️ Вырез', v:cutTxt});
           }
         });
       }catch(e){}
@@ -979,12 +1133,11 @@
     window._zrzOpenSettings2Wrapped = true;
   }
 
-  /* ─── CSS: типографика v1 + v2 ─── */
+  /* ─── CSS ─── */
   function injectCss(){
     var old = document.getElementById('zrz-patch-css');
     if(old) old.remove();
     var css = ''
-    /* Общее */
     + '.card{padding:20px 22px 20px 26px !important;border-radius:22px !important;box-shadow:0 4px 20px rgba(90,120,170,0.10) !important;}'
     + '.card-title{font-size:17.5px !important;font-weight:800 !important;letter-spacing:-0.25px !important;line-height:1.25 !important;margin-bottom:6px !important;}'
     + '.card-sub{font-size:13.5px !important;line-height:1.5 !important;color:var(--text-soft) !important;}'
@@ -1002,6 +1155,11 @@
     + '.order-num-lg{font-size:24px !important;font-weight:800 !important;padding:12px 26px !important;}'
     + '.team-chip{font-size:13.5px !important;padding:9px 15px 9px 11px !important;font-weight:600 !important;}'
     + '.progress-wrap{height:5px !important;}'
+    + 'header{padding:10px 14px !important;gap:8px !important;}'
+    + 'header button{width:42px !important;height:42px !important;border-radius:13px !important;font-size:20px !important;}'
+    + '.type-badge{font-size:10.5px !important;font-weight:800 !important;letter-spacing:0.7px !important;padding:4px 11px !important;border-radius:8px !important;}'
+    + '.role-badge{font-size:11px !important;font-weight:700 !important;}'
+    + '.payment-chip{font-size:11.5px !important;font-weight:800 !important;}'
     + '.card{position:relative;overflow:hidden;}'
     + '.zrz-card-ripple{position:absolute;pointer-events:none;border-radius:50%;background:radial-gradient(circle, rgba(91,127,184,0.55) 0%, rgba(91,127,184,0.18) 60%, rgba(91,127,184,0) 100%);transform:translate(-50%,-50%) scale(0);animation:zrz-card-ripple-anim .85s cubic-bezier(.2,.6,.4,1) forwards;}'
     + '@keyframes zrz-card-ripple-anim{0%{transform:translate(-50%,-50%) scale(0.3);opacity:1;}60%{opacity:0.85;}100%{transform:translate(-50%,-50%) scale(var(--zrz-scale,20));opacity:0;}}'
@@ -1017,36 +1175,6 @@
     + '@keyframes zrz-badge-pulse{0%,100%{transform:scale(1);box-shadow:0 1px 3px rgba(0,0,0,0.25);}50%{transform:scale(1.18);box-shadow:0 0 0 7px rgba(201,101,101,0.22);}}'
     + '@keyframes zrz-pulse-soft{0%{transform:scale(1)}40%{transform:scale(0.94)}70%{transform:scale(1.03)}100%{transform:scale(1)}}'
     + '@keyframes zrz-modal-in{from{transform:translateY(60px);opacity:0.5}to{transform:translateY(0);opacity:1}}'
-
-    /* ─── v4.4.0: типографика v2 ─── */
-    + 'header{padding:10px 14px !important;gap:8px !important;}'
-    + 'header button{width:42px !important;height:42px !important;border-radius:13px !important;font-size:20px !important;}'
-    + '.header-logo svg{height:36px !important;width:36px !important;}'
-    + '.header-user{padding:4px 10px !important;border-radius:11px !important;}'
-    + '.header-user .hu-name{font-size:12.5px !important;font-weight:800 !important;}'
-    + '.header-user .hu-role{font-size:9px !important;letter-spacing:0.6px !important;color:var(--muted) !important;}'
-    + '.type-badge{font-size:10.5px !important;font-weight:800 !important;letter-spacing:0.7px !important;padding:4px 11px !important;border-radius:8px !important;}'
-    + '.role-badge{font-size:11px !important;font-weight:700 !important;letter-spacing:0.2px !important;}'
-    + '.payment-chip{font-size:11.5px !important;font-weight:800 !important;}'
-    + '.section-title:first-of-type{margin-top:14px !important;}'
-    + '.empty .empty-logo svg{max-width:240px !important;opacity:0.55 !important;}'
-    + '.fab{font-size:15px !important;padding:15px 24px !important;border-radius:999px !important;font-weight:700 !important;}'
-    + '.tabbar-btn .tb-ico{font-size:22px !important;}'
-    + '.tabbar-btn.active{color:var(--accent-deep) !important;}'
-    + '.draft-notice{font-size:13px !important;font-weight:600 !important;padding:11px 14px !important;border-radius:12px !important;}'
-    + '.calc-box{padding:15px 18px !important;border-radius:20px !important;}'
-    + '.calc-title{font-size:15.5px !important;font-weight:800 !important;letter-spacing:-0.1px !important;}'
-    + '.photo-thumb-wrap{border-radius:14px !important;}'
-    + '.summary{padding:20px 22px !important;border-radius:22px !important;}'
-    + '.summary .line{font-size:14.5px !important;font-weight:600 !important;}'
-    + '.summary .breakdown{font-size:13px !important;line-height:1.65 !important;}'
-    + '.footer-brand{font-size:11.5px !important;letter-spacing:0.3px !important;padding:20px 16px !important;}'
-    + '.modal-crumbs{font-size:11.5px !important;letter-spacing:0.5px !important;}'
-    + '.modal-sec-chip{font-size:11.5px !important;font-weight:700 !important;padding:7px 13px !important;}'
-    + '.help-section h3{font-size:15px !important;font-weight:800 !important;}'
-    + '.help-section p{font-size:13.5px !important;line-height:1.6 !important;}'
-    + '.perm-row .plabel{font-weight:600 !important;}'
-    + '.role-tab{font-weight:700 !important;}' 
     + '@media (max-width:420px){.card{padding:18px 18px 18px 22px !important;}.modal h2{font-size:21px !important;}.btn{padding:15px 18px !important;font-size:15.5px !important;}header{padding:10px 12px !important;}header button{width:40px !important;height:40px !important;}}'
     ;
     var st = document.createElement('style');
@@ -1076,11 +1204,13 @@
     try{ wrapSaveMasterComment(); }catch(e){}
     try{ bindCardRipple(); }catch(e){}
     try{ wrapTechDraw(); }catch(e){}
+    try{ wrapOpenTechDraw(); }catch(e){}
     try{ wrapOpenItem(); }catch(e){}
     try{ wrapCollectDraft(); }catch(e){}
     try{ wrapBuildReceipt(); }catch(e){}
     try{ wrapRenderSockets(); }catch(e){}
     try{ injectBoltUI(); }catch(e){}
+    try{ injectCutoutUI(); }catch(e){}
     try{ injectSocketOrientationUI(); }catch(e){}
     try{ wrapOpenSettings(); }catch(e){}
     try{ wrapOpenSettings2(); }catch(e){}
