@@ -2709,3 +2709,775 @@
 
   try{console.log('[typo v5.3.0] Onest + JetBrains Mono — активны');}catch(_){}
 })();
+/* ============================================================
+   v5.4.0 · Волна 3 + Документация
+   • Bottom Sheet (плитки) вместо страницы «Ещё»
+   • Долгий тап на карточке заказа → контекстное меню
+   • Документация: USER_MANUAL (по ролям) + FAQ
+   ============================================================ */
+(function(){
+  if(window._zrzV540Applied) return;
+  window._zrzV540Applied = true;
+
+  /* ============================================================
+     1. CSS
+     ============================================================ */
+  function injectCss(){
+    if(document.getElementById('zrz-v540-css')) return;
+    var css = ''
+      /* ---- Bottom Sheet ---- */
+      + '.zrz-sheet-bg{position:fixed;inset:0;z-index:850;background:rgba(20,32,52,0.45);'
+      +   'backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);'
+      +   'display:flex;align-items:flex-end;justify-content:center;'
+      +   'animation:zrz-sheet-in .22s ease both}'
+      + '@keyframes zrz-sheet-in{from{opacity:0}to{opacity:1}}'
+      + '.zrz-sheet{width:100%;max-width:720px;background:var(--surface);'
+      +   'border-radius:28px 28px 0 0;max-height:88vh;overflow-y:auto;'
+      +   '-webkit-overflow-scrolling:touch;padding:0 20px 32px;'
+      +   'box-shadow:0 -12px 48px rgba(20,32,52,0.28);'
+      +   'animation:zrz-sheet-up .32s cubic-bezier(.2,.85,.3,1) both;'
+      +   'touch-action:pan-y}'
+      + '@keyframes zrz-sheet-up{from{transform:translateY(60px);opacity:0.6}'
+      +   'to{transform:none;opacity:1}}'
+      + '.zrz-sheet-handle{width:44px;height:4px;background:var(--muted-2);'
+      +   'border-radius:4px;margin:10px auto 4px;opacity:0.6}'
+      + '.zrz-sheet-title{font-size:20px;font-weight:800;color:var(--text);'
+      +   'letter-spacing:-0.02em;padding:8px 4px 14px;'
+      +   'display:flex;align-items:center;gap:10px}'
+      + '.zrz-sheet-sec{margin-top:14px}'
+      + '.zrz-sheet-sec-t{font-size:11.5px;font-weight:800;color:var(--muted);'
+      +   'text-transform:uppercase;letter-spacing:1.2px;padding:6px 4px 10px}'
+      + '.zrz-tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}'
+      + '@media (min-width:520px){.zrz-tiles{grid-template-columns:repeat(4,1fr)}}'
+      + '.zrz-tile{display:flex;flex-direction:column;align-items:center;justify-content:center;'
+      +   'gap:8px;padding:16px 8px 14px;border-radius:18px;border:none;'
+      +   'background:var(--accent-soft);color:var(--text);'
+      +   'font-family:inherit;font-size:12px;font-weight:600;line-height:1.2;'
+      +   'cursor:pointer;text-align:center;min-height:92px;'
+      +   'transition:transform .12s ease,background .15s ease;'
+      +   '-webkit-tap-highlight-color:transparent;position:relative}'
+      + '.zrz-tile:active{transform:scale(0.96);background:var(--accent-line)}'
+      + '.zrz-tile .zrz-tile-ico{font-size:26px;line-height:1;display:block}'
+      + '.zrz-tile.zrz-tile-danger{background:var(--danger-soft);color:var(--danger)}'
+      + '.zrz-tile.zrz-tile-danger:active{background:rgba(201,101,101,0.22)}'
+      + '.zrz-tile.zrz-tile-badge::after{content:attr(data-badge);position:absolute;'
+      +   'top:8px;right:10px;min-width:18px;height:18px;padding:0 5px;'
+      +   'background:var(--danger);color:#fff;border-radius:9px;'
+      +   'font-size:10px;font-weight:800;display:flex;align-items:center;'
+      +   'justify-content:center;line-height:1}'
+      + '.zrz-tile.zrz-tile-primary{background:linear-gradient(135deg,#8badd8,#5b7fb8);'
+      +   'color:#fff;box-shadow:0 8px 20px rgba(91,127,184,0.30)}'
+      + '.zrz-tile.zrz-tile-primary:active{background:linear-gradient(135deg,#7a9bc8,#4a6ba5)}'
+      + '.zrz-sheet-account{margin-top:20px;padding:14px 16px;background:var(--line-soft);'
+      +   'border-radius:16px;display:flex;align-items:center;gap:14px}'
+      + '.zrz-sheet-account .zrz-acc-avatar{width:44px;height:44px;border-radius:50%;'
+      +   'background:linear-gradient(135deg,#8badd8,#5b7fb8);color:#fff;'
+      +   'display:flex;align-items:center;justify-content:center;font-weight:800;'
+      +   'font-size:15px;flex-shrink:0}'
+      + '.zrz-sheet-account .zrz-acc-info{flex:1;min-width:0}'
+      + '.zrz-sheet-account .zrz-acc-name{font-size:14.5px;font-weight:800;'
+      +   'color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}'
+      + '.zrz-sheet-account .zrz-acc-role{font-size:11.5px;color:var(--muted);font-weight:600;'
+      +   'text-transform:uppercase;letter-spacing:0.5px;margin-top:2px}'
+      + '.zrz-sheet-close{display:block;width:100%;margin-top:16px;padding:14px 20px;'
+      +   'border:none;border-radius:16px;background:var(--accent-soft);color:var(--accent-deep);'
+      +   'font-family:inherit;font-size:15px;font-weight:700;cursor:pointer}'
+      + '.zrz-sheet-close:active{background:var(--accent-line);transform:scale(0.98)}'
+      /* ---- Контекстное меню на карточке заказа ---- */
+      + '#zrz-order-menu-bg{position:fixed;inset:0;z-index:860;'
+      +   'background:rgba(20,32,52,0.35);backdrop-filter:blur(6px);'
+      +   '-webkit-backdrop-filter:blur(6px);animation:zrz-ctx-in .15s ease both}'
+      + '@keyframes zrz-ctx-in{from{opacity:0}to{opacity:1}}'
+      + '#zrz-order-menu{position:fixed;min-width:210px;max-width:280px;'
+      +   'background:var(--surface);border-radius:18px;padding:6px;'
+      +   'box-shadow:0 18px 48px rgba(20,32,52,0.35);'
+      +   'animation:zrz-ctx-pop .22s cubic-bezier(.2,.85,.3,1) both;'
+      +   'overflow:hidden;z-index:861}'
+      + '@keyframes zrz-ctx-pop{from{transform:scale(0.9);opacity:0}'
+      +   'to{transform:scale(1);opacity:1}}'
+      + '#zrz-order-menu button{display:flex;align-items:center;gap:12px;width:100%;'
+      +   'padding:12px 14px;border:none;background:transparent;color:var(--text);'
+      +   'font-family:inherit;font-size:14.5px;font-weight:600;cursor:pointer;'
+      +   'text-align:left;border-radius:12px;transition:background .12s ease}'
+      + '#zrz-order-menu button:hover{background:var(--accent-soft)}'
+      + '#zrz-order-menu button:active{background:var(--accent-line);transform:scale(0.98)}'
+      + '#zrz-order-menu button .zrz-ctx-ico{font-size:20px;line-height:1;'
+      +   'width:24px;text-align:center;flex-shrink:0}'
+      + '#zrz-order-menu button.zrz-ctx-danger{color:var(--danger)}'
+      + '#zrz-order-menu button.zrz-ctx-danger:hover{background:var(--danger-soft)}'
+      + '#zrz-order-menu .zrz-ctx-sep{height:1px;background:var(--line-soft);margin:4px 8px}'
+      ;
+    var st = document.createElement('style');
+    st.id = 'zrz-v540-css';
+    st.textContent = css;
+    document.head.appendChild(st);
+  }
+
+  /* ============================================================
+     2. BOTTOM SHEET — вместо «Ещё»
+     ============================================================ */
+
+  function esc2(s){
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+
+  function tile(icon, label, act, opts){
+    opts = opts || {};
+    var cls = 'zrz-tile';
+    if(opts.primary) cls += ' zrz-tile-primary';
+    if(opts.danger) cls += ' zrz-tile-danger';
+    var badgeAttr = opts.badge ? ' data-badge="'+opts.badge+'"' : '';
+    if(opts.badge) cls += ' zrz-tile-badge';
+    return '<button type="button" class="'+cls+'"'+badgeAttr+' onclick="zrzSheetAction(\''+act+'\')"><span class="zrz-tile-ico">'+icon+'</span><span>'+esc2(label)+'</span></button>';
+  }
+
+  function buildSheetHtml(){
+    var u = (typeof currentUser === 'function') ? currentUser() : null;
+    if(!u) return '';
+    var html = '<div class="zrz-sheet">';
+    html += '<div class="zrz-sheet-handle"></div>';
+    html += '<div class="zrz-sheet-title">⚙️ Ещё</div>';
+
+    /* Работа */
+    var workTiles = '';
+    try { if(typeof canViewReports === 'function' && canViewReports())
+      workTiles += tile('📊','Отчёты','reports'); } catch(e){}
+    try { if(typeof userCan === 'function' && userCan('orders.pricing'))
+      workTiles += tile('📋','Прайс','priceBook'); } catch(e){}
+    try { if(typeof canManageContractors === 'function' && canManageContractors())
+      workTiles += tile('🏢','Контрагенты','contractors'); } catch(e){}
+    try { if(typeof canViewTrash === 'function' && canViewTrash()){
+      var trashCount = (db.trash && db.trash.length) || 0;
+      workTiles += tile('🗑','Корзина','trash',{badge:trashCount?String(trashCount):''});
+    }} catch(e){}
+    if(workTiles){
+      html += '<div class="zrz-sheet-sec"><div class="zrz-sheet-sec-t">Работа</div><div class="zrz-tiles">'+workTiles+'</div></div>';
+    }
+
+    /* Команда */
+    var teamTiles = '';
+    try { if(typeof canManageUsers === 'function' && canManageUsers()){
+      var usersCount = db.users.filter(function(x){ return x.active; }).length;
+      teamTiles += tile('👥','Команда','users',{badge:usersCount?String(usersCount):''});
+      teamTiles += tile('🔑','Права','roles');
+    }} catch(e){}
+    if(teamTiles){
+      html += '<div class="zrz-sheet-sec"><div class="zrz-sheet-sec-t">Команда</div><div class="zrz-tiles">'+teamTiles+'</div></div>';
+    }
+
+    /* Система */
+    var sysTiles = '';
+    try { if(typeof canManageSync === 'function' && canManageSync()){
+      var syncOn = (db.sync && db.sync.enabled);
+      sysTiles += tile('☁️','Облако','sync',{badge:syncOn?'':'!'});
+      sysTiles += tile('🔐','Защита','security');
+    }} catch(e){}
+    try { if(('Notification' in window) && Notification.permission !== 'granted')
+      sysTiles += tile('🔔','Push','push'); } catch(e){}
+    try { var uChk = (typeof currentUser === 'function') ? currentUser() : null;
+      if(DEBUG_MODE || (uChk && uChk.role === 'admin'))
+        sysTiles += tile('🧪','Тесты','tests'); } catch(e){}
+    if(sysTiles){
+      html += '<div class="zrz-sheet-sec"><div class="zrz-sheet-sec-t">Система</div><div class="zrz-tiles">'+sysTiles+'</div></div>';
+    }
+
+    /* Справка */
+    var helpTiles = '';
+    try { if(typeof canViewHelp === 'function' && canViewHelp()){
+      helpTiles += tile('📖','Помощь','help');
+      helpTiles += tile('📚','Документация','docs');
+    }} catch(e){}
+    if(helpTiles){
+      html += '<div class="zrz-sheet-sec"><div class="zrz-sheet-sec-t">Справка</div><div class="zrz-tiles">'+helpTiles+'</div></div>';
+    }
+
+    /* Настройки */
+    var setTiles = '';
+    setTiles += tile('⚙️','Настройки','settings');
+    setTiles += tile('👤','Профиль','profile');
+    setTiles += tile('🚪','Выйти','logout',{danger:true});
+    html += '<div class="zrz-sheet-sec"><div class="zrz-sheet-sec-t">Аккаунт</div><div class="zrz-tiles">'+setTiles+'</div></div>';
+
+    /* Профиль внизу */
+    var initials = (u.name || '?').split(' ').map(function(p){ return p.charAt(0); }).join('').slice(0,2).toUpperCase();
+    var roleLabel = '';
+    try { roleLabel = (typeof ROLE_META !== 'undefined' && ROLE_META[u.role]) ? ROLE_META[u.role].label : u.role; } catch(e){ roleLabel = u.role; }
+    html += '<div class="zrz-sheet-account"><div class="zrz-acc-avatar">'+esc2(initials)+'</div>'
+      + '<div class="zrz-acc-info"><div class="zrz-acc-name">'+esc2(u.name)+'</div>'
+      + '<div class="zrz-acc-role">'+esc2(roleLabel)+'</div></div></div>';
+
+    html += '<button type="button" class="zrz-sheet-close" onclick="zrzCloseSheet()">Закрыть</button>';
+    html += '</div>';
+    return html;
+  }
+
+  function openSheet(){
+    if(document.getElementById('zrz-sheet-bg')) return;
+    try { if(typeof haptic === 'function') haptic(6); } catch(e){}
+    var bg = document.createElement('div');
+    bg.id = 'zrz-sheet-bg';
+    bg.className = 'zrz-sheet-bg';
+    bg.innerHTML = buildSheetHtml();
+    document.body.appendChild(bg);
+
+    /* Закрытие по тапу на фон */
+    bg.addEventListener('click', function(e){
+      if(e.target === bg) closeSheet();
+    });
+
+    /* Свайп вниз для закрытия */
+    var sheet = bg.querySelector('.zrz-sheet');
+    if(sheet){
+      var sy = null, dy = 0;
+      sheet.addEventListener('touchstart', function(e){
+        if(sheet.scrollTop > 4) return;
+        sy = e.touches[0].clientY;
+        dy = 0;
+        sheet.style.transition = 'none';
+      }, {passive:true});
+      sheet.addEventListener('touchmove', function(e){
+        if(sy == null) return;
+        dy = e.touches[0].clientY - sy;
+        if(dy > 0) sheet.style.transform = 'translateY('+dy+'px)';
+      }, {passive:true});
+      sheet.addEventListener('touchend', function(){
+        if(sy == null) return;
+        sheet.style.transition = '';
+        if(dy > 90){ closeSheet(); }
+        else { sheet.style.transform = ''; }
+        sy = null; dy = 0;
+      });
+    }
+  }
+
+  function closeSheet(){
+    var el = document.getElementById('zrz-sheet-bg');
+    if(!el) return;
+    var sheet = el.querySelector('.zrz-sheet');
+    if(sheet){
+      sheet.style.transition = 'transform .24s ease, opacity .24s ease';
+      sheet.style.transform = 'translateY(120%)';
+      sheet.style.opacity = '0';
+      el.style.transition = 'opacity .24s ease';
+      el.style.opacity = '0';
+      setTimeout(function(){ el.remove(); }, 240);
+    } else {
+      el.remove();
+    }
+  }
+
+  window.zrzCloseSheet = closeSheet;
+  window.zrzOpenSheet = openSheet;
+
+  window.zrzSheetAction = function(act){
+    closeSheet();
+    setTimeout(function(){
+      try {
+        if(act === 'reports'      && typeof openReports === 'function')       return openReports();
+        if(act === 'priceBook'    && typeof openPriceBook === 'function')     return openPriceBook();
+        if(act === 'contractors'){
+          activeTab = 'contractors';
+          if(typeof render === 'function') return render(), window.scrollTo(0,0);
+          return;
+        }
+        if(act === 'trash'        && typeof openTrash === 'function')         return openTrash();
+        if(act === 'users'        && typeof openUsers === 'function')         return openUsers();
+        if(act === 'roles'        && typeof openRolesSettings === 'function') return openRolesSettings();
+        if(act === 'sync'         && typeof openSyncPanel === 'function')     return openSyncPanel();
+        if(act === 'security'     && typeof openFirebaseSecurity === 'function') return openFirebaseSecurity();
+        if(act === 'push'         && typeof requestNotifPermission === 'function'){
+          return requestNotifPermission().then(function(){ if(typeof render === 'function') render(); });
+        }
+        if(act === 'tests'        && typeof openTestStand === 'function')     return openTestStand();
+        if(act === 'help'         && typeof openHelp === 'function')          return openHelp();
+        if(act === 'docs'         && typeof openDocs === 'function')          return openDocs();
+        if(act === 'settings'     && typeof openSettings === 'function')      return openSettings();
+        if(act === 'profile'      && typeof openProfile === 'function')       return openProfile();
+        if(act === 'logout'       && typeof doLogout === 'function')          return doLogout();
+      } catch(e){ try{console.warn('[sheet] action', act, e);}catch(_){} }
+    }, 100);
+  };
+
+  /* Перехватываем zrzSwitchTab: вместо активной вкладки 'more' — открываем sheet */
+  function wrapSwitchTab(){
+    if(window._zrzSheetSwitchWrapped) return;
+    if(typeof window.zrzSwitchTab !== 'function') return;
+    var orig = window.zrzSwitchTab;
+    window.zrzSwitchTab = function(tab){
+      if(tab === 'more'){ openSheet(); return; }
+      return orig.apply(this, arguments);
+    };
+    window._zrzSheetSwitchWrapped = true;
+  }
+
+  /* ============================================================
+     3. ДОЛГИЙ ТАП НА КАРТОЧКЕ ЗАКАЗА → контекстное меню
+     ============================================================ */
+
+  function showOrderMenu(oid, x, y){
+    var o = null;
+    try { o = db.orders.find(function(oo){ return oo.id === oid; }); } catch(e){}
+    if(!o) return;
+
+    var phone = '';
+    try { phone = (typeof orderClientPhone === 'function') ? orderClientPhone(o) : ''; } catch(e){}
+    var addr = '';
+    try { addr = (typeof orderAddressFull === 'function') ? orderAddressFull(o) : ''; } catch(e){}
+    var canDel = false;
+    try { canDel = (typeof canDeleteOrder === 'function') && canDeleteOrder(o); } catch(e){}
+
+    var items = [];
+    items.push({ico:'📋', label:'Открыть', act:'open'});
+    if(phone){
+      items.push({ico:'📞', label:'Позвонить', act:'call'});
+      items.push({ico:'💬', label:'WhatsApp', act:'wa'});
+    }
+    if(addr) items.push({ico:'📍', label:'Открыть карту', act:'map'});
+    items.push({ico:'📤', label:'Отправить бланк', act:'share'});
+    if(canDel) items.push({ico:'🗑', label:'Удалить', act:'delete', danger:true});
+
+    var bg = document.createElement('div');
+    bg.id = 'zrz-order-menu-bg';
+
+    var menu = document.createElement('div');
+    menu.id = 'zrz-order-menu';
+
+    var html = '';
+    items.forEach(function(it, i){
+      if(it.danger && i > 0) html += '<div class="zrz-ctx-sep"></div>';
+      html += '<button type="button" data-act="'+it.act+'"'+(it.danger?' class="zrz-ctx-danger"':'')+'>'
+        + '<span class="zrz-ctx-ico">'+it.ico+'</span>'
+        + '<span>'+esc2(it.label)+'</span>'
+        + '</button>';
+    });
+    menu.innerHTML = html;
+    bg.appendChild(menu);
+    document.body.appendChild(bg);
+
+    /* Позиционирование — рядом с пальцем, но в пределах окна */
+    var mw = 240, mh = 60 + items.length * 48;
+    var px = Math.min(Math.max(12, x - mw/2), window.innerWidth - mw - 12);
+    var py = Math.min(Math.max(60, y - 40), window.innerHeight - mh - 20);
+    menu.style.left = px + 'px';
+    menu.style.top = py + 'px';
+
+    try { if(typeof haptic === 'function') haptic(8); } catch(_){}
+
+    bg.addEventListener('click', function(e){
+      if(e.target === bg){ closeMenu(); return; }
+      var btn = e.target.closest('#zrz-order-menu button');
+      if(!btn) return;
+      var act = btn.getAttribute('data-act');
+      closeMenu();
+      setTimeout(function(){ runOrderAction(act, o, phone, addr); }, 100);
+    });
+  }
+
+  function closeMenu(){
+    var el = document.getElementById('zrz-order-menu-bg');
+    if(el) el.remove();
+  }
+  window.zrzCloseOrderMenu = closeMenu;
+
+  function runOrderAction(act, o, phone, addr){
+    try {
+      if(act === 'open'){
+        if(typeof openOrder === 'function') return openOrder(o.id);
+      }
+      if(act === 'call'){
+        if(!phone) return;
+        window.location.href = 'tel:' + phone.replace(/[^+\d]/g, '');
+      }
+      if(act === 'wa'){
+        if(!phone) return;
+        var digits = phone.replace(/\D/g,'');
+        if(digits.charAt(0) === '8') digits = '7' + digits.slice(1);
+        if(digits.charAt(0) !== '7') digits = '7' + digits;
+        window.open('https://wa.me/' + digits, '_blank');
+      }
+      if(act === 'map'){
+        if(!addr) return;
+        if(typeof openMap === 'function') return openMap(addr);
+      }
+      if(act === 'share'){
+        var prevId = currentOrderId;
+        try { currentOrderId = o.id; } catch(e){}
+        if(typeof shareCurrentOrder === 'function') shareCurrentOrder();
+        setTimeout(function(){ try { currentOrderId = prevId; } catch(e){} }, 500);
+      }
+      if(act === 'delete'){
+        if(typeof deleteOrder === 'function') return deleteOrder(o.id);
+      }
+    }catch(e){ try{console.warn('[ctx menu]', act, e);}catch(_){} }
+  }
+
+  function bindOrderLongPress(){
+    if(window._zrzOrderLPBound) return;
+    window._zrzOrderLPBound = true;
+
+    document.addEventListener('pointerdown', function(e){
+      /* Только левая кнопка мыши или touch */
+      if(e.pointerType === 'mouse' && e.button !== 0) return;
+
+      var wrap = e.target.closest && e.target.closest('.swipe-wrap[data-oid]');
+      if(!wrap) return;
+      /* Пропускаем, если тап по ссылке/кнопке/фото */
+      if(e.target.closest('.tap-link, .del-x, .photo-thumb, .photo-del, .btn, .chip, button')) return;
+
+      var oid = parseInt(wrap.getAttribute('data-oid'), 10);
+      if(!oid) return;
+
+      var startX = e.clientX, startY = e.clientY;
+      var fired = false;
+      var timer = setTimeout(function(){
+        fired = true;
+        try { haptic([15, 40, 15]); } catch(_){}
+        showOrderMenu(oid, startX, startY);
+      }, 550);
+
+      function onMove(ev){
+        if(Math.hypot(ev.clientX - startX, ev.clientY - startY) > 12){
+          clearTimeout(timer);
+          cleanup();
+        }
+      }
+      function onUp(){
+        clearTimeout(timer);
+        cleanup();
+        if(fired){
+          /* Блокируем последующий click, чтобы карточка не открылась */
+          var blocker = function(ev){
+            ev.stopPropagation();
+            ev.preventDefault();
+            document.removeEventListener('click', blocker, true);
+          };
+          document.addEventListener('click', blocker, true);
+          setTimeout(function(){ document.removeEventListener('click', blocker, true); }, 400);
+        }
+      }
+      function cleanup(){
+        document.removeEventListener('pointermove', onMove);
+        document.removeEventListener('pointerup', onUp);
+        document.removeEventListener('pointercancel', onUp);
+      }
+      document.addEventListener('pointermove', onMove);
+      document.addEventListener('pointerup', onUp);
+      document.addEventListener('pointercancel', onUp);
+    }, true);
+
+    /* Правый клик / контекстное меню мыши — тоже поддерживаем */
+    document.addEventListener('contextmenu', function(e){
+      var wrap = e.target.closest && e.target.closest('.swipe-wrap[data-oid]');
+      if(!wrap) return;
+      e.preventDefault();
+      var oid = parseInt(wrap.getAttribute('data-oid'), 10);
+      if(!oid) return;
+      showOrderMenu(oid, e.clientX, e.clientY);
+    });
+  }
+
+  /* ============================================================
+     4. ДОКУМЕНТАЦИЯ: USER_MANUAL + FAQ
+     ============================================================ */
+
+  function buildExtraDocs(){
+    return {
+      USER_MANUAL: { title:'📖 Мануал', content: [
+'# Инструкция по ролям',
+'',
+'Ниже — что делает каждая роль и как ей пользоваться.',
+'',
+'═══════════════════════════════════════',
+'## 👑 АДМИНИСТРАТОР',
+'═══════════════════════════════════════',
+'',
+'Полный доступ ко всему. Основные задачи:',
+'',
+'▸ Настройка ролей и прав («Ещё» → «Права»).',
+'▸ Управление командой («Ещё» → «Команда»).',
+'▸ Просмотр отчётов, статистики.',
+'▸ Синхронизация и резервное копирование.',
+'▸ Импорт/экспорт JSON.',
+'',
+'Стартовый PIN: 0000. Смени при первом входе.',
+'',
+'═══════════════════════════════════════',
+'## 💼 МЕНЕДЖЕР',
+'═══════════════════════════════════════',
+'',
+'Работа с клиентами и заказами. Типовой день:',
+'',
+'1. Создай заказ (＋ Новый заказ).',
+'2. Пройди 3 шага: клиент → адрес → детали.',
+'3. Добавь позиции (зеркало, душевая, фартук…).',
+'4. Назначь дату замера — появится событие.',
+'5. После замера — уточни цены, отметь оплату.',
+'',
+'Что доступно:',
+'▸ Все заказы, клиенты, адреса.',
+'▸ Календарь событий.',
+'▸ Прайс-лист.',
+'▸ Отчёты.',
+'',
+'═══════════════════════════════════════',
+'## 🔧 МАСТЕР',
+'═══════════════════════════════════════',
+'',
+'Работа в цеху. Видишь заказы в статусе «В производстве».',
+'',
+'Как пользоваться:',
+'',
+'1. Открой вкладку «🔧 Работа» — список активных заказов.',
+'2. Тапни на заказ, посмотри чертежи и размеры.',
+'3. По готовности — смени статус на «Готов».',
+'4. Добавь комментарий мастера (что важно знать другим).',
+'5. Загружай фото готовых изделий — фотоотчёт.',
+'',
+'Можно:',
+'▸ Менять статус заказа.',
+'▸ Добавлять фото.',
+'▸ Писать комментарий мастера.',
+'▸ Отмечать оплату (если разрешено).',
+'',
+'Нельзя:',
+'▸ Создавать/удалять заказы.',
+'▸ Видеть цены (если не дали право).',
+'',
+'═══════════════════════════════════════',
+'## 📏 ЗАМЕРЩИК-МОНТАЖНИК',
+'═══════════════════════════════════════',
+'',
+'Работа на выездах. Начало дня:',
+'',
+'1. Открой «🏠 Сегодня» — увидишь свой маршрут и события.',
+'2. Первая точка уже на дашборде.',
+'3. Тапни на событие — откроется карточка заказа.',
+'4. Замерь и заполни позиции.',
+'5. Построй чертёж A4 — покажи клиенту.',
+'6. Отметь оплату замера.',
+'',
+'Можно:',
+'▸ Создавать свои заказы.',
+'▸ Редактировать замеры.',
+'▸ Делать фото.',
+'▸ Строить чертежи.',
+'▸ Работать с адресами клиентов.',
+'',
+'═══════════════════════════════════════',
+'## 🚚 ВОДИТЕЛЬ',
+'═══════════════════════════════════════',
+'',
+'Доставка и логистика.',
+'',
+'Как пользоваться:',
+'',
+'1. Открой «🚚 Маршруты» — твои маршруты.',
+'2. Тапни на маршрут — увидишь все точки.',
+'3. Тапни на точку — увидишь адрес и телефон.',
+'4. «🗺 Открыть все адреса» — Яндекс.Карты построит путь.',
+'5. «🖨 Маршрутный лист» — распечатай A4.',
+'',
+'Можно:',
+'▸ Видеть свои маршруты.',
+'▸ Открывать адреса на карте.',
+'▸ Звонить клиентам.',
+'',
+'═══════════════════════════════════════',
+'## ⚙️ ОБЩИЕ ВОЗМОЖНОСТИ',
+'═══════════════════════════════════════',
+'',
+'### Command Palette — ⌘',
+'Нажми иконку ⌘ в шапке или удерживай логотип.',
+'Откроется палитра команд и поиска. Всё под рукой.',
+'',
+'### Хлебные крошки',
+'Внутри любой модалки сверху видно путь:',
+'«Заказы › Заказ №15/03 › Позиция».',
+'Тапни на любой уровень — вернёшься туда.',
+'',
+'### Долгий тап',
+'На карточке заказа: удерживай 0.5 сек.',
+'Откроется меню быстрых действий.',
+'',
+'### Пустой экран',
+'Если раздел пустой — увидишь подсказку и кнопку',
+'«＋ Добавить». Всегда знаешь, что делать.',
+''
+      ].join('\n') },
+
+      FAQ: { title:'❓ FAQ', content: [
+'# Частые вопросы',
+'',
+'━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+'## 💾 ДАННЫЕ',
+'━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+'',
+'### Где хранятся мои данные?',
+'Локально в браузере (localStorage) + облако Firebase.',
+'Фото и чертежи — только локально (IndexedDB).',
+'',
+'### Что будет, если потеряю телефон?',
+'Зайди на новом → приложение подтянет данные из Firebase.',
+'Фото и чертежи не переносятся (в разработке).',
+'',
+'### Как сделать резервную копию?',
+'Настройки → 📥 Экспорт (JSON).',
+'Делай раз в неделю — это 5 секунд.',
+'',
+'### Я удалил заказ случайно. Что делать?',
+'«Ещё» → «Корзина» → найди запись → «↩ Вернуть».',
+'Работает для заказов и позиций.',
+'',
+'━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+'## 🔄 СИНХРОНИЗАЦИЯ',
+'━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+'',
+'### Не синхронизируется. Что проверить?',
+'1. Интернет есть?',
+'2. «Ещё» → «Облако» — включена галка?',
+'3. Нажми «📤 Отправить сейчас» вручную.',
+'4. Если ошибка — смотри текст в блоке.',
+'',
+'### Двое работали одновременно — что будет?',
+'Побеждает тот, кто сохранил позже (last-write-wins).',
+'Каждое поле имеет метку времени.',
+'',
+'### Данные затираются при входе — как быть?',
+'Есть защита: до первого pull с сервера',
+'push НЕ отправляет users/roles/settings.',
+'Кнопки ручного контроля — в Настройках.',
+'',
+'━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+'## 👤 АККАУНТ',
+'━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+'',
+'### Забыл PIN. Что делать?',
+'Обратись к администратору — он сбросит через',
+'«Ещё» → «Команда» → твой пользователь → «Задать PIN».',
+'',
+'### Как сменить PIN?',
+'Профиль → «🔑 Сменить PIN».',
+'Нужен текущий PIN и два раза новый (4 цифры).',
+'',
+'### Не приходят уведомления.',
+'Настройки → «🔔 Включить push» → разреши в браузере.',
+'На Android: настройки сайта → Уведомления → Разрешить.',
+'',
+'━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+'## 📋 ЗАКАЗЫ',
+'━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+'',
+'### Как создать заказ быстро?',
+'⌘ → «Новый заказ». Или в «Сегодня» → кнопка.',
+'Или из карточки клиента → «＋ Заказ для клиента».',
+'',
+'### Как отправить бланк клиенту?',
+'Открой заказ → «📤 Отправить бланк».',
+'Или удерживай карточку → «Отправить бланк».',
+'',
+'### Что такое «Заявка»?',
+'Предварительный заказ до замера. Клиент звонит,',
+'менеджер записывает что хочет — после замера',
+'статус меняется на «Новый».',
+'',
+'### Как отметить оплату?',
+'Открой заказ → блок «💰 Оплата» → кнопка.',
+'Введи сумму заказа и сколько оплачено.',
+'Если оплатил полностью — будет конфетти 🎉',
+'',
+'━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+'## 📐 ЧЕРТЕЖИ',
+'━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+'',
+'### Чертёж пустой / неправильный.',
+'Заполни размеры (ширина, высота).',
+'Чертёж строится автоматически по данным позиции.',
+'',
+'### Как сохранить чертёж в PDF?',
+'Открой чертёж → «🖨 Печать A4» → сохрани как PDF.',
+'',
+'### Показывать болты, вырезы, розетки на чертеже?',
+'Да — они автоматически появляются,',
+'если заполнены в карточке позиции.',
+'',
+'━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+'## 🚚 МАРШРУТЫ',
+'━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+'',
+'### Как создать маршрут?',
+'«Ещё» → «Облако»? Нет:',
+'⌘ → «Новый маршрут» или из «Календарь» → «Маршруты».',
+'',
+'### Как добавить заказ в маршрут?',
+'Открой заказ → «🚚 Добавить в маршрут».',
+'Или в маршруте → добавь точку.',
+'',
+'━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+'## 🆘 ЕСЛИ ЧТО-ТО СЛОМАЛОСЬ',
+'━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+'',
+'1. Обнови страницу (потяни вниз).',
+'2. Закрой приложение → открой заново.',
+'3. Очисти кэш браузера (Настройки → Сайты).',
+'4. Экспорт JSON (бэкап) — на всякий случай.',
+'5. Если не помогло — скинь скрин разработчику.',
+'',
+'Для отладки: добавь ?debug=1 в URL.',
+'Сверху появится красная полоса с ошибками.',
+''
+      ].join('\n') }
+    };
+  }
+
+  function ensureExtraDocs(){
+    try {
+      if(!window.ZRZ_DOCS) return;
+      var extra = buildExtraDocs();
+      for(var k in extra){
+        if(!Object.prototype.hasOwnProperty.call(extra, k)) continue;
+        if(!window.ZRZ_DOCS[k]) window.ZRZ_DOCS[k] = extra[k];
+      }
+    } catch(e){}
+  }
+  window.zrzExtendDocs = ensureExtraDocs;
+
+  function wrapOpenDocs(){
+    if(window._zrzDocsExtendedWrapped) return;
+    if(typeof window.openDocs !== 'function') return;
+    var orig = window.openDocs;
+    window.openDocs = function(){
+      ensureExtraDocs();
+      return orig.apply(this, arguments);
+    };
+    window._zrzDocsExtendedWrapped = true;
+  }
+
+  /* ============================================================
+     5. ЗАПУСК
+     ============================================================ */
+
+  function apply(){
+    try { injectCss(); } catch(e){}
+    try { wrapSwitchTab(); } catch(e){}
+    try { bindOrderLongPress(); } catch(e){}
+    try { ensureExtraDocs(); } catch(e){}
+    try { wrapOpenDocs(); } catch(e){}
+  }
+
+  if(document.body) apply();
+  else document.addEventListener('DOMContentLoaded', apply, {once:true});
+  setTimeout(apply, 500);
+  setTimeout(apply, 1500);
+
+  /* Периодическая проверка: если ядро пересоздало ZRZ_DOCS — вернуть наши вкладки */
+  var _iv = setInterval(function(){
+    try { wrapSwitchTab(); } catch(e){}
+    try { ensureExtraDocs(); } catch(e){}
+    try { wrapOpenDocs(); } catch(e){}
+  }, 2000);
+  setTimeout(function(){ clearInterval(_iv); }, 90000);
+
+  try{console.log('[v5.4.0] Bottom Sheet + долгий тап на заказе + Мануал/FAQ — активны');}catch(_){}
+})();
