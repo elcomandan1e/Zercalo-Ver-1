@@ -1,22 +1,10 @@
-/* app-patches.js — динамические патчи «Зерцало»
-   Активные фичи:
-     v4.2.1 — скрыть OSRM.
-     v4.2.3 — типографика.
-     v4.2.4 — цвета фурнитуры.
-     v4.2.5 — конфетти, пульс, пружина.
-     v4.2.6 — усиленный ripple.
-     v4.2.7 — декоративные болты.
-     v4.2.8 — защита базы.
-     v4.2.9 — документация + подпись автора.
-     v4.3.0 — размерные линии для розеток и светильников.
-*/
+   /* app-patches.js — динамические патчи «Зерцало» v4.3.1 */
 (function(){
-  var PATCH_VERSION = '4.3.0';
+  var PATCH_VERSION = '4.3.1';
   var AUTHOR_NAME = 'Лютиков А.С.';
   var AUTHOR_TG = '@el_c0mandan1e';
   var _lock = false;
 
-  /* ─── v4.2.1: скрыть OSRM ─── */
   function hideOsrm(){
     var titles = document.querySelectorAll('.modal .section-title');
     for(var i=0;i<titles.length;i++){
@@ -33,7 +21,6 @@
     }
   }
 
-  /* ─── v4.2.4: цвета фурнитуры ─── */
   var NEW_FITTING = [
     { key:'chrome',     label:'Хром',         hex:'#d8dde3' },
     { key:'nickel',     label:'Никель',       hex:'#c8c0b5' },
@@ -53,7 +40,6 @@
     }catch(e){}
   }
 
-  /* ─── v4.2.5: конфетти ─── */
   function fireConfetti(){
     if(document.getElementById('zrz-confetti')) return;
     var colors = ['#5b7fb8','#4caf7d','#d9924a','#c96565','#8b5cf6','#f0b400','#229ED9','#25D366'];
@@ -105,7 +91,6 @@
     window._zrzSaveCommentWrapped = true;
   }
 
-  /* ─── v4.2.6: ripple ─── */
   function bindCardRipple(){
     if(window._zrzCardRippleBound) return;
     window._zrzCardRippleBound = true;
@@ -119,10 +104,8 @@
       var far = Math.max(Math.hypot(x,y), Math.hypot(rect.width-x,y), Math.hypot(x,rect.height-y), Math.hypot(rect.width-x,rect.height-y));
       var wave = document.createElement('span');
       wave.className = 'zrz-card-ripple';
-      wave.style.left = x+'px';
-      wave.style.top = y+'px';
-      wave.style.width = '40px';
-      wave.style.height = '40px';
+      wave.style.left = x+'px'; wave.style.top = y+'px';
+      wave.style.width = '40px'; wave.style.height = '40px';
       wave.style.setProperty('--zrz-scale', (far/20).toFixed(2));
       card.appendChild(wave);
       setTimeout(function(){ wave.remove(); }, 900);
@@ -208,59 +191,63 @@
   }
 
   /* ═══════════════════════════════════════════════════════════
-     v4.3.0 — РАЗМЕРНЫЕ ЛИНИИ ДЛЯ РОЗЕТОК И СВЕТИЛЬНИКОВ
+     v4.3.1 — УЛУЧШЕННЫЕ РАЗМЕРЫ + ОРИЕНТАЦИЯ РОЗЕТОК
      ═══════════════════════════════════════════════════════════ */
 
-  var DIM_COLOR = '#c14d4d';
-  var DIM_SOCKET_COLOR = '#8a6a2c';
-  var DIM_LIGHT_COLOR = '#7a3d8a';
+  var DIM_SOCKET_COLOR = '#a05c26';
+  var DIM_LIGHT_COLOR  = '#7a3d8a';
+  var DIM_COLOR        = '#c14d4d';
 
+  /* Улучшенная размерная линия: толще, подписи крупнее, с фоном */
   function _zrzDimLine(ctx, x1, y1, x2, y2, label, color){
     color = color || DIM_COLOR;
     var dx = x2-x1, dy = y2-y1;
     var len = Math.hypot(dx, dy);
-    if(len < 8) return;
+    if(len < 10) return;
     var ux = dx/len, uy = dy/len;
     var nx = -uy, ny = ux;
     ctx.save();
     ctx.strokeStyle = color;
     ctx.fillStyle = color;
-    ctx.lineWidth = 0.9;
+    ctx.lineWidth = 1.6;
+    /* Линия */
+    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+    /* Засечки */
+    var tick = 7;
+    ctx.beginPath();
+    ctx.moveTo(x1 - nx*tick, y1 - ny*tick); ctx.lineTo(x1 + nx*tick, y1 + ny*tick);
+    ctx.moveTo(x2 - nx*tick, y2 - ny*tick); ctx.lineTo(x2 + nx*tick, y2 + ny*tick);
+    ctx.stroke();
+    /* Стрелки */
+    var arr = 7, aw = 3;
     ctx.beginPath();
     ctx.moveTo(x1, y1);
-    ctx.lineTo(x2, y2);
-    ctx.stroke();
-    var tick = 5;
-    ctx.beginPath();
-    ctx.moveTo(x1 - nx*tick, y1 - ny*tick);
-    ctx.lineTo(x1 + nx*tick, y1 + ny*tick);
-    ctx.moveTo(x2 - nx*tick, y2 - ny*tick);
-    ctx.lineTo(x2 + nx*tick, y2 + ny*tick);
-    ctx.stroke();
-    var arr = 5;
-    ctx.beginPath();
-    ctx.moveTo(x1, y1);
-    ctx.lineTo(x1 + ux*arr - nx*2.5, y1 + uy*arr - ny*2.5);
-    ctx.lineTo(x1 + ux*arr + nx*2.5, y1 + uy*arr + ny*2.5);
-    ctx.closePath();
-    ctx.fill();
+    ctx.lineTo(x1 + ux*arr - nx*aw, y1 + uy*arr - ny*aw);
+    ctx.lineTo(x1 + ux*arr + nx*aw, y1 + uy*arr + ny*aw);
+    ctx.closePath(); ctx.fill();
     ctx.beginPath();
     ctx.moveTo(x2, y2);
-    ctx.lineTo(x2 - ux*arr - nx*2.5, y2 - uy*arr - ny*2.5);
-    ctx.lineTo(x2 - ux*arr + nx*2.5, y2 - uy*arr + ny*2.5);
-    ctx.closePath();
-    ctx.fill();
+    ctx.lineTo(x2 - ux*arr - nx*aw, y2 - uy*arr - ny*aw);
+    ctx.lineTo(x2 - ux*arr + nx*aw, y2 - uy*arr + ny*aw);
+    ctx.closePath(); ctx.fill();
+    /* Подпись с белым фоном и обводкой */
     if(label){
-      ctx.font = '700 11px "PT Sans Narrow",Arial';
+      ctx.font = '800 13px "PT Sans Narrow",Arial';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       var mx = (x1+x2)/2, my = (y1+y2)/2;
-      var tw = ctx.measureText(label).width + 8;
+      var tw = ctx.measureText(label).width + 12;
       ctx.save();
       ctx.translate(mx, my);
       if(Math.abs(uy) > 0.7) ctx.rotate(-Math.PI/2);
+      /* Фон */
       ctx.fillStyle = '#fff';
-      ctx.fillRect(-tw/2, -7, tw, 14);
+      ctx.fillRect(-tw/2, -9, tw, 18);
+      /* Обводка рамки */
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1;
+      ctx.strokeRect(-tw/2, -9, tw, 18);
+      /* Текст */
       ctx.fillStyle = color;
       ctx.fillText(label, 0, 0);
       ctx.restore();
@@ -268,28 +255,74 @@
     ctx.restore();
   }
 
+  /* Отрисовка одной розетки (жёлтый кружок) */
+  function _zrzDrawSocketDot(ctx, cx, cy, r){
+    ctx.save();
+    ctx.fillStyle = '#f5c93a';
+    ctx.strokeStyle = '#8a6a2c';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(cx-r-4, cy); ctx.lineTo(cx+r+4, cy);
+    ctx.moveTo(cx, cy-r-4); ctx.lineTo(cx, cy+r+4);
+    ctx.strokeStyle = '#8a6a2c'; ctx.lineWidth = 0.9;
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  /* Все центры розеток одного блока (с учётом ориентации) */
+  function _zrzSocketCenters(s, x0, y0, pxW, pxH, sc3){
+    var cnt = Math.max(1, Number(s.count)||1);
+    var stepCm = Number(s.step)||7.1;
+    var dx = Number(s.distX)||0;
+    var dy = Number(s.distY)||0;
+    var or = s.orientation === 'horizontal' ? 'horizontal' : 'vertical';
+    var baseX = (s.edgeX==='right') ? (x0 + pxW - dx*sc3) : (x0 + dx*sc3);
+    var baseY = (s.edgeY==='top')   ? (y0 + dy*sc3)       : (y0 + pxH - dy*sc3);
+    var pts = [];
+    for(var k=0;k<cnt;k++){
+      if(or === 'horizontal'){
+        /* Розетки идут вбок */
+        var sx = (s.edgeX==='left') ? (baseX + k*stepCm*sc3) : (baseX - k*stepCm*sc3);
+        pts.push({x:sx, y:baseY, first:(k===0), last:(k===cnt-1)});
+      } else {
+        /* Розетки идут вверх/вниз */
+        var sy = (s.edgeY==='top') ? (baseY + k*stepCm*sc3) : (baseY - k*stepCm*sc3);
+        pts.push({x:baseX, y:sy, first:(k===0), last:(k===cnt-1)});
+      }
+    }
+    return {pts: pts, baseX: baseX, baseY: baseY, or: or, stepCm: stepCm, edgeX: s.edgeX, edgeY: s.edgeY};
+  }
+
   function _zrzDrawSocketDims(ctx, x0, y0, pxW, pxH, sc3, d){
     if(!d.socketsMount || !Array.isArray(d.socketsList) || !d.socketsList.length) return;
     for(var i=0;i<d.socketsList.length;i++){
       var s = d.socketsList[i];
-      var cnt = Math.max(1, Number(s.count)||1);
-      var stepCm = Number(s.step)||7.1;
+      var info = _zrzSocketCenters(s, x0, y0, pxW, pxH, sc3);
+      var baseX = info.baseX, baseY = info.baseY;
+      var pts = info.pts;
       var dx = Number(s.distX)||0;
       var dy = Number(s.distY)||0;
-      var baseX = (s.edgeX==='right') ? (x0 + pxW - dx*sc3) : (x0 + dx*sc3);
-      var baseY = (s.edgeY==='top')   ? (y0 + dy*sc3)       : (y0 + pxH - dy*sc3);
-      /* Горизонтальный размер от края до центра розетки */
+      /* X от края до центра розетки */
       var edgeXpx = (s.edgeX==='right') ? (x0 + pxW) : x0;
-      _zrzDimLine(ctx, edgeXpx, baseY + 8, baseX, baseY + 8, numFmt(dx)+' см', DIM_SOCKET_COLOR);
-      /* Вертикальный размер от края до центра розетки */
+      /* Смещаем размер X вниз, чтобы не наложился на розетки */
+      _zrzDimLine(ctx, edgeXpx, baseY + 18, baseX, baseY + 18, numFmt(dx)+' см', DIM_SOCKET_COLOR);
+      /* Y от края до центра розетки — смещаем в сторону, противоположную X */
       var edgeYpx = (s.edgeY==='top') ? y0 : (y0 + pxH);
-      _zrzDimLine(ctx, baseX + 8, edgeYpx, baseX + 8, baseY, numFmt(dy)+' см', DIM_SOCKET_COLOR);
-      /* Если розеток >1 — размер между соседними */
-      if(cnt>1){
-        var firstY = (s.edgeY==='top') ? baseY : (baseY - (cnt-1)*stepCm*sc3);
-        var lastY  = (s.edgeY==='top') ? (baseY + (cnt-1)*stepCm*sc3) : baseY;
-        var sideX = baseX + 26;
-        _zrzDimLine(ctx, sideX, firstY, sideX, lastY, 'шаг '+numFmt(stepCm)+' см', DIM_SOCKET_COLOR);
+      var yOffset = (s.edgeX==='right') ? -22 : 22;
+      _zrzDimLine(ctx, baseX + yOffset, edgeYpx, baseX + yOffset, baseY, numFmt(dy)+' см', DIM_SOCKET_COLOR);
+      /* Шаг между соседними — с учётом ориентации */
+      if(pts.length > 1){
+        var first = pts[0], last = pts[pts.length-1];
+        if(info.or === 'horizontal'){
+          /* Горизонтальный шаг — рисуем сверху/снизу */
+          var yStep = (s.edgeY==='top') ? (baseY + 32) : (baseY - 32);
+          _zrzDimLine(ctx, first.x, yStep, last.x, yStep, 'шаг '+numFmt(info.stepCm)+' см', DIM_SOCKET_COLOR);
+        } else {
+          /* Вертикальный шаг — рисуем справа/слева */
+          var xStep = (s.edgeX==='right') ? (baseX + 34) : (baseX - 34);
+          _zrzDimLine(ctx, xStep, first.y, xStep, last.y, 'шаг '+numFmt(info.stepCm)+' см', DIM_SOCKET_COLOR);
+        }
       }
     }
   }
@@ -303,14 +336,14 @@
       var baseX = (s.edgeX==='right') ? (x0 + pxW - dx*sc3) : (x0 + dx*sc3);
       var baseY = (s.edgeY==='bottom')? (y0 + pxH - dy*sc3) : (y0 + dy*sc3);
       var edgeXpx = (s.edgeX==='right') ? (x0 + pxW) : x0;
-      _zrzDimLine(ctx, edgeXpx, baseY - 8, baseX, baseY - 8, numFmt(dx)+' см', DIM_LIGHT_COLOR);
+      _zrzDimLine(ctx, edgeXpx, baseY - 22, baseX, baseY - 22, numFmt(dx)+' см', DIM_LIGHT_COLOR);
       var edgeYpx = (s.edgeY==='top') ? y0 : (y0 + pxH);
-      _zrzDimLine(ctx, baseX - 8, edgeYpx, baseX - 8, baseY, numFmt(dy)+' см', DIM_LIGHT_COLOR);
+      var yOffset = (s.edgeX==='right') ? 22 : -22;
+      _zrzDimLine(ctx, baseX + yOffset, edgeYpx, baseX + yOffset, baseY, numFmt(dy)+' см', DIM_LIGHT_COLOR);
     }
   }
 
-  /* Вид спереди — рисуем сами розетки/светильники + размеры */
-
+  /* Вид спереди — отрисовка розеток и бра + размеры */
   function _zrzDrawSocketsAndLightsFront(ctx, x, y, w, h, d){
     if(d.type!=='MIRROR' && d.type!=='PANNO') return;
     var gd = null; try{ gd = glassDimensions(d); }catch(e){ return; }
@@ -320,36 +353,15 @@
     var pxW=gd.w*sc3, pxH=gd.h*sc3;
     var x0=cx-pxW/2, y0=cy-pxH/2;
 
-    /* Розетки — жёлтые кружки Ø7 см */
     if(d.socketsMount && Array.isArray(d.socketsList)){
-      var sockR = Math.max(4, (7/2)*sc3);
+      var sockR = Math.max(5, (7/2)*sc3);
       d.socketsList.forEach(function(s){
-        var cnt = Math.max(1, Number(s.count)||1);
-        var stepCm = Number(s.step)||7.1;
-        var dx = Number(s.distX)||0;
-        var dy = Number(s.distY)||0;
-        var baseX = (s.edgeX==='right') ? (x0 + pxW - dx*sc3) : (x0 + dx*sc3);
-        var baseY = (s.edgeY==='top')   ? (y0 + dy*sc3)       : (y0 + pxH - dy*sc3);
-        for(var k=0;k<cnt;k++){
-          var sy = (s.edgeY==='top') ? (baseY + k*stepCm*sc3) : (baseY - k*stepCm*sc3);
-          ctx.save();
-          ctx.fillStyle='#f5c93a';
-          ctx.strokeStyle='#8a6a2c'; ctx.lineWidth=1.1;
-          ctx.beginPath(); ctx.arc(baseX, sy, sockR, 0, Math.PI*2); ctx.fill(); ctx.stroke();
-          ctx.strokeStyle='#8a6a2c'; ctx.lineWidth=0.8;
-          var ext=sockR+4;
-          ctx.beginPath();
-          ctx.moveTo(baseX-ext,sy); ctx.lineTo(baseX+ext,sy);
-          ctx.moveTo(baseX,sy-ext); ctx.lineTo(baseX,sy+ext);
-          ctx.stroke();
-          ctx.restore();
-        }
+        var info = _zrzSocketCenters(s, x0, y0, pxW, pxH, sc3);
+        info.pts.forEach(function(p){ _zrzDrawSocketDot(ctx, p.x, p.y, sockR); });
       });
     }
-
-    /* Светильники — рисуем упрощённый силуэт: кружок базы Ø8 см */
     if(d.lightsMount && Array.isArray(d.lightsList)){
-      var lightR = Math.max(5, (8/2)*sc3);
+      var lightR = Math.max(6, (8/2)*sc3);
       d.lightsList.forEach(function(s){
         var dx = Number(s.distX)||0;
         var dy = Number(s.distY)||0;
@@ -357,16 +369,13 @@
         var baseY = (s.edgeY==='bottom')? (y0 + pxH - dy*sc3) : (y0 + dy*sc3);
         ctx.save();
         ctx.fillStyle='#e6ecf5';
-        ctx.strokeStyle='#3b5c8f'; ctx.lineWidth=1.4;
+        ctx.strokeStyle='#3b5c8f'; ctx.lineWidth=1.6;
         ctx.beginPath(); ctx.arc(baseX, baseY, lightR, 0, Math.PI*2); ctx.fill(); ctx.stroke();
-        /* Внутренний кружок */
         ctx.beginPath(); ctx.arc(baseX, baseY, Math.max(2, lightR*0.4), 0, Math.PI*2);
-        ctx.strokeStyle='#3b5c8f'; ctx.lineWidth=0.9; ctx.stroke();
+        ctx.strokeStyle='#3b5c8f'; ctx.lineWidth=1; ctx.stroke();
         ctx.restore();
       });
     }
-
-    /* Размерные линии */
     _zrzDrawSocketDims(ctx, x0, y0, pxW, pxH, sc3, d);
     _zrzDrawLightDims(ctx, x0, y0, pxW, pxH, sc3, d);
   }
@@ -435,6 +444,7 @@
       };
     }
   }
+
   function injectBoltUI(){
     var m = document.querySelector('.modal');
     if(!m) return;
@@ -482,17 +492,71 @@
       if(typeof calcPreview==='function' && window._editDraft) calcPreview(window._editDraft);
     };
   }
+
+  /* ─── v4.3.1: чипы ориентации розеток ─── */
+  function injectSocketOrientationUI(){
+    var box = document.getElementById('socketsList');
+    if(!box) return;
+    var d = window._editDraft;
+    if(!d || !Array.isArray(d.socketsList)) return;
+    /* Для каждой розетки с count>1 добавим чипы ориентации */
+    d.socketsList.forEach(function(s, idx){
+      var cnt = Number(s.count)||1;
+      if(cnt < 2) return;
+      var itemEl = box.children[idx];
+      if(!itemEl) return;
+      if(itemEl.querySelector('.zrz-orientation-chips')) return;
+      var or = s.orientation === 'horizontal' ? 'horizontal' : 'vertical';
+      var html = '<div class="zrz-orientation-chips" style="margin-top:10px">'
+        + '<label style="font-size:11px;color:#8894a9">Расположение</label>'
+        + '<div class="chips" style="margin-top:4px">'
+        + '<button type="button" class="chip '+(or==='vertical'?'active':'')+'" data-or="vertical">↕ Вертикально</button>'
+        + '<button type="button" class="chip '+(or==='horizontal'?'active':'')+'" data-or="horizontal">↔ Горизонтально</button>'
+        + '</div></div>';
+      /* Вставляем перед закрытием itemEl — в конец */
+      itemEl.insertAdjacentHTML('beforeend', html);
+      var chips = itemEl.querySelector('.zrz-orientation-chips');
+      chips.onclick = function(e){
+        var c = e.target.closest('.chip');
+        if(!c) return;
+        chips.querySelectorAll('.chip').forEach(function(x){x.classList.remove('active');});
+        c.classList.add('active');
+        if(window._editDraft && window._editDraft.socketsList[idx]){
+          window._editDraft.socketsList[idx].orientation = c.dataset.or;
+        }
+        if(typeof saveDraft==='function') saveDraft();
+        if(typeof calcPreview==='function' && window._editDraft) calcPreview(window._editDraft);
+      };
+    });
+  }
+
+  function wrapRenderSockets(){
+    if(window._zrzRenderSocketsWrapped) return;
+    if(typeof window.renderSocketsBuilder !== 'function') return;
+    var orig = window.renderSocketsBuilder;
+    window.renderSocketsBuilder = function(){
+      var res = orig.apply(this, arguments);
+      setTimeout(injectSocketOrientationUI, 30);
+      return res;
+    };
+    window._zrzRenderSocketsWrapped = true;
+  }
+
   function wrapOpenItem(){
     if(window._zrzOpenItemWrapped) return;
     if(typeof window.openItem !== 'function') return;
     var orig = window.openItem;
     window.openItem = function(id){
       var res = orig.apply(this, arguments);
-      setTimeout(injectBoltUI, 40);
+      setTimeout(function(){
+        injectBoltUI();
+        injectSocketOrientationUI();
+      }, 50);
       return res;
     };
     window._zrzOpenItemWrapped = true;
   }
+
   function wrapCollectDraft(){
     if(window._zrzCollectWrapped) return;
     if(typeof window.collectDraft !== 'function') return;
@@ -509,6 +573,7 @@
     };
     window._zrzCollectWrapped = true;
   }
+
   function wrapBuildReceipt(){
     if(window._zrzReceiptWrapped) return;
     if(typeof window.buildReceiptModel !== 'function') return;
@@ -518,9 +583,18 @@
       try{
         (model.items||[]).forEach(function(it, idx){
           var src = items[idx];
-          if(!src || !src.boltMount) return;
-          var cnt = Number(src.boltCount)||4;
-          it.rows.push({k:'🔩 Болты', v:cnt+' шт, Ø8 мм, отступ 5 см от углов'});
+          if(!src) return;
+          if(src.boltMount){
+            var cnt = Number(src.boltCount)||4;
+            it.rows.push({k:'🔩 Болты', v:cnt+' шт, Ø8 мм, отступ 5 см от углов'});
+          }
+          if(src.socketsMount && Array.isArray(src.socketsList) && src.socketsList.length){
+            var sockTxt = src.socketsList.map(function(s){
+              var or = s.orientation === 'horizontal' ? 'гориз.' : 'верт.';
+              return (Number(s.count)||1)+' мест ('+or+')';
+            }).join(' • ');
+            it.rows.push({k:'🔌 Розетки', v:sockTxt});
+          }
         });
       }catch(e){}
       return model;
@@ -556,10 +630,7 @@
   function _zrzFirstPullProcess(remote){
     if(_zrzFirstPullDone) return;
     _zrzFirstPullDone = true;
-    if(!remote || !remote.users || !remote.users.length){
-      _zrzServerEmpty = true;
-      return;
-    }
+    if(!remote || !remote.users || !remote.users.length){ _zrzServerEmpty = true; return; }
     try{
       if(Array.isArray(remote.users)) db.users = JSON.parse(JSON.stringify(remote.users));
       if(remote.roles && typeof remote.roles === 'object') db.roles = JSON.parse(JSON.stringify(remote.roles));
@@ -575,9 +646,7 @@
       if(!ref || ref.__zrzBlocked) return;
       var origSet = ref.set.bind(ref);
       ref.set = function(data){
-        if(_zrzGuardBlock()){
-          return origSet(_zrzSafePayload(data));
-        }
+        if(_zrzGuardBlock()) return origSet(_zrzSafePayload(data));
         return origSet(data);
       };
       var origOnce = ref.once.bind(ref);
@@ -638,7 +707,7 @@
     try{
       if(typeof _fbDbRef === 'undefined' || !_fbDbRef){ uiAlert('Firebase не инициализирован'); return; }
       if(!isOnline()){ uiAlert('Нет интернета'); return; }
-      uiConfirm('Подтянуть данные с сервера?', 'Подтянуть', {yesLabel:'Подтянуть'}).then(function(ok){
+      uiConfirm('Подтянуть данные с сервера?','Подтянуть',{yesLabel:'Подтянуть'}).then(function(ok){
         if(!ok) return;
         _fbDbRef.once('value').then(function(snap){
           var remote = snap.val();
@@ -649,11 +718,8 @@
             _zrzFirstPullProcess(remote);
             applySyncPayload(remote);
             if(db.sync) db.sync.lastPullAt = Date.now();
-            save();
-            render();
-          } finally {
-            setTimeout(function(){ _fbApplyingRemote = false; }, 400);
-          }
+            save(); render();
+          } finally { setTimeout(function(){ _fbApplyingRemote = false; }, 400); }
           uiAlert('✔ Данные подтянуты с сервера');
         }).catch(function(e){ uiAlert('Ошибка: '+((e&&e.message)||e)); });
       });
@@ -676,9 +742,7 @@
         try{ updateSyncDot(); }catch(_){}
         uiAlert('Ошибка: '+((e&&e.message)||e));
       });
-    }finally{
-      setTimeout(function(){ window._zrzForcePush = false; }, 3000);
-    }
+    }finally{ setTimeout(function(){ window._zrzForcePush = false; }, 3000); }
   };
 
   function _zrzAugmentSettings(){
@@ -690,14 +754,9 @@
     html += '<div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#2c7a54;margin-bottom:8px">🛡 Защита базы</div>';
     var pulled = db.sync && db.sync.lastPullAt;
     var pushed = db.sync && db.sync.lastPushAt;
-    if(pulled){
-      html += '<div style="font-size:12px;color:var(--muted);line-height:1.5">📥 Приём: <b>'+new Date(pulled).toLocaleString('ru-RU')+'</b></div>';
-    } else {
-      html += '<div style="font-size:12.5px;color:#a05c26;font-weight:600;line-height:1.5">⚠ Первый приём ещё не сделан.</div>';
-    }
-    if(pushed){
-      html += '<div style="font-size:12px;color:var(--muted);line-height:1.5;margin-top:2px">📤 Отправка: <b>'+new Date(pushed).toLocaleString('ru-RU')+'</b></div>';
-    }
+    if(pulled) html += '<div style="font-size:12px;color:var(--muted);line-height:1.5">📥 Приём: <b>'+new Date(pulled).toLocaleString('ru-RU')+'</b></div>';
+    else html += '<div style="font-size:12.5px;color:#a05c26;font-weight:600;line-height:1.5">⚠ Первый приём ещё не сделан.</div>';
+    if(pushed) html += '<div style="font-size:12px;color:var(--muted);line-height:1.5;margin-top:2px">📤 Отправка: <b>'+new Date(pushed).toLocaleString('ru-RU')+'</b></div>';
     html += '<button type="button" class="btn btn-secondary" style="margin-top:10px;padding:10px;font-size:14px" onclick="zrzPullOnly()">📥 Только подтянуть с сервера</button>';
     html += '<button type="button" class="btn btn-secondary" style="margin-top:6px;padding:10px;font-size:14px" onclick="zrzPushNow()">📤 Отправить сейчас</button>';
     html += '</div>';
@@ -721,269 +780,107 @@
     window._zrzOpenSettingsWrapped = true;
   }
 
-  /* ─── v4.2.9: документация ─── */
+  /* ─── документация ─── */
   function buildDocs(){
     var d = {};
     d.README = { title: '📘 README', content: [
 '# Зерцало — управление замерами и заказами',
 '',
-'Веб-приложение для стекольной компании. Полный цикл:',
-'заявка от клиента → замер → производство → монтаж → оплата.',
+'Веб-приложение для стекольной компании.',
+'Полный цикл: заявка → замер → производство → монтаж → оплата.',
 '',
 '## Возможности',
-'▸ Заказы и позиции — 5 типов изделий × 6 форм.',
+'▸ Заказы и позиции (5 типов изделий × 6 форм).',
 '▸ Чертёж A4: изометрия, вид спереди, вид сверху.',
-'▸ Размерные линии для розеток, светильников, болтов.',
+'▸ Размерные линии: розетки, светильники, болты.',
+'▸ Розетки с ориентацией: вертикально / горизонтально.',
 '▸ Декоративные болты (4 / 6 / 8 шт).',
-'▸ Календарь событий (10 типов) и маршруты водителей.',
-'▸ Клиенты, расширенные адреса, контрагенты.',
-'▸ Прайс-лист: 7 групп, ~70 позиций.',
-'▸ Предзаказ → полный заказ одним переключателем.',
-'▸ Оплата замера и оплата заказа.',
+'▸ Календарь событий, маршруты водителей.',
+'▸ Клиенты, адреса, контрагенты.',
+'▸ Прайс-лист, предзаказ, оплата.',
 '',
 '## Роли',
-'Администратор, Менеджер, Мастер, Замерщик-монтажник, Водитель.',
+'Администратор, Менеджер, Мастер, Замерщик, Водитель.',
 '',
-'## Технологии',
-'HTML + CSS + JavaScript (ES2017). Один index.html.',
-'localStorage + IndexedDB + Firebase Realtime Database.',
-'DaData для адресов, Nominatim + OSRM для расстояний.',
-'',
-'## Разделы',
-'🏠 Сегодня — дашборд.  👥 Клиенты.  📅 Календарь.  ☰ Ещё.',
-'',
-'## Об авторе',
+'## Автор',
 'Лютиков А.С. · '+AUTHOR_TG
     ].join('\n') };
     d.CHANGELOG = { title: '📋 CHANGELOG', content: [
-'# История версий',
+'# История',
 '',
-'## v4.3.0 — Размеры на чертежах (розетки, бра)',
-'▸ X/Y от краёв + шаг между розетками.',
-'▸ То же для светильников.',
-'▸ Розетки и бра теперь и на виде спереди.',
+'## v4.3.1 — Улучшенные размеры + ориентация розеток',
+'▸ Размерные линии толще, подписи крупнее.',
+'▸ Подписи с белым фоном и обводкой.',
+'▸ Новая опция «↕ / ↔» для розеток с count > 1.',
 '',
-'## v4.2.9 — Документация + подпись автора',
-'▸ Обновлены все вкладки.',
-'▸ Новая вкладка «Об авторе».',
+'## v4.3.0 — Размеры для розеток и бра',
+'▸ X/Y от краёв, шаг между розетками.',
+'▸ Розетки и бра на виде спереди.',
+'',
+'## v4.2.9 — Документация + подпись',
 '',
 '## v4.2.8 — Защита базы',
-'▸ Push не отправляет users/roles/settings до первого pull.',
-'▸ Первый pull заменяет метаданные серверными.',
-'▸ Кнопки в настройках.',
 '',
 '## v4.2.7 — Декоративные болты',
-'▸ Болты 4/6/8 шт для зеркал и фартуков.',
-'▸ Раскладка: 5 см от углов, 6/8 по центру.',
-'',
-'## v4.2.6 — Усиленные эффекты',
-'',
-'## v4.2.5 — Микроанимации',
-'',
-'## v4.2.4 — Цвета фурнитуры душевых',
-'',
-'## v4.2.3 — Типографика',
 '',
 '## v4.2.0 — Модуль патчей',
-'',
-'## v4.1.8 — Оплата замера',
-'',
-'## v4.1.7 — Расчёт в визарде',
-'',
-'## v4.1.6 — Калькулятор по прайсу',
-'',
-'## v4.1.5 — Единый вход заказа',
-'',
-'## v4.1.4 — Предзаказ + рыночные цены',
-'',
-'## v4.1.2 — Прайс-конструктор',
-'',
-'## v4.1.1 — Фикс маски телефона',
-'',
-'## v4.1.0 — Адрес + DaData',
-'',
-'## v4.0.2 — Фиксы',
-'',
-'## v4.0.1 — Документация v4',
 '',
 '## v4.0.0 — Ядро'
     ].join('\n') };
     d.DATA_MODEL = { title: '🗂 DATA_MODEL', content: [
 '# Модель данных',
 '',
-'Объект db (localStorage, ключ mirror_orders_v2).',
-'Синхронизация: Firebase Realtime Database, ветка zerzalo.',
-'Конфликт: last-write-wins по updatedAt.',
-'',
 '## db.orders',
-'id, orderNum, manualNum.',
-'clientId, addressId, snapshot {clientName, clientPhone, addressFull}.',
-'Статус: lead | new | work | ready | installed | declined | cancelled.',
-'Даты: createdAt, updatedAt, measureDate.',
-'Оплата заказа: orderTotal, orderPaid.',
-'Оплата замера: measurePaid, measurePaidAmount.',
-'Предзаказ: isDraft, estimatedTotal, estimateLines[].',
-'assignedUserIds[], clientNote, orderNote, masterComment, createdBy.',
+'id, orderNum, manualNum, clientId, addressId, snapshot.',
+'status: lead|new|work|ready|installed|declined|cancelled.',
+'orderTotal, orderPaid, measurePaid, measurePaidAmount.',
+'isDraft, estimatedTotal, estimateLines[].',
+'assignedUserIds[], заметки, createdBy.',
 '',
 '## db.items',
-'id, orderId, type (MIRROR|SHOWER|APRON|SHELF|PANNO),',
-'shape (RECT|RECT4|CIRCLE|OVAL|FIGURED|TEMPLATE),',
-'w, h, T, B, L, R, th, qty, cornerRadius, roundedCorners.',
-'glass, edge, facetWidth, frameColor, frameThickness.',
-'mountType, mountCustom.',
-'boltMount, boltCount (4|6|8) — декоративные болты.',
-'cutoutShape, cutoutW, cutoutH.',
-'socketsMount, socketsList[{count, step, distX, distY, edgeX, edgeY}].',
+'id, orderId, type, shape, w, h, th, qty.',
+'boltMount, boltCount — декоративные болты.',
+'socketsMount, socketsList[{count, step, distX, distY,',
+'  edgeX, edgeY, orientation}].',
 'lightsMount, lightsList[{distX, distY, edgeX, edgeY}].',
-'cutV, cutVPos, cutH, cutHPos.',
-'mirrorMeasureMode, mirrorInset, mirrorNicheCutMode, mirrorNicheRefCorner.',
-'showerH, showerPanels, showerProfiles, showerHandle, hingeCount,',
-'showerFitting, sillType.',
-'apronMaterial, apronShape, apronDirection, apronSections.',
-'pannoLayout, shelfDepth.',
-'photos[photoId], drawingIsoId, drawingFrontId.',
+'cutout*, mirror*, shower*, apron*, panno* — по типу.',
 '',
-'## db.clients',
-'id, lastName, firstName, middleName, phone, phoneExtra, email,',
-'note, tags[], archived, createdAt, createdBy.',
-'',
-'## db.addresses',
-'id, clientId, label.',
-'region, district, settlement, city, street, house, building,',
-'postalCode, entrance, floor, apartment, intercom.',
-'liftNeeded, liftFloor, parkingCarry, needPass.',
-'objectType (flat|house|snt|office|commercial),',
-'complexName (ЖК / СНТ / КП), accessNote.',
-'geoLat, geoLon, geoNote.',
-'',
-'## db.events',
-'id, type (measure|remeasure|install|demontage|delivery|purchase|',
-'return|tempering_out|tempering_in|meeting),',
-'orderId, date, time, duration, assignedUserIds[], note, status,',
-'legFromPrev {km, minutes}.',
-'',
-'## db.routes',
-'id, title, date, assignedUserId.',
-'points[{kind (order|contractor|custom), refId, addressId,',
-'label, note, time, legFromPrev}], note.',
-'',
-'## db.contractors',
-'id, name, category (supplier|partner|warehouse|other),',
-'contactName, phone, email, addressId, note, archived.',
-'',
-'## db.notifications',
-'id, userId, type (info|assigned|moved|removed|route),',
-'title, body, linkOrderId, linkEventId, linkRouteId,',
-'createdAt, readAt.',
-'',
-'## db.users',
-'id, name, role (admin|manager|master|surveyor|driver),',
-'login, phone, pinHash, pinPlain (до первой смены),',
-'active, mustChangePassword, permsOverride, lastLogin.',
-'',
-'## db.roles',
-'{roleKey: {permKey: bool}} или null.',
-'',
-'## db.settings',
-'phone, email, website, telegram, slogan.',
-'baseAddress.',
-'prices (legacy), priceBook (актуальный).',
-'morningDigest, appCheckSiteKey, updatedAt.',
-'',
-'## db.trash',
-'{type, deletedAt, deletedBy, order/item}.',
-'',
-'## db.sync',
-'enabled, deviceId, status, lastPullAt, lastPushAt, lastError,',
-'authUid, authStatus, acStatus.',
-'',
-'## Счётчики',
-'nextOrder, nextItem, nextUser, nextClient, nextAddress,',
-'nextEvent, nextContractor, nextRoute, nextNotification.'
+'## Остальное',
+'clients, addresses, events, routes, contractors,',
+'notifications, users, roles, settings, trash, sync.'
     ].join('\n') };
     d.PRIVACY = { title: '🔒 PRIVACY', content: [
-'# Приватность и данные',
+'# Приватность',
 '',
-'## Локально (на устройстве)',
-'▸ Вся база приложения.',
-'▸ Фото и чертежи (IndexedDB, zerzalo_photos_v1).',
-'▸ Черновики (sessionStorage, 24 часа).',
-'▸ Настройки темы и сортировки.',
+'Локально: вся база, фото/чертежи в IndexedDB,',
+'черновики в sessionStorage, тема.',
 '',
-'## В Firebase',
-'▸ Заказы, позиции, клиенты, адреса, события.',
-'▸ Маршруты, контрагенты, уведомления.',
-'▸ Оплата заказа и замера.',
-'▸ Болты, светильники, розетки.',
-'▸ Пользователи и роли (PIN не уходит).',
-'▸ Прайс и настройки компании.',
+'В Firebase: заказы, позиции, клиенты, адреса, события,',
+'маршруты, контрагенты, уведомления, пользователи,',
+'прайс, настройки. PIN не уходит.',
 '',
 'Фото и чертежи в Firebase не уходят.',
 '',
-'## Внешние сервисы',
-'▸ Firebase Realtime Database (Google).',
-'▸ Google Fonts.',
-'▸ DaData Suggestions API.',
-'▸ Nominatim (OpenStreetMap).',
-'▸ OSRM.',
-'▸ Яндекс.Карты / Apple Maps — только по тапу.',
+'Внешние сервисы: Firebase, Google Fonts, DaData,',
+'Nominatim, OSRM, Яндекс.Карты (по тапу).',
 '',
-'## Доступ',
-'▸ apiKey Firebase публичный — это норма.',
-'▸ Security Rules требуют auth != null.',
-'▸ PIN хешируется SHA-256 с солью user.id.',
-'',
-'## Чего нет',
-'▸ Куки для трекинга.',
-'▸ Аналитики.',
-'▸ Передачи данных третьим лицам.',
-'',
-'## Отзыв данных',
-'▸ Экспорт: Настройки → 📥 Экспорт (JSON).',
-'▸ Удаление: Настройки → 🗑 Удалить все данные.'
+'Нет куки для трекинга, нет аналитики.'
     ].join('\n') };
     d.BACKUP = { title: '💾 BACKUP', content: [
 '# Резервное копирование',
 '',
-'## Экспорт',
-'Настройки → 📥 Экспорт (JSON).',
-'Файл zerzalo-backup-YYYY-MM-DD.json.',
+'Экспорт: Настройки → 📥 Экспорт (JSON).',
+'Импорт: Настройки → 📤 Импорт (только admin).',
 '',
-'Что в бэкапе:',
-'▸ Все заказы, позиции, клиенты, адреса.',
-'▸ Оплата заказа и замера.',
-'▸ Болты, светильники, розетки.',
-'▸ События, маршруты, контрагенты.',
-'▸ Пользователи, уведомления.',
-'▸ Прайс, настройки.',
+'В бэкапе: заказы, позиции, оплата, болты, розетки,',
+'светильники, клиенты, адреса, события, маршруты,',
+'контрагенты, пользователи, уведомления, прайс,',
+'настройки.',
 '',
-'Что не входит:',
-'▸ Токен Firebase.',
-'▸ Черновики.',
-'▸ PIN в открытом виде.',
+'Синхронизация: изменения уходят в облако через ~1,5 сек.',
+'Защита: до первого pull метаданные не уходят.',
 '',
-'## Импорт',
-'Только для admin.',
-'Настройки → 📤 Импорт → JSON.',
-'Полностью заменяет базу.',
-'',
-'## Синхронизация',
-'При включённой синхронизации:',
-'▸ изменения уходят в облако через ~1,5 сек;',
-'▸ свежие данные подтягиваются при запуске;',
-'▸ last-write-wins по updatedAt.',
-'',
-'Защита (v4.2.8):',
-'▸ до первого pull метаданные не уходят;',
-'▸ первый pull заменяет их серверными;',
-'▸ кнопки «Только подтянуть» и «Отправить сейчас».',
-'',
-'## Сценарии',
-'1. Потерял телефон → новый, синхронизация → всё подтянется.',
-'2. Случайное удаление → восстановить из JSON.',
-'3. Сломалась база → Firebase Backups (30 дней).',
-'',
-'## Рекомендации',
+'Рекомендации:',
 '▸ Экспорт раз в неделю.',
 '▸ Бэкапы в трёх местах.',
 '▸ Перед крупными изменениями — экспорт.'
@@ -992,28 +889,20 @@
 '# Об авторе',
 '',
 'Зерцало — внутренний инструмент стекольной компании.',
-'Разработано под задачи замеров и монтажа зеркал, стекла,',
-'душевых перегородок, фартуков, полок и панно.',
 '',
 '## Разработчик',
-'AUTHOR_NAME_PLACEHOLDER',
+'Лютиков Александр Сергеевич',
 '',
-'Telegram: AUTHOR_TG_PLACEHOLDER',
+'Telegram: '+AUTHOR_TG,
 '',
-'## Год',
 '© 2026. Все права у заказчика.',
 '',
-'## Обратная связь',
-'Все вопросы, идеи и баги — в Telegram разработчику.',
-'',
 '## Стек',
-'▸ HTML / CSS / JavaScript без сборки.',
-'▸ Firebase Realtime Database + Anonymous Auth.',
-'▸ DaData Suggestions API.',
-'▸ Nominatim + OSRM.',
-'▸ PWA.',
-''
-    ].join('\n').replace('AUTHOR_NAME_PLACEHOLDER', AUTHOR_NAME).replace('AUTHOR_TG_PLACEHOLDER', AUTHOR_TG) };
+'HTML / CSS / JavaScript.',
+'Firebase Realtime Database.',
+'DaData, Nominatim, OSRM.',
+'PWA.'
+    ].join('\n') };
     return d;
   }
   function installDocs(){
@@ -1123,7 +1012,9 @@
     try{ wrapOpenItem(); }catch(e){}
     try{ wrapCollectDraft(); }catch(e){}
     try{ wrapBuildReceipt(); }catch(e){}
+    try{ wrapRenderSockets(); }catch(e){}
     try{ injectBoltUI(); }catch(e){}
+    try{ injectSocketOrientationUI(); }catch(e){}
     try{ wrapOpenSettings(); }catch(e){}
     try{ wrapOpenSettings2(); }catch(e){}
     try{ tagVersion(); }catch(e){}
@@ -1143,6 +1034,5 @@
   if(app) mo.observe(app, {childList:true, subtree:true});
 
   window._zrzPatchInit = apply;
-
   try{console.log('[app-patches] v'+PATCH_VERSION+' активен');}catch(_){}
 })();
