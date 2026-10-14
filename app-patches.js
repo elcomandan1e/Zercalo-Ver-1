@@ -1,20 +1,11 @@
-/* app-patches.js — динамические патчи «Зерцало» v4.4.2
-   Фичи:
-     v4.2.1 — скрыть OSRM.
-     v4.2.3 — типографика v1.
-     v4.2.4 — цвета фурнитуры.
-     v4.2.5 — конфетти, пульс, пружина.
-     v4.2.6 — усиленный ripple.
-     v4.2.7 — болты для зеркал и фартуков.
-     v4.2.8 — защита базы.
-     v4.2.9 — документация + подпись автора.
-     v4.3.x — размеры розеток, бра, болтов (выноски).
-     v4.4.0 — размеры вырезов, фацета, скруглений + типографика v2.
-     v4.4.2 — вырез: размеры внутри зеркала. Фацет: только рамка.
-              Фикс openTechDraw — берёт данные из формы.
+/* app-patches.js — динамические патчи «Зерцало» v4.5.0
+   Фичи: [все предыдущие v4.2.x–v4.4.x]
+   v4.5.0 — полностью обновлённая встроенная документация:
+     README, CHANGELOG, DATA_MODEL, PRIVACY, BACKUP, AUTHOR,
+     + новая вкладка TECH (техническая документация).
 */
 (function(){
-  var PATCH_VERSION = '4.4.2';
+  var PATCH_VERSION = '4.5.0';
   var AUTHOR_NAME = 'Лютиков А.С.';
   var AUTHOR_TG = '@el_c0mandan1e';
   var _lock = false;
@@ -126,26 +117,21 @@
     }, true);
   }
 
-  /* ─── размерная линия с выносками ─── */
   var DIM_COLOR = '#c14d4d';
   function _zrzDimLineFull(ctx, obj1, obj2, dimP1, dimP2, label, color){
     color = color || DIM_COLOR;
     ctx.save();
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 0.8;
-    ctx.setLineDash([3,3]);
-    ctx.globalAlpha = 0.7;
+    ctx.strokeStyle = color; ctx.lineWidth = 0.8;
+    ctx.setLineDash([3,3]); ctx.globalAlpha = 0.7;
     ctx.beginPath();
     ctx.moveTo(obj1.x, obj1.y); ctx.lineTo(dimP1.x, dimP1.y);
     ctx.moveTo(obj2.x, obj2.y); ctx.lineTo(dimP2.x, dimP2.y);
     ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.globalAlpha = 1;
+    ctx.setLineDash([]); ctx.globalAlpha = 1;
     var dx = dimP2.x - dimP1.x, dy = dimP2.y - dimP1.y;
     var len = Math.hypot(dx, dy);
     if(len < 10){ ctx.restore(); return; }
-    var ux = dx/len, uy = dy/len;
-    var nx = -uy, ny = ux;
+    var ux = dx/len, uy = dy/len, nx = -uy, ny = ux;
     ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = 1.6;
     ctx.beginPath(); ctx.moveTo(dimP1.x, dimP1.y); ctx.lineTo(dimP2.x, dimP2.y); ctx.stroke();
     var tick = 6;
@@ -172,18 +158,14 @@
       ctx.save();
       ctx.translate(mx, my);
       if(Math.abs(uy) > 0.7) ctx.rotate(-Math.PI/2);
-      ctx.fillStyle = '#fff';
-      ctx.fillRect(-tw/2, -9, tw, 18);
-      ctx.strokeStyle = color; ctx.lineWidth = 1;
-      ctx.strokeRect(-tw/2, -9, tw, 18);
-      ctx.fillStyle = color;
-      ctx.fillText(label, 0, 0);
+      ctx.fillStyle = '#fff'; ctx.fillRect(-tw/2, -9, tw, 18);
+      ctx.strokeStyle = color; ctx.lineWidth = 1; ctx.strokeRect(-tw/2, -9, tw, 18);
+      ctx.fillStyle = color; ctx.fillText(label, 0, 0);
       ctx.restore();
     }
     ctx.restore();
   }
 
-  /* ─── компактная размерная линия (для внутренних размеров выреза) ─── */
   function _zrzDimInline(ctx, x1, y1, x2, y2, label, color){
     var dx=x2-x1, dy=y2-y1, len=Math.hypot(dx,dy);
     if(len < 6){ return; }
@@ -223,7 +205,6 @@
     ctx.restore();
   }
 
-  /* ─── болты ─── */
   function getBoltOffset(d){
     var v = Number(d.boltOffset);
     if(!v || v<=0) return 5;
@@ -292,27 +273,22 @@
     return {W: totalW, H: maxH};
   }
 
-  /* ─── розетки / бра ─── */
   var DIM_SOCKET_COLOR = '#a05c26';
   var DIM_LIGHT_COLOR  = '#7a3d8a';
   function _zrzDrawSocketDot(ctx, cx, cy, r){
     ctx.save();
-    ctx.fillStyle = '#f5c93a';
-    ctx.strokeStyle = '#8a6a2c';
-    ctx.lineWidth = 1.2;
+    ctx.fillStyle = '#f5c93a'; ctx.strokeStyle = '#8a6a2c'; ctx.lineWidth = 1.2;
     ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.fill(); ctx.stroke();
     ctx.beginPath();
     ctx.moveTo(cx-r-4, cy); ctx.lineTo(cx+r+4, cy);
     ctx.moveTo(cx, cy-r-4); ctx.lineTo(cx, cy+r+4);
-    ctx.strokeStyle = '#8a6a2c'; ctx.lineWidth = 0.9;
-    ctx.stroke();
+    ctx.strokeStyle = '#8a6a2c'; ctx.lineWidth = 0.9; ctx.stroke();
     ctx.restore();
   }
   function _zrzSocketCenters(s, x0, y0, pxW, pxH, sc3){
     var cnt = Math.max(1, Number(s.count)||1);
     var stepCm = Number(s.step)||7.1;
-    var dx = Number(s.distX)||0;
-    var dy = Number(s.distY)||0;
+    var dx = Number(s.distX)||0, dy = Number(s.distY)||0;
     var or = s.orientation === 'horizontal' ? 'horizontal' : 'vertical';
     var baseX = (s.edgeX==='right') ? (x0 + pxW - dx*sc3) : (x0 + dx*sc3);
     var baseY = (s.edgeY==='top')   ? (y0 + dy*sc3)       : (y0 + pxH - dy*sc3);
@@ -373,7 +349,6 @@
     }
   }
 
-  /* ═══ вырез ═══ */
   var DIM_CUT_COLOR  = '#c95a1e';
   var DIM_FACET_COLOR= '#c95a1e';
   var DIM_ROUND_COLOR= '#c14d4d';
@@ -386,8 +361,7 @@
     var hPx = (shape==='circle' ? w : (Number(d.cutoutH)||w)) * sc3;
     var xCut, yCut;
     if(d.cutoutCenter===false && (d.cutoutDistX!=null||d.cutoutDistY!=null)){
-      var dx = Number(d.cutoutDistX)||0;
-      var dy = Number(d.cutoutDistY)||0;
+      var dx = Number(d.cutoutDistX)||0, dy = Number(d.cutoutDistY)||0;
       if(d.cutoutEdgeX==='right') xCut = x0 + pxW - dx*sc3 - wPx;
       else xCut = x0 + dx*sc3;
       if(d.cutoutEdgeY==='bottom') yCut = y0 + pxH - dy*sc3 - hPx;
@@ -403,53 +377,35 @@
     if(!d.cutoutEnabled) return;
     var r = _zrzCutoutRect(d, x0, y0, pxW, pxH, sc3);
     if(!r) return;
-    var cx = r.x + r.w/2;
-    var cy = r.y + r.h/2;
-
-    /* Контур выреза — пунктир */
+    var cx = r.x + r.w/2, cy = r.y + r.h/2;
     ctx.save();
-    ctx.strokeStyle = DIM_CUT_COLOR;
-    ctx.lineWidth = 1.7;
-    ctx.setLineDash([5,3]);
+    ctx.strokeStyle = DIM_CUT_COLOR; ctx.lineWidth = 1.7; ctx.setLineDash([5,3]);
     ctx.beginPath();
     if(r.shape === 'circle'){ ctx.arc(cx, cy, r.w/2, 0, Math.PI*2); }
     else { ctx.rect(r.x, r.y, r.w, r.h); }
-    ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.restore();
+    ctx.stroke(); ctx.setLineDash([]); ctx.restore();
 
-    /* Ширина — под вырезом внутри зеркала (или над, если снизу мало) */
     var gapBelow = (y0 + pxH) - (r.y + r.h);
     var dimY = (gapBelow >= 24) ? (r.y + r.h + 14) : (r.y - 14);
-    var labelW = (r.shape === 'circle')
-      ? ('Ø '+numFmt(r.wCm)+' см')
-      : (numFmt(r.wCm)+' см');
+    var labelW = (r.shape === 'circle') ? ('Ø '+numFmt(r.wCm)+' см') : (numFmt(r.wCm)+' см');
     _zrzDimInline(ctx, r.x, dimY, r.x + r.w, dimY, labelW, DIM_CUT_COLOR);
-
-    /* Высота — только для rect, справа (или слева) */
     if(r.shape === 'rect' && r.hCm !== r.wCm){
       var gapRight = (x0 + pxW) - (r.x + r.w);
       var dimX = (gapRight >= 24) ? (r.x + r.w + 14) : (r.x - 14);
       _zrzDimInline(ctx, dimX, r.y, dimX, r.y + r.h, numFmt(r.hCm)+' см', DIM_CUT_COLOR);
     }
-
-    /* Отступы от краёв (если вырез не по центру) */
     if(d.cutoutCenter === false){
       var edgeX = (d.cutoutEdgeX === 'right') ? (x0 + pxW) : x0;
       var refX  = (d.cutoutEdgeX === 'right') ? (r.x + r.w) : r.x;
-      var yX = cy - 24;
-      if(yX < y0 + 8) yX = cy + 24;
+      var yX = cy - 24; if(yX < y0 + 8) yX = cy + 24;
       _zrzDimInline(ctx, edgeX, yX, refX, yX, numFmt(d.cutoutDistX||0)+' см', DIM_CUT_COLOR);
-
       var edgeY = (d.cutoutEdgeY === 'bottom') ? (y0 + pxH) : y0;
       var refY  = (d.cutoutEdgeY === 'bottom') ? (r.y + r.h) : r.y;
-      var xY = cx - 24;
-      if(xY < x0 + 8) xY = cx + 24;
+      var xY = cx - 24; if(xY < x0 + 8) xY = cx + 24;
       _zrzDimInline(ctx, xY, edgeY, xY, refY, numFmt(d.cutoutDistY||0)+' см', DIM_CUT_COLOR);
     }
   }
 
-  /* ═══ фацет ═══ */
   function _zrzDrawFacetDims(ctx, x0, y0, pxW, pxH, sc3, d){
     if(d.type !== 'MIRROR') return;
     if(d.edge !== 'Фацет') return;
@@ -458,19 +414,12 @@
     var fwPx = fwMm/10 * sc3;
     if(fwPx <= 2) return;
     if(fwPx*2 >= pxW || fwPx*2 >= pxH) return;
-
     ctx.save();
-    ctx.strokeStyle = DIM_FACET_COLOR;
-    ctx.lineWidth = 1.6;
-    ctx.setLineDash([4,3]);
-    ctx.beginPath();
-    ctx.rect(x0 + fwPx, y0 + fwPx, pxW - 2*fwPx, pxH - 2*fwPx);
-    ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.restore();
+    ctx.strokeStyle = DIM_FACET_COLOR; ctx.lineWidth = 1.6; ctx.setLineDash([4,3]);
+    ctx.beginPath(); ctx.rect(x0 + fwPx, y0 + fwPx, pxW - 2*fwPx, pxH - 2*fwPx); ctx.stroke();
+    ctx.setLineDash([]); ctx.restore();
   }
 
-  /* ═══ скругления ═══ */
   function _zrzDrawRoundedCorners(ctx, x0, y0, pxW, pxH, sc3, d){
     if(d.type !== 'MIRROR') return;
     if(!d.roundedCorners) return;
@@ -480,36 +429,24 @@
     var rPx = rMm/10 * sc3;
     if(rPx < 3) return;
     ctx.save();
-    ctx.strokeStyle = DIM_ROUND_COLOR;
-    ctx.lineWidth = 2;
+    ctx.strokeStyle = DIM_ROUND_COLOR; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.arc(x0 + rPx, y0 + rPx, rPx, Math.PI, 1.5*Math.PI); ctx.stroke();
     ctx.beginPath(); ctx.arc(x0 + pxW - rPx, y0 + rPx, rPx, 1.5*Math.PI, 2*Math.PI); ctx.stroke();
     ctx.beginPath(); ctx.arc(x0 + pxW - rPx, y0 + pxH - rPx, rPx, 0, 0.5*Math.PI); ctx.stroke();
     ctx.beginPath(); ctx.arc(x0 + rPx, y0 + pxH - rPx, rPx, 0.5*Math.PI, Math.PI); ctx.stroke();
     ctx.restore();
-    var tx = x0 + pxW - rPx;
-    var ty = y0 + rPx;
+    var tx = x0 + pxW - rPx, ty = y0 + rPx;
     ctx.save();
-    ctx.strokeStyle = DIM_ROUND_COLOR;
-    ctx.lineWidth = 1.1;
-    ctx.beginPath();
-    ctx.moveTo(tx, ty);
-    ctx.lineTo(tx + 22, ty - 22);
-    ctx.lineTo(tx + 70, ty - 22);
-    ctx.stroke();
-    ctx.beginPath(); ctx.arc(tx, ty, 2, 0, Math.PI*2);
-    ctx.fillStyle = DIM_ROUND_COLOR; ctx.fill();
-    ctx.font = '800 12px "PT Sans Narrow",Arial';
-    ctx.fillStyle = '#fff';
+    ctx.strokeStyle = DIM_ROUND_COLOR; ctx.lineWidth = 1.1;
+    ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(tx + 22, ty - 22); ctx.lineTo(tx + 70, ty - 22); ctx.stroke();
+    ctx.beginPath(); ctx.arc(tx, ty, 2, 0, Math.PI*2); ctx.fillStyle = DIM_ROUND_COLOR; ctx.fill();
+    ctx.font = '800 12px "PT Sans Narrow",Arial'; ctx.fillStyle = '#fff';
     var label = 'R'+numFmt(rMm)+' мм';
     var tw = ctx.measureText(label).width + 10;
-    var lx = tx + 76;
-    var ly = ty - 22;
+    var lx = tx + 76, ly = ty - 22;
     ctx.fillRect(lx - 4, ly - 8, tw, 16);
-    ctx.strokeStyle = DIM_ROUND_COLOR; ctx.lineWidth = 1;
-    ctx.strokeRect(lx - 4, ly - 8, tw, 16);
-    ctx.fillStyle = DIM_ROUND_COLOR;
-    ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.strokeStyle = DIM_ROUND_COLOR; ctx.lineWidth = 1; ctx.strokeRect(lx - 4, ly - 8, tw, 16);
+    ctx.fillStyle = DIM_ROUND_COLOR; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
     ctx.fillText(label, lx, ly);
     ctx.restore();
   }
@@ -536,8 +473,7 @@
         var baseX = (s.edgeX==='right') ? (x0 + pxW - dx*sc3) : (x0 + dx*sc3);
         var baseY = (s.edgeY==='bottom')? (y0 + pxH - dy*sc3) : (y0 + dy*sc3);
         ctx.save();
-        ctx.fillStyle='#e6ecf5';
-        ctx.strokeStyle='#3b5c8f'; ctx.lineWidth=1.6;
+        ctx.fillStyle='#e6ecf5'; ctx.strokeStyle='#3b5c8f'; ctx.lineWidth=1.6;
         ctx.beginPath(); ctx.arc(baseX, baseY, lightR, 0, Math.PI*2); ctx.fill(); ctx.stroke();
         ctx.beginPath(); ctx.arc(baseX, baseY, Math.max(2, lightR*0.4), 0, Math.PI*2);
         ctx.strokeStyle='#3b5c8f'; ctx.lineWidth=1; ctx.stroke();
@@ -633,7 +569,6 @@
     }
   }
 
-  /* ═══ фикс openTechDraw — данные из формы ═══ */
   function wrapOpenTechDraw(){
     if(window._zrzOpenTechDrawWrapped) return;
     if(typeof window.openTechDraw !== 'function') return;
@@ -649,11 +584,8 @@
           if(idx>=0){
             var backup = db.items[idx];
             db.items[idx] = fresh;
-            try{
-              return orig.call(this, itemId);
-            } finally {
-              db.items[idx] = backup;
-            }
+            try{ return orig.call(this, itemId); }
+            finally { db.items[idx] = backup; }
           }
         }
       }catch(e){ try{console.warn('[patch] wrapOpenTechDraw', e);}catch(_){} }
@@ -662,7 +594,6 @@
     window._zrzOpenTechDrawWrapped = true;
   }
 
-  /* ─── UI формы ─── */
   function injectBoltUI(){
     var m = document.querySelector('.modal');
     if(!m) return;
@@ -726,16 +657,14 @@
       if(typeof saveDraft==='function') saveDraft();
     };
     chs.onclick = function(e){
-      var c = e.target.closest('.chip');
-      if(!c) return;
+      var c = e.target.closest('.chip'); if(!c) return;
       chs.querySelectorAll('.chip').forEach(function(x){x.classList.remove('active');});
       c.classList.add('active');
       if(window._editDraft) window._editDraft.boltCount = Number(c.dataset.v);
       if(typeof saveDraft==='function') saveDraft();
     };
     offs.onclick = function(e){
-      var c = e.target.closest('.chip');
-      if(!c) return;
+      var c = e.target.closest('.chip'); if(!c) return;
       setOffset(Number(c.dataset.off));
     };
     if(offInput){
@@ -749,22 +678,16 @@
   }
 
   function injectCutoutUI(){
-    var m = document.querySelector('.modal');
-    if(!m) return;
+    var m = document.querySelector('.modal'); if(!m) return;
     var d = window._editDraft || {};
     if(d.type !== 'MIRROR') return;
-    var wrap = document.getElementById('cutout_wrap');
-    if(!wrap) return;
+    var wrap = document.getElementById('cutout_wrap'); if(!wrap) return;
     if(document.getElementById('zrz_cutout_ui')) return;
     var chk = document.getElementById('e_cutout');
     if(!chk || !chk.checked) return;
-
     var isCenter = d.cutoutCenter !== false;
-    var dx = Number(d.cutoutDistX)||0;
-    var dy = Number(d.cutoutDistY)||0;
-    var ex = d.cutoutEdgeX || 'left';
-    var ey = d.cutoutEdgeY || 'top';
-
+    var dx = Number(d.cutoutDistX)||0, dy = Number(d.cutoutDistY)||0;
+    var ex = d.cutoutEdgeX || 'left', ey = d.cutoutEdgeY || 'top';
     var html = '<div id="zrz_cutout_ui" style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--accent-line)">'
       + '<label style="margin-top:0">Расположение выреза</label>'
       + '<div class="chips" id="zrz_cutout_pos_chips" style="margin-top:4px">'
@@ -777,12 +700,10 @@
       + '<div><label style="font-size:11px;color:#8894a9">Y, см</label><input id="zrz_cut_y" type="text" inputmode="decimal" value="'+numFmt(dy)+'" placeholder="30"><div class="chips" style="margin-top:6px"><button type="button" class="chip '+(ey==='top'?'active':'')+'" data-edge="top" data-axis="Y">верх ↑</button><button type="button" class="chip '+(ey==='bottom'?'active':'')+'" data-edge="bottom" data-axis="Y">↓ низ</button></div></div>'
       + '</div></div></div>';
     wrap.insertAdjacentHTML('beforeend', html);
-
     var posChips = document.getElementById('zrz_cutout_pos_chips');
     var customDiv = document.getElementById('zrz_cutout_custom');
     var xInp = document.getElementById('zrz_cut_x');
     var yInp = document.getElementById('zrz_cut_y');
-
     function setPos(v){
       posChips.querySelectorAll('.chip').forEach(function(x){x.classList.toggle('active', x.dataset.v===v);});
       customDiv.style.display = (v==='custom') ? 'block' : 'none';
@@ -797,28 +718,12 @@
       }
       if(typeof saveDraft==='function') saveDraft();
     }
-    posChips.onclick = function(e){
-      var c = e.target.closest('.chip'); if(!c) return;
-      setPos(c.dataset.v);
-    };
-    xInp.oninput = function(){
-      if(window._editDraft){
-        var v = parseFloat(String(xInp.value).replace(',','.'))||0;
-        window._editDraft.cutoutDistX = v;
-      }
-      if(typeof saveDraft==='function') saveDraft();
-    };
-    yInp.oninput = function(){
-      if(window._editDraft){
-        var v = parseFloat(String(yInp.value).replace(',','.'))||0;
-        window._editDraft.cutoutDistY = v;
-      }
-      if(typeof saveDraft==='function') saveDraft();
-    };
+    posChips.onclick = function(e){ var c = e.target.closest('.chip'); if(!c) return; setPos(c.dataset.v); };
+    xInp.oninput = function(){ if(window._editDraft) window._editDraft.cutoutDistX = parseFloat(String(xInp.value).replace(',','.'))||0; if(typeof saveDraft==='function') saveDraft(); };
+    yInp.oninput = function(){ if(window._editDraft) window._editDraft.cutoutDistY = parseFloat(String(yInp.value).replace(',','.'))||0; if(typeof saveDraft==='function') saveDraft(); };
     customDiv.querySelectorAll('button[data-edge]').forEach(function(b){
       b.onclick = function(){
-        var axis = b.dataset.axis;
-        var edge = b.dataset.edge;
+        var axis = b.dataset.axis, edge = b.dataset.edge;
         customDiv.querySelectorAll('button[data-axis="'+axis+'"]').forEach(function(x){x.classList.remove('active');});
         b.classList.add('active');
         if(window._editDraft){
@@ -831,15 +736,13 @@
   }
 
   function injectSocketOrientationUI(){
-    var box = document.getElementById('socketsList');
-    if(!box) return;
+    var box = document.getElementById('socketsList'); if(!box) return;
     var d = window._editDraft;
     if(!d || !Array.isArray(d.socketsList)) return;
     d.socketsList.forEach(function(s, idx){
       var cnt = Number(s.count)||1;
       if(cnt < 2) return;
-      var itemEl = box.children[idx];
-      if(!itemEl) return;
+      var itemEl = box.children[idx]; if(!itemEl) return;
       if(itemEl.querySelector('.zrz-orientation-chips')) return;
       var or = s.orientation === 'horizontal' ? 'horizontal' : 'vertical';
       var html = '<div class="zrz-orientation-chips" style="margin-top:10px">'
@@ -851,13 +754,10 @@
       itemEl.insertAdjacentHTML('beforeend', html);
       var chips = itemEl.querySelector('.zrz-orientation-chips');
       chips.onclick = function(e){
-        var c = e.target.closest('.chip');
-        if(!c) return;
+        var c = e.target.closest('.chip'); if(!c) return;
         chips.querySelectorAll('.chip').forEach(function(x){x.classList.remove('active');});
         c.classList.add('active');
-        if(window._editDraft && window._editDraft.socketsList[idx]){
-          window._editDraft.socketsList[idx].orientation = c.dataset.or;
-        }
+        if(window._editDraft && window._editDraft.socketsList[idx]) window._editDraft.socketsList[idx].orientation = c.dataset.or;
         if(typeof saveDraft==='function') saveDraft();
       };
     });
@@ -1034,9 +934,7 @@
           if(db.sync) db.sync.lastPullAt = Date.now();
           save();
           if(typeof render === 'function'){ try{ render(); }catch(e){} }
-        } finally {
-          setTimeout(function(){ _fbApplyingRemote = false; }, 300);
-        }
+        } finally { setTimeout(function(){ _fbApplyingRemote = false; }, 300); }
       }, function(err){
         if(db.sync){ db.sync.status='error'; db.sync.lastError = String((err&&err.message)||err); }
         try{ updateSyncDot(); }catch(_){}
@@ -1098,8 +996,7 @@
   };
 
   function _zrzAugmentSettings(){
-    var modal = document.querySelector('.modal');
-    if(!modal) return;
+    var modal = document.querySelector('.modal'); if(!modal) return;
     if(modal.querySelector('#zrz_guard_block')) return;
     if(!document.getElementById('s_phone')) return;
     var html = '<div id="zrz_guard_block" style="margin-top:14px;padding:14px;background:linear-gradient(180deg,rgba(76,175,125,0.10),rgba(76,175,125,0.04));border:1.5px solid rgba(76,175,125,0.35);border-radius:14px">';
@@ -1113,9 +1010,7 @@
     html += '</div>';
     var allBtns = modal.querySelectorAll('.btn');
     var cancelBtn = null;
-    for(var i=0;i<allBtns.length;i++){
-      if((allBtns[i].textContent||'').trim() === 'Отмена'){ cancelBtn = allBtns[i]; break; }
-    }
+    for(var i=0;i<allBtns.length;i++){ if((allBtns[i].textContent||'').trim() === 'Отмена'){ cancelBtn = allBtns[i]; break; } }
     if(cancelBtn) cancelBtn.insertAdjacentHTML('beforebegin', html);
     else modal.insertAdjacentHTML('beforeend', html);
   }
@@ -1131,8 +1026,7 @@
     window._zrzOpenSettingsWrapped = true;
   }
   function _zrzInjectAuthorSignature(){
-    var modal = document.querySelector('.modal');
-    if(!modal) return;
+    var modal = document.querySelector('.modal'); if(!modal) return;
     if(modal.querySelector('#zrz_author_sig')) return;
     if(!document.getElementById('s_phone')) return;
     var html = '<div id="zrz_author_sig" style="text-align:center;padding:18px 0 6px;color:var(--muted);font-size:12px;line-height:1.7">'
@@ -1142,9 +1036,7 @@
       + '</div>';
     var allBtns = modal.querySelectorAll('.btn');
     var cancelBtn = null;
-    for(var i=0;i<allBtns.length;i++){
-      if((allBtns[i].textContent||'').trim() === 'Отмена'){ cancelBtn = allBtns[i]; break; }
-    }
+    for(var i=0;i<allBtns.length;i++){ if((allBtns[i].textContent||'').trim() === 'Отмена'){ cancelBtn = allBtns[i]; break; } }
     if(cancelBtn) cancelBtn.insertAdjacentHTML('beforebegin', html);
     else modal.insertAdjacentHTML('beforeend', html);
   }
@@ -1209,6 +1101,406 @@
     document.head.appendChild(st);
   }
 
+  /* ═══════════════════════════════════════════════════════════
+     v4.5.0 — ОБНОВЛЁННАЯ ДОКУМЕНТАЦИЯ (7 вкладок)
+     ═══════════════════════════════════════════════════════════ */
+  function buildDocs(){
+    var d = {};
+
+    d.README = { title:'📘 README', content:[
+'# Зерцало — управление замерами и заказами',
+'',
+'Веб-приложение для стекольной компании.',
+'Полный цикл: заявка → замер → производство → монтаж → оплата.',
+'',
+'## Возможности',
+'▸ Заказы и позиции (5 типов изделий × 6 форм).',
+'▸ Чертёж A4: изометрия, вид спереди, вид сверху.',
+'▸ Размерные линии: розетки, светильники, болты, вырезы,',
+'   фацет, скругления — всё отражено на чертеже.',
+'▸ Декоративные болты (4 / 6 / 8 шт) с настраиваемым отступом.',
+'▸ Розетки с ориентацией: вертикально / горизонтально.',
+'▸ Вырезы: круглый (Ø) или прямоугольный с отступом от края.',
+'▸ Календарь событий (10 типов) и маршруты водителей.',
+'▸ Клиенты, расширенные адреса (DaData), контрагенты.',
+'▸ Прайс-лист: 7 групп, ~70 позиций, авторасчёт.',
+'▸ Предзаказ (заявка) → полный заказ одним переключателем.',
+'▸ Оплата замера и оплата заказа с конфетти.',
+'▸ Синхронизация Firebase + защита базы от затирания.',
+'',
+'## Роли',
+'Администратор, Менеджер, Мастер, Замерщик-монтажник, Водитель.',
+'',
+'## Разделы',
+'🏠 Сегодня — дашборд.',
+'👥 Клиенты — база клиентов и адресов.',
+'📅 Календарь — события и маршруты.',
+'☰ Ещё — контрагенты, отчёты, пользователи, настройки.',
+'',
+'## Установка',
+'1. Открыть адрес приложения в браузере.',
+'2. «Добавить на главный экран» (PWA).',
+'3. Войти: admin / PIN 0000 (сменить при первом входе).',
+'',
+'## Разработчик',
+'AUTHOR_NAME_PLACEHOLDER · AUTHOR_TG_PLACEHOLDER',
+'© 2026'
+    ].join('\n').replace('AUTHOR_NAME_PLACEHOLDER', AUTHOR_NAME).replace('AUTHOR_TG_PLACEHOLDER', AUTHOR_TG) };
+
+    d.CHANGELOG = { title:'📋 CHANGELOG', content:[
+'# История версий',
+'',
+'## v4.5.0 — Обновление документации',
+'▸ Полностью переписаны все вкладки.',
+'▸ Новая вкладка «🛠 Техдокументация».',
+'',
+'## v4.4.2 — Вырез с отступом, фацет как рамка',
+'▸ Вырез: размеры внутри зеркала, отступы от края.',
+'▸ Фацет: только жирная рамка (без дублирования).',
+'▸ Фикс openTechDraw — берёт данные из формы.',
+'',
+'## v4.4.0 — Размеры вырезов, фацета, скруглений',
+'▸ Размеры X/Y/W/H/Ø для вырезов.',
+'▸ Размеры ширины фацета.',
+'▸ Выноски R для скруглений углов.',
+'▸ Типографика v2.',
+'',
+'## v4.3.7 — Выноска для болтов',
+'▸ Компактная выноска слева от зеркала.',
+'▸ Отступ от края стал настраиваемым.',
+'',
+'## v4.3.0–4.3.2 — Размеры розеток и бра',
+'▸ X/Y от краёв, шаг между розетками.',
+'▸ Ориентация ↔ / ↕.',
+'',
+'## v4.2.9 — Документация + подпись',
+'',
+'## v4.2.8 — Защита базы',
+'▸ Push не отправляет users/roles/settings до первого pull.',
+'▸ Первый pull заменяет метаданные серверными.',
+'',
+'## v4.2.7 — Декоративные болты',
+'',
+'## v4.2.0 — Модуль патчей',
+'▸ index.html подгружает app-patches.js с GitHub.',
+'',
+'## v4.1.x — Предзаказы, прайс, DaData',
+'▸ Статусы «Заявка» и «Отказ».',
+'▸ Прайс-конструктор (7 групп, ~70 позиций).',
+'▸ Автозаполнение адресов DaData.',
+'▸ Автомаска +7 для телефонов.',
+'',
+'## v4.0.x — Ядро',
+'▸ Оплата заказа (orderTotal / orderPaid).',
+'▸ 10 типов событий, авторасчёт длительности.',
+'▸ Расчёт расстояний (Nominatim + OSRM).',
+'▸ Светильники (бра), дашборд, таббар, роли.',
+''
+    ].join('\n') };
+
+    d.DATA_MODEL = { title:'🗂 DATA_MODEL', content:[
+'# Модель данных',
+'',
+'Объект db (localStorage, ключ mirror_orders_v2).',
+'Синхронизация: Firebase Realtime Database, ветка zerzalo.',
+'Конфликт: last-write-wins по updatedAt.',
+'',
+'## db.orders — заказы',
+'id, orderNum, manualNum.',
+'clientId, addressId, snapshot {clientName, clientPhone, addressFull}.',
+'Статус: lead | new | work | ready | installed | declined | cancelled.',
+'Даты: createdAt, updatedAt, measureDate.',
+'Оплата заказа: orderTotal, orderPaid.',
+'Оплата замера: measurePaid, measurePaidAmount.',
+'Предзаказ: isDraft, estimatedTotal, estimateLines[].',
+'assignedUserIds[], clientNote, orderNote, masterComment, createdBy.',
+'',
+'## db.items — позиции',
+'id, orderId, type (MIRROR|SHOWER|APRON|SHELF|PANNO),',
+'shape (RECT|RECT4|CIRCLE|OVAL|FIGURED|TEMPLATE).',
+'Размеры: w, h, T, B, L, R (см), th (мм), qty.',
+'',
+'Стекло: glass, edge, facetWidth.',
+'Рама: frameColor, frameThickness.',
+'Крепление: mountType, mountCustom.',
+'',
+'Декоративные болты:',
+'  boltMount (bool), boltCount (4|6|8), boltOffset (см).',
+'  Ø выреза всегда 8 мм.',
+'',
+'Вырез:',
+'  cutoutEnabled (bool), cutoutShape (rect|circle),',
+'  cutoutW, cutoutH (см),',
+'  cutoutCenter (bool), cutoutDistX, cutoutDistY,',
+'  cutoutEdgeX (left|right), cutoutEdgeY (top|bottom).',
+'',
+'Розетки:',
+'  socketsMount, socketsList[{count, step, distX, distY,',
+'    edgeX, edgeY, orientation (vertical|horizontal)}].',
+'',
+'Светильники (бра):',
+'  lightsMount, lightsList[{distX, distY, edgeX, edgeY}].',
+'',
+'Разрезы: cutV, cutVPos, cutH, cutHPos.',
+'',
+'Зеркало в нишу: mirrorMeasureMode, mirrorInset,',
+'  mirrorNicheCutMode, mirrorNicheRefCorner.',
+'',
+'Душевая: showerH, showerPanels, showerProfiles, showerHandle,',
+'  hingeCount, showerFitting (7 цветов), sillType.',
+'',
+'Фартук: apronMaterial, apronShape, apronDirection,',
+'  apronSections, apronMeasureMode, apronInset.',
+'',
+'Панно: pannoLayout. Полка: shelfDepth.',
+'Фото: photos[photoId]. Чертёж: drawingIsoId, drawingFrontId.',
+'Скругление: roundedCorners, cornerRadius (мм).',
+'',
+'## db.clients',
+'id, lastName, firstName, middleName, phone, phoneExtra,',
+'email, note, tags[], archived, createdAt, createdBy.',
+'',
+'## db.addresses',
+'id, clientId, label.',
+'region, district, settlement, city, street, house, building,',
+'postalCode, entrance, floor, apartment, intercom.',
+'liftNeeded, liftFloor, parkingCarry, needPass.',
+'objectType (flat|house|snt|office|commercial),',
+'complexName, accessNote, geoLat, geoLon, geoNote.',
+'',
+'## db.events',
+'id, type (measure|remeasure|install|demontage|delivery|purchase|',
+'return|tempering_out|tempering_in|meeting),',
+'orderId, date, time, duration, assignedUserIds[],',
+'note, status, legFromPrev {km, minutes}.',
+'',
+'## db.routes',
+'id, title, date, assignedUserId.',
+'points[{kind, refId, addressId, label, note, time, legFromPrev}].',
+'',
+'## db.contractors',
+'id, name, category, contactName, phone, email, addressId,',
+'note, archived.',
+'',
+'## db.notifications',
+'id, userId, type, title, body,',
+'linkOrderId, linkEventId, linkRouteId, createdAt, readAt.',
+'',
+'## db.users',
+'id, name, role, login, phone, pinHash, pinPlain,',
+'active, mustChangePassword, permsOverride, lastLogin.',
+'',
+'## db.roles — кастомные права ролей',
+'{roleKey: {permKey: bool}} или null.',
+'',
+'## db.settings',
+'phone, email, website, telegram, slogan, baseAddress.',
+'prices (legacy), priceBook (7 групп, ~70 позиций).',
+'morningDigest, appCheckSiteKey.',
+'',
+'## db.trash, db.sync',
+'Корзина: {type, deletedAt, deletedBy, order/item}.',
+'Синхронизация: enabled, deviceId, status, lastPullAt,',
+'  lastPushAt, lastError, authUid, authStatus, acStatus.',
+'',
+'## Счётчики',
+'nextOrder, nextItem, nextUser, nextClient, nextAddress,',
+'nextEvent, nextContractor, nextRoute, nextNotification.'
+    ].join('\n') };
+
+    d.PRIVACY = { title:'🔒 PRIVACY', content:[
+'# Приватность и данные',
+'',
+'## Локально (на устройстве)',
+'▸ Вся база приложения.',
+'▸ Фото и чертежи (IndexedDB, zerzalo_photos_v1).',
+'▸ Черновики (sessionStorage, 24 часа).',
+'▸ Настройки темы и сортировки.',
+'',
+'## В Firebase',
+'▸ Заказы, позиции, клиенты, адреса, события.',
+'▸ Маршруты, контрагенты, уведомления.',
+'▸ Оплата заказа и замера.',
+'▸ Болты, розетки, светильники, вырезы.',
+'▸ Пользователи и роли (PIN не уходит).',
+'▸ Прайс и настройки компании.',
+'',
+'Фото и чертежи в Firebase не уходят.',
+'',
+'## Внешние сервисы',
+'▸ Firebase Realtime Database (Google).',
+'▸ Google Fonts.',
+'▸ DaData Suggestions API.',
+'▸ Nominatim (OpenStreetMap).',
+'▸ OSRM.',
+'▸ Яндекс.Карты / Apple Maps (только по тапу).',
+'',
+'## Доступ',
+'▸ apiKey Firebase публичный — это норма для веба.',
+'▸ Security Rules требуют auth != null.',
+'▸ PIN хешируется SHA-256 с солью user.id.',
+'',
+'## Чего нет',
+'▸ Куки для трекинга.',
+'▸ Аналитики (Google/Яндекс).',
+'▸ Передачи данных третьим лицам.',
+'',
+'## Отзыв данных',
+'▸ Экспорт: Настройки → 📥 Экспорт (JSON).',
+'▸ Удаление: Настройки → 🗑 Удалить все данные.'
+    ].join('\n') };
+
+    d.BACKUP = { title:'💾 BACKUP', content:[
+'# Резервное копирование',
+'',
+'## Экспорт',
+'Настройки → 📥 Экспорт (JSON).',
+'Файл: zerzalo-backup-YYYY-MM-DD.json.',
+'',
+'Что в бэкапе:',
+'▸ Все заказы, позиции, клиенты, адреса.',
+'▸ Оплата заказа и замера.',
+'▸ Болты, розетки, светильники, вырезы.',
+'▸ События, маршруты, контрагенты.',
+'▸ Пользователи, уведомления.',
+'▸ Прайс, настройки.',
+'',
+'Что не входит:',
+'▸ Токен Firebase.',
+'▸ Черновики.',
+'▸ PIN в открытом виде.',
+'',
+'## Импорт',
+'Только для admin.',
+'Настройки → 📤 Импорт → JSON.',
+'Полностью заменяет текущую базу.',
+'',
+'## Синхронизация',
+'При включённой синхронизации:',
+'▸ изменения уходят в облако через ~1,5 сек;',
+'▸ свежие данные подтягиваются при запуске;',
+'▸ last-write-wins по updatedAt.',
+'',
+'Защита (v4.2.8):',
+'▸ до первого pull метаданные не уходят;',
+'▸ первый pull заменяет их серверными;',
+'▸ кнопки «📥 Только подтянуть» и «📤 Отправить сейчас».',
+'',
+'## Сценарии восстановления',
+'1. Потерял телефон → новый, синхронизация → всё подтянется.',
+'2. Случайное удаление → восстановить из JSON.',
+'3. Сломалась база → Firebase Backups (30 дней).',
+'',
+'## Рекомендации',
+'▸ Экспорт раз в неделю.',
+'▸ Бэкапы в трёх местах.',
+'▸ Перед крупными изменениями — экспорт.'
+    ].join('\n') };
+
+    d.AUTHOR = { title:'👤 Об авторе', content:[
+'# Об авторе',
+'',
+'Зерцало — внутренний инструмент стекольной компании.',
+'Разработано под задачи замеров и монтажа зеркал, стекла,',
+'душевых перегородок, фартуков, полок и панно.',
+'',
+'## Разработчик',
+'AUTHOR_NAME_PLACEHOLDER',
+'',
+'Telegram: AUTHOR_TG_PLACEHOLDER',
+'',
+'## Год',
+'© 2026. Все права у заказчика.',
+'',
+'## Обратная связь',
+'Все вопросы, идеи и баги — в Telegram разработчику.',
+''
+    ].join('\n').replace('AUTHOR_NAME_PLACEHOLDER', AUTHOR_NAME).replace('AUTHOR_TG_PLACEHOLDER', AUTHOR_TG) };
+
+    d.TECH = { title:'🛠 Техдокументация', content:[
+'# Техническая документация',
+'',
+'## Архитектура',
+'index.html — ядро приложения (HTML+CSS+JS, без сборки).',
+'app-patches.js — динамические патчи, подгружаются',
+'  из GitHub при каждом запуске.',
+'',
+'## Файлы и репозиторий',
+'github.com/elcomandan1e/Zercalo-Ver-1',
+'· index.html — ядро.',
+'· app-patches.js — активные патчи.',
+'· Статика GitHub Pages.',
+'',
+'## Стек',
+'· HTML5, CSS3 (grid, flexbox, custom properties).',
+'· JavaScript ES2017 (async/await, без транспиляции).',
+'· Firebase Realtime Database v10 (compat-режим).',
+'· Firebase Anonymous Auth.',
+'· IndexedDB (фото, чертежи).',
+'· Service Worker + PWA-манифест.',
+'',
+'## Внешние сервисы',
+'· Firebase Realtime Database — синхронизация.',
+'· DaData — автозаполнение адресов (Москва + 8 областей).',
+'· Nominatim — геокодирование.',
+'· OSRM — маршруты (км, минуты).',
+'· Google Fonts — Montserrat, PT Sans Narrow.',
+'',
+'## Схема синхронизации',
+'push — при каждом save() через 1500 мс дебаунс.',
+'pull — подписка .on("value") + фолбэк .once() при возврате.',
+'merge — last-write-wins по updatedAt сущностей.',
+'',
+'## Патчи — как работает',
+'1. В конце index.html есть загрузчик app-patches.js.',
+'2. При запуске делается fetch с ?t=Date.now() — обход кэша.',
+'3. Код оборачивается в new Function() и выполняется.',
+'4. Если код падает — приложение работает как есть.',
+'5. Для отрисовки после загрузки — window._zrzPatchInit().',
+'',
+'## Маркеры состояний',
+'window._zrzCardRippleBound — ripple на карточках.',
+'window._zrzTechDrawWrapped — обёртки чертежа.',
+'window._zrzOpenTechDrawWrapped — фикс openTechDraw.',
+'window._zrzOpenItemWrapped — UI болтов, вырезов.',
+'window._zrzOpenSettingsWrapped — блок защиты в настройках.',
+'',
+'## CSS-классы патча',
+'zrz-card-ripple — волна на карточках.',
+'zrz-orientation-chips — чипы ориентации розеток.',
+'zrz-cutout-ui — UI отступа выреза.',
+'',
+'## Отладка',
+'Режим отладки: URL ?debug=1 — красная полоса ошибок сверху.',
+'Консоль: [app-patches] vX.Y.Z активен — код загружен.',
+'Команды: zrzPullOnly(), zrzPushNow() — вручную.',
+'',
+'## Хранилище',
+'localStorage — mirror_orders_v2.',
+'sessionStorage — черновики позиций.',
+'IndexedDB — zerzalo_photos_v1 (фото и чертежи).',
+'',
+'## Безопасность',
+'PIN — SHA-256 с солью user.id.',
+'Security Rules Firebase — auth != null.',
+'Push при первом запуске — без users/roles/settings.',
+'',
+'## Версии',
+'SCHEMA_VERSION — версия схемы (миграции).',
+'APP_VERSION — ядро (в index.html).',
+'PATCH_VERSION — активный патч (в app-patches.js).',
+''
+    ].join('\n') };
+
+    return d;
+  }
+  function installDocs(){
+    try{
+      window.ZRZ_DOCS = buildDocs();
+      if(window._docsTab && !window.ZRZ_DOCS[window._docsTab]) window._docsTab = 'README';
+    }catch(e){}
+  }
+
   function tagVersion(){
     var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
     var n;
@@ -1225,6 +1517,7 @@
   function apply(){
     try{ injectCss(); }catch(e){}
     try{ installFittings(); }catch(e){}
+    try{ installDocs(); }catch(e){}
     try{ hideOsrm(); }catch(e){}
     try{ wrapSavePayment(); }catch(e){}
     try{ wrapSaveMasterComment(); }catch(e){}
@@ -1244,6 +1537,7 @@
   }
 
   try{ installFittings(); }catch(e){}
+  try{ installDocs(); }catch(e){}
 
   var mo = new MutationObserver(function(){
     if(_lock) return;
