@@ -1,4 +1,279 @@
-/* patches/03-sync.js — синхронизация v2 (защита базы)
+/* ============ ZERZALO · SYNC v2 · Часть 4 — Файл + Индикатор + Миграция ============ */
+(function(){
+  if(window._zrz03SyncV2P4) return;
+  window._zrz03SyncV2P4 = true;
+
+  /* ---------- Утилиты ---------- */
+
+  function _today(){
+    var d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  }
+
+  function _buildFullPayload(){
+    try {
+      if(typeof window.buildSyncPayload === 'function'){
+        var p = window.buildSyncPayload();
+        p.exportedAt = Date.now();
+        return p;
+      }
+    } catch(e){}
+    try {
+      var d = window.db || {};
+      return {
+        schemaVersion: d.schemaVersion || 17,
+        exportedAt: Date.now(),
+        orders: d.orders || [], items: d.items || [], users: d.users || [],
+        clients: d.clients || [], addresses: d.addresses || [],
+        events: d.events || [], contractors: d.contractors || [],
+        routes: d.routes || [], notifications: d.notifications || [],
+        roles: d.roles || null, settings: d.settings || {},
+        nextOrder: d.nextOrder || 1, nextItem: d.nextItem || 1,
+        nextUser: d.nextUser || 1, nextClient: d.nextClient || 1,
+        nextAddress: d.nextAddress || 1, nextEvent: d.nextEvent || 1,
+        nextContractor: d.nextContractor || 1, nextRoute: d.nextRoute || 1,
+        nextNotification: d.nextNotification || 1
+      };
+    } catch(e){ return null; }
+  }
+
+  function _saveJsonToFile(silent){
+    var payload = _buildFullPayload();
+    if(!payload){
+      if(!silent && typeof uiAlert === 'function') uiAlert('Не удалось собрать данные');
+      return Promise.reject(new Error('no payload'));
+    }
+    var json = JSON.stringify(payload, null, 2);
+    var fileName = 'zerzalo-backup-' + _today() + '.json';
+
+    /* 1. Web Share API — самый надёжный на Android */
+    try {
+      if(navigator.canShare && window.File && window.Blob){
+        var blob = new Blob([json], { type:'application/json' });
+        var file = new File([blob], fileName, { type:'application/json' });
+        if(navigator.canShare({ files: [file] })){
+          return navigator.share({
+            files: [file],
+            title: 'Зерцало — резервная копия',
+            text: 'Резервная копия базы от ' + new Date().toLocaleString('ru-RU')
+          }).then(function(){
+            if(!silent && typeof uiAlert === 'function') uiAlert('✔ Файл отправлен');
+          }).catch(function(e){
+            if(e && e.name === 'AbortError') return;
+            /* Отмена — молча выходим */
+            throw e;
+          });
+        }
+      }
+    } catch(e){}
+
+    /* 2. Классическое скачивание через download */
+    try {
+      var url = URL.createObjectURL(new Blob([json], { type:'application/json' }));
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(function(){ a.remove(); }, 100);
+      /* revoke с задержкой — некоторые Android не успевают скачать */
+      setTimeout(function(){ try{ URL.revokeObjectURL(url); }catch(e){} }, 60000);
+      if(!silent && typeof uiAlert === 'function') uiAlert('✔ Файл сохранён в папку «Загрузки»');
+      return Promise.resolve();
+    } catch(e){
+      if(!silent && typeof uiAlert === 'function') uiAlert('Ошибка: ' + ((e && e.message) || e));
+      return Promise.reject(e);
+    }
+  }
+
+  function _copyJsonToClipboard(){
+    var payload = _buildFullPayload();
+    if(!payload) return;
+    var json = JSON.stringify(payload);
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(json).then(function(){
+        if(typeof uiAlert === 'function') uiAlert('✔ JSON скопирован в буфер обмена\n\nРазмер: ' + Math.round(json.length/1024) + ' КБ');
+      }).catch(function(e){
+        if(typeof uiAlert === 'function') uiAlert('Не удалось скопировать: ' + ((e && e.message) || e));
+      });
+    } else {
+      if(typeof uiAlert === 'function') uiAlert('Копирование недоступно в этом браузере');
+    }
+  }
+
+  /* ---------- A. Кнопки в настройках и Истории ---------- */
+
+  window.zrzSyncSaveToFile = function(){ _saveJsonToFile(false); };
+  window.zrzSyncCopyToClipboard = _copyJsonToClipboard;
+
+  function _augmentSettings(){
+    var modal = document.querySelector('.modal');
+    if(!modal) return;
+    if(modal.querySelector('#zrz_save_file_btn')) return;
+    /* Вставляем в блок sync-panel или в общий */
+    var btns = modal.querySelectorAll('.btn');
+    var anchor = null;
+    for(var i = 0; i < btns.length; i++){
+      var t = (btns[i].textContent || '').trim();
+      if(t.indexOf('Экспорт') >= 0 || t.indexOf('Отмена') >= 0 || t === 'Закрыть'){ anchor = btns[i]; break; }
+    }
+    if(!anchor) return;
+
+    var html = ''
+      + '<div class="section-title" style="margin-top:16px">💾 Резервная копия</div>'
+      + '<button type="button" id="zrz_save_file_btn" class="btn btn-primary" onclick="zrzSyncSaveToFile()">💾 Сохранить базу в файл</button>'
+      + '<button type="button" class="btn btn-secondary" onclick="zrzSyncCopyToClipboard()">📋 Скопировать JSON в буфер</button>'
+      + '<div style="font-size:11.5px;color:var(--muted);margin-top:6px;line-height:1.5">Раз в неделю сохраняй копию — в Telegram «Избранное», на Google Drive или на почту. Это страховка на случай сбоя.</div>';
+    anchor.insertAdjacentHTML('beforebegin', html);
+  }
+
+  function _augmentHistoryScreen(){
+    /* В Истории базы тоже добавляем кнопку сохранения */
+    var modal = document.querySelector('.modal');
+    if(!modal) return;
+    if(!modal.querySelector('#zrz-load-css')) return; /* не наш экран */
+    if(modal.querySelector('#zrz_hist_save_btn')) return;
+    var anchor = null;
+    var btns = modal.querySelectorAll('.btn');
+    for(var i = 0; i < btns.length; i++){
+      if((btns[i].textContent || '').indexOf('Закрыть') >= 0){ anchor = btns[i]; break; }
+    }
+    if(!anchor) return;
+    var html = '<button type="button" id="zrz_hist_save_btn" class="btn btn-primary" onclick="zrzSyncSaveToFile()">💾 Сохранить текущую базу в файл</button>';
+    anchor.insertAdjacentHTML('beforebegin', html);
+  }
+
+  /* ---------- B. Индикатор в шапке ---------- */
+
+  var _lastStatus = 'off';
+
+  function _setIndicator(state){
+    var dot = document.getElementById('syncDot');
+    if(!dot) return;
+    if(_lastStatus === state && dot.dataset.zrzState === state) return;
+    _lastStatus = state;
+    dot.dataset.zrzState = state;
+
+    var map = {
+      idle:     { color: '#4caf7d', title: 'Синхронизировано' },
+      syncing:  { color: '#d9924a', title: 'Сохраняем…' },
+      error:    { color: '#c96565', title: 'Ошибка синхронизации' },
+      off:      { color: '#aab4c5', title: 'Офлайн или выключено' }
+    };
+    var m = map[state] || map.off;
+    dot.style.background = m.color;
+    dot.title = m.title;
+    var btn = document.getElementById('syncBtn');
+    if(btn) btn.title = 'Синхронизация — ' + m.title;
+  }
+
+  function _refreshIndicator(){
+    try {
+      if(!window.db || !window.db.sync) return;
+      if(!window.db.sync.enabled){ _setIndicator('off'); return; }
+      var st = window.db.sync.status || 'idle';
+      if(st === 'idle') _setIndicator('idle');
+      else if(st === 'syncing') _setIndicator('syncing');
+      else if(st === 'error') _setIndicator('error');
+      else _setIndicator('off');
+    } catch(e){}
+  }
+
+  /* Оборачиваем updateSyncDot ядра, чтобы наш стиль применялся всегда */
+  function _wrapUpdateDot(){
+    if(window._zrzUpdateDotWrapped) return;
+    if(typeof window.updateSyncDot !== 'function') return;
+    var orig = window.updateSyncDot;
+    window.updateSyncDot = function(){
+      var r = orig.apply(this, arguments);
+      setTimeout(_refreshIndicator, 0);
+      return r;
+    };
+    window._zrzUpdateDotWrapped = true;
+  }
+
+  /* ---------- C. Страховка при первом запуске ---------- */
+
+  var FIRST_RUN_KEY = 'zrz_sync_v2_activated';
+
+  function _checkFirstRun(){
+    try {
+      if(localStorage.getItem(FIRST_RUN_KEY) === '1') return;
+      if(!window.db || !window.db.currentUserId) return;
+
+      /* Даём данным загрузиться */
+      setTimeout(function(){
+        try {
+          var d = window.db || {};
+          var hasData = (d.orders||[]).length + (d.events||[]).length + (d.clients||[]).length + (d.items||[]).length;
+          if(hasData === 0){
+            /* Нет данных — нечего сохранять, просто помечаем */
+            localStorage.setItem(FIRST_RUN_KEY, '1');
+            return;
+          }
+          /* Показываем диалог */
+          var msg = 'Первый запуск новой системы.\n\n'
+                  + 'Сейчас у вас в базе:\n'
+                  + '• Заказов: ' + (d.orders||[]).length + '\n'
+                  + '• Событий: ' + (d.events||[]).length + '\n'
+                  + '• Клиентов: ' + (d.clients||[]).length + '\n\n'
+                  + 'Сохранить резервную копию в файл?\n'
+                  + 'Это займёт 5 секунд и убережёт данные на будущее.';
+          if(typeof uiConfirm === 'function'){
+            uiConfirm(msg, '💾 Первый запуск', { yesLabel:'Сохранить файл', noLabel:'Пропустить' })
+              .then(function(ok){
+                if(ok) _saveJsonToFile(false);
+                localStorage.setItem(FIRST_RUN_KEY, '1');
+              });
+          } else {
+            localStorage.setItem(FIRST_RUN_KEY, '1');
+          }
+        } catch(e){
+          try { localStorage.setItem(FIRST_RUN_KEY, '1'); } catch(_){}
+        }
+      }, 3000);
+    } catch(e){}
+  }
+
+  /* ---------- Запуск ---------- */
+
+  function apply(){
+    try { _wrapUpdateDot(); } catch(e){}
+    try { _augmentSettings(); } catch(e){}
+    try { _augmentHistoryScreen(); } catch(e){}
+    try { _refreshIndicator(); } catch(e){}
+  }
+
+  apply();
+  setTimeout(apply, 500);
+  setTimeout(apply, 1500);
+  setTimeout(apply, 3000);
+
+  /* Автопроверка индикатора */
+  setInterval(_refreshIndicator, 3000);
+
+  /* Обёртка openSyncPanel — добавляем кнопки сохранения */
+  (function(){
+    if(window._zrzOpenSyncPanelWrapped) return;
+    if(typeof window.openSyncPanel !== 'function') return;
+    var orig = window.openSyncPanel;
+    window.openSyncPanel = function(){
+      var r = orig.apply(this, arguments);
+      setTimeout(_augmentSettings, 150);
+      return r;
+    };
+    window._zrzOpenSyncPanelWrapped = true;
+  })();
+
+  /* Первый запуск — через 3 сек после старта, если уже вошли */
+  setTimeout(_checkFirstRun, 3000);
+  document.addEventListener('visibilitychange', function(){
+    if(document.visibilityState === 'visible') setTimeout(_checkFirstRun, 1000);
+  });
+
+  try{ console.log('[03-sync v2 p4] файл + индикатор + страховка первого запуска'); }catch(_){}
+})();/* patches/03-sync.js — синхронизация v2 (защита базы)
    Часть 1: Ур.1 — защита от пустоты; Ур.2 — снапшоты
    Часть 2: Экран «История базы» + автоснапшот в 23:00
    Часть 3: Watchdog входа + overlay загрузки
@@ -741,4 +1016,280 @@
   }, true);
 
   try{ console.log('[03-sync v2 p3] watchdog входа активен'); }catch(_){}
+})();
+/* ============ ZERZALO · SYNC v2 · Часть 4 — Файл + Индикатор + Миграция ============ */
+(function(){
+  if(window._zrz03SyncV2P4) return;
+  window._zrz03SyncV2P4 = true;
+
+  /* ---------- Утилиты ---------- */
+
+  function _today(){
+    var d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  }
+
+  function _buildFullPayload(){
+    try {
+      if(typeof window.buildSyncPayload === 'function'){
+        var p = window.buildSyncPayload();
+        p.exportedAt = Date.now();
+        return p;
+      }
+    } catch(e){}
+    try {
+      var d = window.db || {};
+      return {
+        schemaVersion: d.schemaVersion || 17,
+        exportedAt: Date.now(),
+        orders: d.orders || [], items: d.items || [], users: d.users || [],
+        clients: d.clients || [], addresses: d.addresses || [],
+        events: d.events || [], contractors: d.contractors || [],
+        routes: d.routes || [], notifications: d.notifications || [],
+        roles: d.roles || null, settings: d.settings || {},
+        nextOrder: d.nextOrder || 1, nextItem: d.nextItem || 1,
+        nextUser: d.nextUser || 1, nextClient: d.nextClient || 1,
+        nextAddress: d.nextAddress || 1, nextEvent: d.nextEvent || 1,
+        nextContractor: d.nextContractor || 1, nextRoute: d.nextRoute || 1,
+        nextNotification: d.nextNotification || 1
+      };
+    } catch(e){ return null; }
+  }
+
+  function _saveJsonToFile(silent){
+    var payload = _buildFullPayload();
+    if(!payload){
+      if(!silent && typeof uiAlert === 'function') uiAlert('Не удалось собрать данные');
+      return Promise.reject(new Error('no payload'));
+    }
+    var json = JSON.stringify(payload, null, 2);
+    var fileName = 'zerzalo-backup-' + _today() + '.json';
+
+    /* 1. Web Share API — самый надёжный на Android */
+    try {
+      if(navigator.canShare && window.File && window.Blob){
+        var blob = new Blob([json], { type:'application/json' });
+        var file = new File([blob], fileName, { type:'application/json' });
+        if(navigator.canShare({ files: [file] })){
+          return navigator.share({
+            files: [file],
+            title: 'Зерцало — резервная копия',
+            text: 'Резервная копия базы от ' + new Date().toLocaleString('ru-RU')
+          }).then(function(){
+            if(!silent && typeof uiAlert === 'function') uiAlert('✔ Файл отправлен');
+          }).catch(function(e){
+            if(e && e.name === 'AbortError') return;
+            /* Отмена — молча выходим */
+            throw e;
+          });
+        }
+      }
+    } catch(e){}
+
+    /* 2. Классическое скачивание через download */
+    try {
+      var url = URL.createObjectURL(new Blob([json], { type:'application/json' }));
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(function(){ a.remove(); }, 100);
+      /* revoke с задержкой — некоторые Android не успевают скачать */
+      setTimeout(function(){ try{ URL.revokeObjectURL(url); }catch(e){} }, 60000);
+      if(!silent && typeof uiAlert === 'function') uiAlert('✔ Файл сохранён в папку «Загрузки»');
+      return Promise.resolve();
+    } catch(e){
+      if(!silent && typeof uiAlert === 'function') uiAlert('Ошибка: ' + ((e && e.message) || e));
+      return Promise.reject(e);
+    }
+  }
+
+  function _copyJsonToClipboard(){
+    var payload = _buildFullPayload();
+    if(!payload) return;
+    var json = JSON.stringify(payload);
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(json).then(function(){
+        if(typeof uiAlert === 'function') uiAlert('✔ JSON скопирован в буфер обмена\n\nРазмер: ' + Math.round(json.length/1024) + ' КБ');
+      }).catch(function(e){
+        if(typeof uiAlert === 'function') uiAlert('Не удалось скопировать: ' + ((e && e.message) || e));
+      });
+    } else {
+      if(typeof uiAlert === 'function') uiAlert('Копирование недоступно в этом браузере');
+    }
+  }
+
+  /* ---------- A. Кнопки в настройках и Истории ---------- */
+
+  window.zrzSyncSaveToFile = function(){ _saveJsonToFile(false); };
+  window.zrzSyncCopyToClipboard = _copyJsonToClipboard;
+
+  function _augmentSettings(){
+    var modal = document.querySelector('.modal');
+    if(!modal) return;
+    if(modal.querySelector('#zrz_save_file_btn')) return;
+    /* Вставляем в блок sync-panel или в общий */
+    var btns = modal.querySelectorAll('.btn');
+    var anchor = null;
+    for(var i = 0; i < btns.length; i++){
+      var t = (btns[i].textContent || '').trim();
+      if(t.indexOf('Экспорт') >= 0 || t.indexOf('Отмена') >= 0 || t === 'Закрыть'){ anchor = btns[i]; break; }
+    }
+    if(!anchor) return;
+
+    var html = ''
+      + '<div class="section-title" style="margin-top:16px">💾 Резервная копия</div>'
+      + '<button type="button" id="zrz_save_file_btn" class="btn btn-primary" onclick="zrzSyncSaveToFile()">💾 Сохранить базу в файл</button>'
+      + '<button type="button" class="btn btn-secondary" onclick="zrzSyncCopyToClipboard()">📋 Скопировать JSON в буфер</button>'
+      + '<div style="font-size:11.5px;color:var(--muted);margin-top:6px;line-height:1.5">Раз в неделю сохраняй копию — в Telegram «Избранное», на Google Drive или на почту. Это страховка на случай сбоя.</div>';
+    anchor.insertAdjacentHTML('beforebegin', html);
+  }
+
+  function _augmentHistoryScreen(){
+    /* В Истории базы тоже добавляем кнопку сохранения */
+    var modal = document.querySelector('.modal');
+    if(!modal) return;
+    if(!modal.querySelector('#zrz-load-css')) return; /* не наш экран */
+    if(modal.querySelector('#zrz_hist_save_btn')) return;
+    var anchor = null;
+    var btns = modal.querySelectorAll('.btn');
+    for(var i = 0; i < btns.length; i++){
+      if((btns[i].textContent || '').indexOf('Закрыть') >= 0){ anchor = btns[i]; break; }
+    }
+    if(!anchor) return;
+    var html = '<button type="button" id="zrz_hist_save_btn" class="btn btn-primary" onclick="zrzSyncSaveToFile()">💾 Сохранить текущую базу в файл</button>';
+    anchor.insertAdjacentHTML('beforebegin', html);
+  }
+
+  /* ---------- B. Индикатор в шапке ---------- */
+
+  var _lastStatus = 'off';
+
+  function _setIndicator(state){
+    var dot = document.getElementById('syncDot');
+    if(!dot) return;
+    if(_lastStatus === state && dot.dataset.zrzState === state) return;
+    _lastStatus = state;
+    dot.dataset.zrzState = state;
+
+    var map = {
+      idle:     { color: '#4caf7d', title: 'Синхронизировано' },
+      syncing:  { color: '#d9924a', title: 'Сохраняем…' },
+      error:    { color: '#c96565', title: 'Ошибка синхронизации' },
+      off:      { color: '#aab4c5', title: 'Офлайн или выключено' }
+    };
+    var m = map[state] || map.off;
+    dot.style.background = m.color;
+    dot.title = m.title;
+    var btn = document.getElementById('syncBtn');
+    if(btn) btn.title = 'Синхронизация — ' + m.title;
+  }
+
+  function _refreshIndicator(){
+    try {
+      if(!window.db || !window.db.sync) return;
+      if(!window.db.sync.enabled){ _setIndicator('off'); return; }
+      var st = window.db.sync.status || 'idle';
+      if(st === 'idle') _setIndicator('idle');
+      else if(st === 'syncing') _setIndicator('syncing');
+      else if(st === 'error') _setIndicator('error');
+      else _setIndicator('off');
+    } catch(e){}
+  }
+
+  /* Оборачиваем updateSyncDot ядра, чтобы наш стиль применялся всегда */
+  function _wrapUpdateDot(){
+    if(window._zrzUpdateDotWrapped) return;
+    if(typeof window.updateSyncDot !== 'function') return;
+    var orig = window.updateSyncDot;
+    window.updateSyncDot = function(){
+      var r = orig.apply(this, arguments);
+      setTimeout(_refreshIndicator, 0);
+      return r;
+    };
+    window._zrzUpdateDotWrapped = true;
+  }
+
+  /* ---------- C. Страховка при первом запуске ---------- */
+
+  var FIRST_RUN_KEY = 'zrz_sync_v2_activated';
+
+  function _checkFirstRun(){
+    try {
+      if(localStorage.getItem(FIRST_RUN_KEY) === '1') return;
+      if(!window.db || !window.db.currentUserId) return;
+
+      /* Даём данным загрузиться */
+      setTimeout(function(){
+        try {
+          var d = window.db || {};
+          var hasData = (d.orders||[]).length + (d.events||[]).length + (d.clients||[]).length + (d.items||[]).length;
+          if(hasData === 0){
+            /* Нет данных — нечего сохранять, просто помечаем */
+            localStorage.setItem(FIRST_RUN_KEY, '1');
+            return;
+          }
+          /* Показываем диалог */
+          var msg = 'Первый запуск новой системы.\n\n'
+                  + 'Сейчас у вас в базе:\n'
+                  + '• Заказов: ' + (d.orders||[]).length + '\n'
+                  + '• Событий: ' + (d.events||[]).length + '\n'
+                  + '• Клиентов: ' + (d.clients||[]).length + '\n\n'
+                  + 'Сохранить резервную копию в файл?\n'
+                  + 'Это займёт 5 секунд и убережёт данные на будущее.';
+          if(typeof uiConfirm === 'function'){
+            uiConfirm(msg, '💾 Первый запуск', { yesLabel:'Сохранить файл', noLabel:'Пропустить' })
+              .then(function(ok){
+                if(ok) _saveJsonToFile(false);
+                localStorage.setItem(FIRST_RUN_KEY, '1');
+              });
+          } else {
+            localStorage.setItem(FIRST_RUN_KEY, '1');
+          }
+        } catch(e){
+          try { localStorage.setItem(FIRST_RUN_KEY, '1'); } catch(_){}
+        }
+      }, 3000);
+    } catch(e){}
+  }
+
+  /* ---------- Запуск ---------- */
+
+  function apply(){
+    try { _wrapUpdateDot(); } catch(e){}
+    try { _augmentSettings(); } catch(e){}
+    try { _augmentHistoryScreen(); } catch(e){}
+    try { _refreshIndicator(); } catch(e){}
+  }
+
+  apply();
+  setTimeout(apply, 500);
+  setTimeout(apply, 1500);
+  setTimeout(apply, 3000);
+
+  /* Автопроверка индикатора */
+  setInterval(_refreshIndicator, 3000);
+
+  /* Обёртка openSyncPanel — добавляем кнопки сохранения */
+  (function(){
+    if(window._zrzOpenSyncPanelWrapped) return;
+    if(typeof window.openSyncPanel !== 'function') return;
+    var orig = window.openSyncPanel;
+    window.openSyncPanel = function(){
+      var r = orig.apply(this, arguments);
+      setTimeout(_augmentSettings, 150);
+      return r;
+    };
+    window._zrzOpenSyncPanelWrapped = true;
+  })();
+
+  /* Первый запуск — через 3 сек после старта, если уже вошли */
+  setTimeout(_checkFirstRun, 3000);
+  document.addEventListener('visibilitychange', function(){
+    if(document.visibilityState === 'visible') setTimeout(_checkFirstRun, 1000);
+  });
+
+  try{ console.log('[03-sync v2 p4] файл + индикатор + страховка первого запуска'); }catch(_){}
 })();
