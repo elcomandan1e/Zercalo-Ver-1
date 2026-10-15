@@ -14,7 +14,7 @@
     '04-docs.js',
     '05-ui.js',
     '06-nav.js',
-    '07-gestures.js',
+    //'07-gestures.js',
     '08-order-num.js',
     '10-statuses.js',
     '11-status-picker.js',
