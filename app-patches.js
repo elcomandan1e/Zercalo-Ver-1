@@ -170,3 +170,365 @@
 
   window.zrzReloadPatches = function(){ MODULES.forEach(loadOne); };
 })();
+/* ============ ZERZALO · SYNC v2 · Часть 2 — История базы ============ */
+(function(){
+  if(window._zrz03SyncV2P2) return;
+  window._zrz03SyncV2P2 = true;
+
+  var _autoSnapshotDoneFor = '';
+
+  /* ---------- Работа с backup-ref ---------- */
+
+  function _backupRef(){
+    try {
+      if(!window.firebase || typeof window.firebase.database !== 'function') return null;
+      return window.firebase.database().ref('zerzalo_backups');
+    } catch(e){ return null; }
+  }
+
+  function _fmtNum(n){ return Math.round(Number(n)||0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' '); }
+
+  function _fmtDate(ms){
+    try {
+      var d = new Date(ms);
+      return d.toLocaleString('ru-RU', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
+    } catch(e){ return '—'; }
+  }
+
+  function _snapshotCount(b){
+    return (Array.isArray(b.orders)?b.orders.length:0)
+         + (Array.isArray(b.events)?b.events.length:0)
+         + (Array.isArray(b.clients)?b.clients.length:0);
+  }
+
+  /* ---------- Ручной снапшот ---------- */
+
+  function _makeSnapshotNow(){
+    var ref = window._fbDbRef;
+    if(!ref){
+      if(typeof uiAlert === 'function') uiAlert('Firebase не инициализирован');
+      return Promise.reject(new Error('no ref'));
+    }
+    var b = _backupRef();
+    if(!b){
+      if(typeof uiAlert === 'function') uiAlert('Нет доступа к zerzalo_backups');
+      return Promise.reject(new Error('no backup ref'));
+    }
+
+    return ref.once('value').then(function(snap){
+      var cur = snap.val();
+      if(!cur){
+        if(typeof uiAlert === 'function') uiAlert('Нечего сохранять — в облаке пусто');
+        return;
+      }
+      var key = 'z' + Date.now();
+      var payload = {
+        createdAt: Date.now(),
+        schemaVersion: cur.schemaVersion || 0,
+        orders: cur.orders || [],
+        events: cur.events || [],
+        clients: cur.clients || [],
+        items: cur.items || [],
+        addresses: cur.addresses || [],
+        routes: cur.routes || [],
+        contractors: cur.contractors || [],
+        users: cur.users || [],
+        notifications: cur.notifications || [],
+        roles: cur.roles || null,
+        settings: cur.settings || {},
+        nextOrder: cur.nextOrder || 1,
+        nextItem: cur.nextItem || 1,
+        nextUser: cur.nextUser || 1,
+        nextClient: cur.nextClient || 1,
+        nextAddress: cur.nextAddress || 1,
+        nextEvent: cur.nextEvent || 1,
+        nextContractor: cur.nextContractor || 1,
+        nextRoute: cur.nextRoute || 1,
+        nextNotification: cur.nextNotification || 1
+      };
+      return b.child(key).set(payload).then(function(){
+        return _prune(b).then(function(){
+          if(typeof uiAlert === 'function') uiAlert('✔ Снапшот сохранён: ' + _fmtDate(Date.now()));
+          return key;
+        });
+      });
+    }).catch(function(e){
+      if(typeof uiAlert === 'function') uiAlert('Ошибка снапшота: ' + ((e && e.message) || e));
+      throw e;
+    });
+  }
+
+  function _prune(b){
+    return b.once('value').then(function(snap){
+      var all = snap.val() || {};
+      var keys = Object.keys(all).sort();
+      if(keys.length <= 30) return;
+      var toDelete = keys.slice(0, keys.length - 30);
+      return Promise.all(toDelete.map(function(k){ return b.child(k).remove().catch(function(){}); }));
+    }).catch(function(){});
+  }
+
+  /* ---------- Откат к снапшоту ---------- */
+
+  function _restoreSnapshot(key){
+    var b = _backupRef();
+    if(!b) return Promise.reject(new Error('no backup ref'));
+    return b.child(key).once('value').then(function(snap){
+      var payload = snap.val();
+      if(!payload) throw new Error('снапшот пуст');
+
+      var main = window._fbDbRef;
+      if(!main) throw new Error('main ref');
+
+      /* Снимаем снапшот текущего состояния перед откатом */
+      var beforeKey = 'z' + Date.now();
+      return main.once('value').then(function(cur){
+        var curV = cur.val();
+        if(curV && _snapshotCount(curV) > 0){
+          return b.child(beforeKey).set({
+            createdAt: Date.now(),
+            schemaVersion: curV.schemaVersion || 0,
+            orders: curV.orders || [], events: curV.events || [], clients: curV.clients || [],
+            items: curV.items || [], addresses: curV.addresses || [], routes: curV.routes || [],
+            contractors: curV.contractors || [], users: curV.users || [],
+            notifications: curV.notifications || [], roles: curV.roles || null,
+            settings: curV.settings || {},
+            nextOrder: curV.nextOrder || 1, nextItem: curV.nextItem || 1, nextUser: curV.nextUser || 1,
+            nextClient: curV.nextClient || 1, nextAddress: curV.nextAddress || 1, nextEvent: curV.nextEvent || 1,
+            nextContractor: curV.nextContractor || 1, nextRoute: curV.nextRoute || 1, nextNotification: curV.nextNotification || 1
+          }).catch(function(){});
+        }
+      }).then(function(){
+        /* Пишем снапшот в основную ветку */
+        var restore = {
+          schemaVersion: payload.schemaVersion || 17,
+          exportedAt: Date.now(),
+          deviceId: (window.db && window.db.sync && window.db.sync.deviceId) || '',
+          orders: payload.orders || [],
+          items: payload.items || [],
+          users: payload.users || [],
+          clients: payload.clients || [],
+          addresses: payload.addresses || [],
+          events: payload.events || [],
+          contractors: payload.contractors || [],
+          routes: payload.routes || [],
+          notifications: payload.notifications || [],
+          roles: payload.roles || null,
+          settings: payload.settings || {},
+          trash: [],
+          nextOrder: payload.nextOrder || 1,
+          nextItem: payload.nextItem || 1,
+          nextUser: payload.nextUser || 1,
+          nextClient: payload.nextClient || 1,
+          nextAddress: payload.nextAddress || 1,
+          nextEvent: payload.nextEvent || 1,
+          nextContractor: payload.nextContractor || 1,
+          nextRoute: payload.nextRoute || 1,
+          nextNotification: payload.nextNotification || 1
+        };
+        window._fbLastPushedAt = Date.now();
+        return main.set(restore).then(function(){
+          /* Локально применяем */
+          if(typeof window.applySyncPayload === 'function'){
+            try {
+              window._fbApplyingRemote = true;
+              window.applySyncPayload(restore);
+            } finally {
+              setTimeout(function(){ window._fbApplyingRemote = false; }, 300);
+            }
+          }
+          if(window.db && window.db.sync) window.db.sync.lastPullAt = Date.now();
+          if(typeof window.save === 'function') window.save();
+          if(typeof window.render === 'function'){ try{ window.render(); }catch(_){} }
+        });
+      });
+    });
+  }
+
+  /* ---------- Экран «История базы» ---------- */
+
+  function _openHistoryScreen(){
+    var b = _backupRef();
+    if(!b){
+      if(typeof uiAlert === 'function') uiAlert('Firebase не инициализирован');
+      return;
+    }
+
+    b.once('value').then(function(snap){
+      var all = snap.val() || {};
+      var keys = Object.keys(all).sort().reverse();  /* свежие сверху */
+
+      var html = '<h2>' + (typeof LOGO_MARK === 'function' ? LOGO_MARK(30) : '') + ' История базы</h2>';
+      html += '<div class="draft-notice">Снапшоты автоматически сохраняются перед важными изменениями. Здесь можно откатить базу к любой из последних 30 точек.</div>';
+
+      html += '<button type="button" class="btn btn-primary" style="margin-top:12px" onclick="zrzSyncMakeSnapshotNow()">📸 Сделать снапшот сейчас</button>';
+      html += '<button type="button" class="btn btn-secondary" onclick="zrzSyncOpenFirebaseBackups()">🔗 Открыть в Firebase Console</button>';
+
+      if(!keys.length){
+        html += '<div class="empty" style="padding:30px;font-size:13px">Снапшотов пока нет</div>';
+      } else {
+        html += '<div class="section-title" style="margin-top:16px">Снапшоты (' + keys.length + ')</div>';
+        html += '<div style="max-height:52vh;overflow-y:auto;margin-top:8px">';
+        keys.forEach(function(k){
+          var it = all[k] || {};
+          var created = Number(it.createdAt) || 0;
+          var nOrders = (it.orders || []).length;
+          var nEvents = (it.events || []).length;
+          var nClients = (it.clients || []).length;
+          var nItems = (it.items || []).length;
+          html += '<div class="card no-tap" style="padding:12px 16px 12px 20px;margin-bottom:8px">';
+          html +=   '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px">';
+          html +=     '<div style="flex:1;min-width:0">';
+          html +=       '<div style="font-weight:700;font-size:14px;color:var(--text)">' + _fmtDate(created) + '</div>';
+          html +=       '<div style="font-size:12px;color:var(--muted);margin-top:3px;line-height:1.5">Заказов: ' + nOrders + ' · Позиций: ' + nItems + ' · Событий: ' + nEvents + ' · Клиентов: ' + nClients + '</div>';
+          html +=     '</div>';
+          html +=     '<button type="button" class="chip" style="padding:7px 12px;font-size:12px;background:var(--accent-soft);color:var(--accent-deep);white-space:nowrap" onclick="zrzSyncRestoreSnapshot(\'' + k + '\')">↩ Откатить</button>';
+          html +=   '</div>';
+          html += '</div>';
+        });
+        html += '</div>';
+      }
+
+      html += '<button type="button" class="btn btn-secondary" onclick="closeModal()">Закрыть</button>';
+      if(typeof showModal === 'function') showModal(html);
+    }).catch(function(e){
+      if(typeof uiAlert === 'function') uiAlert('Ошибка чтения снапшотов: ' + ((e && e.message) || e));
+    });
+  }
+
+  /* ---------- Автоснапшот в 23:00 ---------- */
+
+  function _checkAutoSnapshot(){
+    try {
+      var now = new Date();
+      var h = now.getHours();
+      var m = now.getMinutes();
+      var key = now.getFullYear() + '-' + (now.getMonth() + 1) + '-' + now.getDate();
+
+      if(h !== 23 || m > 30) return;      /* только в 23:00–23:30 */
+      if(_autoSnapshotDoneFor === key) return;
+      _autoSnapshotDoneFor = key;
+
+      var b = _backupRef();
+      if(!b) return;
+      b.once('value').then(function(snap){
+        var all = snap.val() || {};
+        var hasToday = Object.keys(all).some(function(k){
+          var it = all[k];
+          return it && Number(it.createdAt) > (Date.now() - 20 * 3600 * 1000);
+        });
+        if(hasToday){
+          /* Уже делали снапшот за последние 20 часов — пропускаем */
+          return;
+        }
+        _makeSnapshotNow().catch(function(){});
+      }).catch(function(){});
+    } catch(e){}
+  }
+
+  function _initAuto(){
+    setTimeout(_checkAutoSnapshot, 5000);
+    setInterval(_checkAutoSnapshot, 5 * 60 * 1000);
+  }
+
+  /* ---------- Глобальные команды для onclick ---------- */
+
+  window.zrzSyncMakeSnapshotNow = function(){
+    _makeSnapshotNow().then(function(){
+      setTimeout(_openHistoryScreen, 200);
+    }).catch(function(){});
+  };
+
+  window.zrzSyncRestoreSnapshot = function(key){
+    var b = _backupRef();
+    if(!b) return;
+    b.child(key).once('value').then(function(snap){
+      var it = snap.val() || {};
+      var nOrders = (it.orders || []).length;
+      var nEvents = (it.events || []).length;
+      var nClients = (it.clients || []).length;
+      var created = Number(it.createdAt) || 0;
+
+      var msg = 'Откатить базу к состоянию от ' + _fmtDate(created) + '?\n\n'
+              + 'В снапшоте: заказов ' + nOrders + ', событий ' + nEvents + ', клиентов ' + nClients + '.\n\n'
+              + '⚠ Текущее состояние сохранится как отдельный снапшот (можно будет вернуться).';
+
+      if(typeof uiConfirm !== 'function'){
+        if(confirm(msg)) doRestore();
+        return;
+      }
+      uiConfirm(msg, 'Откат базы', { danger: true, yesLabel: 'Откатить', noLabel: 'Отмена' })
+        .then(function(ok){ if(ok) doRestore(); });
+
+      function doRestore(){
+        if(typeof uiAlert === 'function') uiAlert('Откатываем…');
+        _restoreSnapshot(key).then(function(){
+          if(typeof uiAlert === 'function') uiAlert('✔ База откатана к ' + _fmtDate(created));
+        }).catch(function(e){
+          if(typeof uiAlert === 'function') uiAlert('Ошибка: ' + ((e && e.message) || e));
+        });
+      }
+    });
+  };
+
+  window.zrzSyncOpenFirebaseBackups = function(){
+    try {
+      var cfg = window.firebaseConfig || {};
+      var pid = cfg.projectId || 'zercalo-673ed';
+      var url = 'https://console.firebase.google.com/project/' + pid + '/database/' + pid + '-default-rtdb/data/~2Fzerzalo_backups';
+      window.open(url, '_blank');
+    } catch(e){}
+  };
+
+  window.zrzSyncOpenHistory = function(){ _openHistoryScreen(); };
+
+  /* ---------- Кнопка в настройках синхронизации ---------- */
+
+  function _patchSyncPanel(){
+    if(window._zrzSyncPanelPatched) return;
+    if(typeof window.openSyncPanel !== 'function') return;
+    var orig = window.openSyncPanel;
+    window.openSyncPanel = function(){
+      var r = orig.apply(this, arguments);
+      setTimeout(_augmentSyncPanel, 120);
+      return r;
+    };
+    window._zrzSyncPanelPatched = true;
+  }
+
+  function _augmentSyncPanel(){
+    var modal = document.querySelector('.modal');
+    if(!modal) return;
+    if(modal.querySelector('#zrz_history_btn')) return;
+    /* Ищем любую кнопку "Закрыть" чтобы вставить перед ней */
+    var btns = modal.querySelectorAll('.btn');
+    var closeBtn = null;
+    for(var i = 0; i < btns.length; i++){
+      var t = (btns[i].textContent || '').trim();
+      if(t === 'Закрыть' || t === 'Отмена'){ closeBtn = btns[i]; break; }
+    }
+    if(!closeBtn) return;
+    var btnHtml = '<button type="button" id="zrz_history_btn" class="btn btn-secondary" onclick="zrzSyncOpenHistory()">📜 История базы (снапшоты)</button>';
+    closeBtn.insertAdjacentHTML('beforebegin', btnHtml);
+  }
+
+  /* ---------- Запуск ---------- */
+
+  function apply(){
+    try{ _patchSyncPanel(); }catch(e){}
+    try{ _augmentSyncPanel(); }catch(e){}
+  }
+
+  apply();
+  setTimeout(apply, 800);
+  setTimeout(apply, 2000);
+
+  _initAuto();
+
+  var _iv = setInterval(function(){
+    try{ _patchSyncPanel(); }catch(e){}
+  }, 2500);
+  setTimeout(function(){ clearInterval(_iv); }, 60000);
+
+  try{ console.log('[03-sync v2 p2] История базы + автоснапшот активны'); }catch(_){}
+})();
