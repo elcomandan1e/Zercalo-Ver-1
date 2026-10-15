@@ -201,12 +201,13 @@
   }
 
   function _startupGuard(){
-    if(_startupGuardDone) return;
+  if(_startupGuardDone) return;
+  try {
+    if(!window.db || !window.db.currentUserId) return;
     _startupGuardDone = true;
-    try {
-      var ref = window._fbDbRef;
-      if(!ref) return;
-      if(!_busyDataEmpty()) return;
+    var ref = window._fbDbRef;
+    if(!ref) return;
+    if(!_busyDataEmpty()) return;
 
       ref.once('value').then(function(snap){
         var remote = snap.val();
