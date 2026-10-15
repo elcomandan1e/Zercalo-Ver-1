@@ -138,9 +138,9 @@
   if (window._zrzActionsLoaded) return;
   window._zrzActionsLoaded = true;
 
-  var LONG_PRESS_MS = 500;
+  var LONG_PRESS_MS = 450;
   var SWIPE_THRESHOLD = 60;
-  var MOVE_TOLERANCE = 12;
+  var MOVE_TOLERANCE = 30;
 
   function gesturesDisabled() {
     try {
