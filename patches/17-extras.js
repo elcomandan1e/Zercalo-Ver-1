@@ -12,11 +12,11 @@
      СОСТОЯНИЕ
      ============================================================ */
   var S = {
-    tab: 'all',              /* all | order | item | event | client | address */
-    period: 'all',           /* today | 7d | 30d | all */
-    author: '',              /* '' = все */
+    tab: 'all',
+    period: 'all',
+    author: '',
     search: '',
-    selected: {},            /* { idx: true } — выбор чекбоксами */
+    selected: {},
     selectionMode: false
   };
 
@@ -27,7 +27,7 @@
       if(v === 'never') return 0;
       if(v) return parseInt(v, 10) || 0;
     } catch(e){}
-    return 90;  /* по умолчанию 90 дней */
+    return 90;
   }
   function _setAutocleanDays(v){
     try { localStorage.setItem(AUTOCLEAN_KEY, String(v)); } catch(e){}
@@ -54,7 +54,6 @@
     return Math.round(Number(n)||0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
   }
 
-  /* Запись в корзине: тип, иконка, заголовок, подпись */
   function _entryInfo(entry){
     var t = entry.type || 'order';
     var title = '—', sub = '';
@@ -125,7 +124,6 @@
     { key:'address', label:'Адреса',   ico:'📍' }
   ];
 
-  /* ---------- Фильтрация ---------- */
   function _periodMs(){
     var now = Date.now();
     if(S.period === 'today'){
@@ -147,13 +145,9 @@
     for(var i=0;i<arr.length;i++){
       var e = arr[i];
       if(!e) continue;
-      /* Вкладка */
       if(S.tab !== 'all' && e.type !== S.tab) continue;
-      /* Период */
       if(since && (e.deletedAt||0) < since) continue;
-      /* Автор */
       if(S.author && String(e.deletedBy) !== String(S.author)) continue;
-      /* Поиск */
       if(q){
         var info = _entryInfo(e);
         var hay = (info.title + ' ' + info.sub + ' ' + info.byName).toLowerCase();
@@ -161,14 +155,12 @@
       }
       out.push({ entry: e, realIdx: i });
     }
-    /* Свежие сверху */
     out.sort(function(a,b){
       return (b.entry.deletedAt||0) - (a.entry.deletedAt||0);
     });
     return out;
   }
 
-  /* ---------- Счётчики ---------- */
   function _countsByType(){
     var arr = (window.db && Array.isArray(window.db.trash)) ? window.db.trash : [];
     var c = { all: arr.length, order:0, item:0, event:0, client:0, address:0 };
@@ -190,10 +182,6 @@
     }
     return n;
   }
-
-  /* ============================================================
-     АВТООЧИСТКА
-     ============================================================ */
 
   function _runAutoCleanup(silent){
     var days = _autocleanDays();
@@ -221,10 +209,8 @@
       if(typeof uiAlert === 'function') uiAlert('Нет прав');
       return;
     }
-    /* Сброс выбора при открытии */
     S.selected = {};
     S.selectionMode = false;
-
     _renderTrashModal();
   }
 
@@ -244,7 +230,6 @@
       return;
     }
 
-    /* Вкладки по типам */
     html += '<div class="chips" style="margin:8px 0 6px;flex-wrap:wrap">';
     for(var i=0;i<_TAB_META.length;i++){
       var t = _TAB_META[i];
@@ -256,7 +241,6 @@
     }
     html += '</div>';
 
-    /* Период */
     var periodMeta = [
       { k:'today', l:'Сегодня' },
       { k:'7d',    l:'7 дней' },
@@ -271,7 +255,6 @@
     }
     html += '</div>';
 
-    /* Автор */
     var users = (window.db && Array.isArray(window.db.users)) ? window.db.users : [];
     html += '<div style="display:flex;gap:6px;margin:4px 0 8px;align-items:center">';
     html += '<select id="zrz17_trash_author" style="margin:0;padding:8px 10px;font-size:13px;flex:1" onchange="zrz17TrashAuthor(this.value)">';
@@ -284,10 +267,8 @@
     html += '</select>';
     html += '</div>';
 
-    /* Поиск */
     html += '<div class="search-bar" style="margin-bottom:8px"><input type="search" placeholder="🔍 Поиск по названию" value="' + _esc(S.search) + '" oninput="zrz17TrashSearch(this.value)"></div>';
 
-    /* Строка массовых действий */
     html += '<div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap">';
     if(!S.selectionMode){
       html += '<button type="button" class="chip" onclick="zrz17TrashToggleSel(true)">☑ Выбрать</button>';
@@ -300,7 +281,6 @@
     }
     html += '</div>';
 
-    /* Список */
     html += '<div style="max-height:44vh;overflow-y:auto;padding-right:2px">';
 
     if(!list.length){
@@ -340,7 +320,6 @@
     }
     html += '</div>';
 
-    /* Настройка автоочистки */
     html += '<div class="section-title" style="margin-top:14px">🧹 Автоочистка</div>';
     html += '<div class="shower-hint" style="text-align:left;margin-bottom:8px">Автоматически удалять записи старше выбранного срока.</div>';
     html += '<div class="chips" style="flex-wrap:wrap">';
@@ -362,7 +341,6 @@
       html += '<button type="button" class="btn btn-secondary" style="margin-top:10px" onclick="zrz17TrashCleanNow()">🧹 Очистить сейчас (' + cleanupN + ' старых)</button>';
     }
 
-    /* Кнопка очистки всей корзины */
     if(S.tab === 'all' && !S.search && S.period === 'all' && !S.author){
       html += '<button class="btn btn-danger" style="margin-top:14px" onclick="zrz17TrashClearAll()">🗑 Очистить корзину полностью (' + totalAll + ')</button>';
     }
@@ -371,10 +349,6 @@
 
     if(typeof showModal === 'function') showModal(html);
   }
-
-  /* ============================================================
-     ДЕЙСТВИЯ ЭКРАНА
-     ============================================================ */
 
   window.zrz17TrashTab = function(k){
     S.tab = k;
@@ -429,7 +403,6 @@
     _renderTrashModal();
   };
 
-  /* ---------- Восстановление одной записи ---------- */
   window.zrz17TrashRestore = function(realIdx){
     var entry = window.db.trash[realIdx];
     if(!entry) return;
@@ -440,7 +413,6 @@
     try {
       restoreTrashEntry(entry);
       if(navigator.vibrate) try{ navigator.vibrate(10); }catch(e){}
-      /* Перерисовываем корзину */
       _renderTrashModal();
       if(typeof render === 'function'){ try{ render(); }catch(e){} }
     } catch(e){
@@ -448,7 +420,6 @@
     }
   };
 
-  /* ---------- Удаление одной записи навсегда ---------- */
   window.zrz17TrashRemove = function(realIdx){
     var entry = window.db.trash[realIdx];
     if(!entry) return;
@@ -467,11 +438,9 @@
     });
   };
 
-  /* ---------- Массовое восстановление ---------- */
   window.zrz17TrashRestoreSelected = function(){
     var sel = Object.keys(S.selected).map(function(k){ return parseInt(k,10); });
     if(!sel.length) return;
-    /* Сортируем по убыванию — чтобы splice не смещал индексы */
     sel.sort(function(a,b){ return b - a; });
     var restored = 0;
     for(var i=0;i<sel.length;i++){
@@ -479,7 +448,6 @@
       if(!entry) continue;
       try {
         if(typeof restoreTrashEntry === 'function'){
-          /* restoreTrashEntry сам splice'ит запись */
           restoreTrashEntry(entry);
           restored++;
         }
@@ -493,7 +461,6 @@
     if(typeof uiAlert === 'function') uiAlert('✔ Восстановлено: ' + restored);
   };
 
-  /* ---------- Массовое удаление ---------- */
   window.zrz17TrashDeleteSelected = function(){
     var sel = Object.keys(S.selected).map(function(k){ return parseInt(k,10); });
     if(!sel.length) return;
@@ -514,7 +481,6 @@
     });
   };
 
-  /* ---------- Автоочистка ---------- */
   window.zrz17TrashSetClean = function(v){
     _setAutocleanDays(v);
     _renderTrashModal();
@@ -547,15 +513,10 @@
     });
   };
 
-  /* ============================================================
-     ЗАГЛУШКА _confirmSheet — будет определена в Части 2
-     ============================================================ */
-
   function _confirmSheet(opts){
     if(typeof window.zrzConfirmSheet === 'function'){
       return window.zrzConfirmSheet(opts);
     }
-    /* Fallback — старая модалка */
     if(typeof uiConfirm === 'function'){
       return uiConfirm(opts.text || '', opts.title || 'Подтверждение', {
         danger: !!opts.danger,
@@ -565,10 +526,6 @@
     }
     return Promise.resolve(window.confirm(opts.text || 'Подтвердить?'));
   }
-
-  /* ============================================================
-     ПЕРЕОПРЕДЕЛЕНИЕ openTrash
-     ============================================================ */
 
   function _overrideOpenTrash(){
     try {
@@ -580,14 +537,9 @@
   setTimeout(_overrideOpenTrash, 500);
   setTimeout(_overrideOpenTrash, 2000);
 
-  /* Периодическая проверка — если ядро перезапишет */
   setInterval(function(){
     if(window.openTrash !== _openTrashV2) _overrideOpenTrash();
   }, 3000);
-
-  /* ============================================================
-     БЕЙДЖ В РАЗДЕЛЕ ЕЩЁ
-     ============================================================ */
 
   function _updateTrashBadge(){
     try {
@@ -604,16 +556,21 @@
     } catch(e){}
   }
 
-  /* Обновляем бейдж при перерисовке главного экрана */
   setInterval(_updateTrashBadge, 1500);
+
+  setTimeout(function(){
+    try { _runAutoCleanup(true); } catch(e){}
+  }, 5000);
+
+  window.zrz17OpenTrashV2 = _openTrashV2;
+
+  try{ console.log('[17 extras p1] корзина v2 активна'); }catch(_){}
+})();
+/* patches/17-extras.js — Часть 2 (Bottom Sheet + опасные действия) */
 /* patches/17-extras.js — Часть 2: Единый Bottom Sheet подтверждений */
 (function(){
   if(window._zrz17ExtrasP2) return;
   window._zrz17ExtrasP2 = true;
-
-  /* ============================================================
-     BOTTOM SHEET ПОДТВЕРЖДЕНИЯ
-     ============================================================ */
 
   var _activeSheet = null;
 
@@ -625,7 +582,6 @@
 
   function _buzz(ms){ try{ if(navigator.vibrate) navigator.vibrate(ms||14); }catch(e){} }
 
-  /* Инжектируем CSS один раз */
   function _injectCss(){
     if(document.getElementById('zrz-confirm-css')) return;
     var st = document.createElement('style');
@@ -668,13 +624,10 @@
     (document.head || document.documentElement).appendChild(st);
   }
 
-  /* ---------- Публичная функция zrzConfirmSheet ---------- */
-
   window.zrzConfirmSheet = function(opts){
     opts = opts || {};
     _injectCss();
 
-    /* Закрываем предыдущий если есть */
     if(_activeSheet && _activeSheet.close) _activeSheet.close(false);
 
     return new Promise(function(resolve){
@@ -733,10 +686,6 @@
     });
   };
 
-  /* ============================================================
-     ОБЁРТКИ НАД uiConfirm — конвертируем в Bottom Sheet
-     ============================================================ */
-
   function _wrapUiConfirm(){
     if(window._zrz17UiConfirmWrapped) return;
     if(typeof window.uiConfirm !== 'function') return;
@@ -744,7 +693,6 @@
 
     window.uiConfirm = function(msg, title, opts){
       opts = opts || {};
-      /* Показываем в Bottom Sheet */
       return window.zrzConfirmSheet({
         title: title || 'Подтверждение',
         text: msg,
@@ -755,10 +703,6 @@
     };
     window._zrz17UiConfirmWrapped = true;
   }
-
-  /* ============================================================
-     ОБЁРТКА closeModalWithConfirm — тоже через Bottom Sheet
-     ============================================================ */
 
   function _wrapCloseModalWithConfirm(){
     if(window._zrz17CloseModalWrapped) return;
@@ -786,10 +730,6 @@
     window._zrz17CloseModalWrapped = true;
   }
 
-  /* ============================================================
-     ЗАПУСК
-     ============================================================ */
-
   function apply(){
     try { _wrapUiConfirm(); }catch(e){}
     try { _wrapCloseModalWithConfirm(); }catch(e){}
@@ -809,163 +749,169 @@
   try{ console.log('[17 extras p2] Bottom Sheet подтверждений активен'); }catch(_){}
 })();
 /* patches/17-extras.js — Часть 3 (Настройка жестов в профиле) */
-  /* Первая автоочистка — через 5 секунд после старта */
-  setTimeout(function(){
-    try { _runAutoCleanup(true); } catch(e){}
-  }, 5000);
-
-  /* ---------- Экспорт ---------- */
-  window.zrz17OpenTrashV2 = _openTrashV2;
-
-  try{ console.log('[17 extras p1] корзина v2 активна'); }catch(_){}
-})();
-/* patches/17-extras.js — Часть 2 (Bottom Sheet + опасные действия) */
-/* patches/17-extras.js — Часть 3: Настройка жестов в профиле */
+/* patches/17-extras.js — Часть 3: Настройка «Отключить жесты» */
 (function(){
   if(window._zrz17ExtrasP3) return;
   window._zrz17ExtrasP3 = true;
 
+  var GEST_KEY = 'zrz_gestures_disabled';
   var PREFS_KEY = 'zrz_user_prefs';
 
-  function _esc(s){
-    return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
-      return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]);
-    });
-  }
-
-  function _buzz(ms){ try{ if(navigator.vibrate) navigator.vibrate(ms||12); }catch(e){} }
-
-  function _readPrefs(){
-    var p = { longPress: true, swipes: true };
+  function _getPrefs(){
     try {
       var raw = localStorage.getItem(PREFS_KEY);
-      if(raw){
-        var j = JSON.parse(raw);
-        if(typeof j.longPress === 'boolean') p.longPress = j.longPress;
-        if(typeof j.swipes === 'boolean')    p.swipes    = j.swipes;
-      }
-    } catch(e){}
-    return p;
+      if(!raw) return {};
+      var p = JSON.parse(raw);
+      return (p && typeof p === 'object') ? p : {};
+    } catch(e){ return {}; }
   }
 
-  function _writePrefs(p){
-    try { localStorage.setItem(PREFS_KEY, JSON.stringify(p)); } catch(e){}
-    /* Обновляем глобальный флаг для 07-gestures */
-    var allOff = (!p.longPress && !p.swipes);
+  function _setPrefs(p){
+    try { localStorage.setItem(PREFS_KEY, JSON.stringify(p || {})); } catch(e){}
+  }
+
+  function _allGesturesEnabled(){
     try {
-      if(allOff) localStorage.setItem('zrz_gestures_disabled', '1');
-      else localStorage.removeItem('zrz_gestures_disabled');
+      if(localStorage.getItem(GEST_KEY) === '1') return false;
+      var p = _getPrefs();
+      if(p && p.gestures === false) return false;
     } catch(e){}
-    /* Синхронизируем в db.settings (для других устройств) */
+    return true;
+  }
+
+  function _longPressEnabled(){
+    var p = _getPrefs();
+    if(p.longPress === false) return false;
+    if(!_allGesturesEnabled()) return false;
+    return true;
+  }
+
+  function _swipesEnabled(){
+    var p = _getPrefs();
+    if(p.swipes === false) return false;
+    if(!_allGesturesEnabled()) return false;
+    return true;
+  }
+
+  function _setAllGestures(on){
     try {
-      if(window.db){
-        window.db.settings = window.db.settings || {};
-        window.db.settings.userPrefs = p;
-        window.db.settings.updatedAt = Date.now();
-        if(typeof save === 'function') save();
+      if(on){
+        localStorage.removeItem(GEST_KEY);
+        var p = _getPrefs();
+        delete p.gestures;
+        p.longPress = true;
+        p.swipes = true;
+        _setPrefs(p);
+      } else {
+        localStorage.setItem(GEST_KEY, '1');
+        var p2 = _getPrefs();
+        p2.gestures = false;
+        _setPrefs(p2);
       }
     } catch(e){}
   }
 
-  /* Обёртка zrzAttachActions — учитываем настройки */
-  function _wrapAttachActions(){
-    if(window._zrz17AttachActionsWrapped) return;
-    if(typeof window.zrzAttachActions !== 'function') return;
-    var orig = window.zrzAttachActions;
-
-    window.zrzAttachActions = function(el, opts){
-      opts = opts || {};
-      var p = _readPrefs();
-      var newOpts = {};
-      /* Копируем */
-      for(var k in opts){ if(Object.prototype.hasOwnProperty.call(opts, k)) newOpts[k] = opts[k]; }
-
-      /* Отключаем долгий тап */
-      if(!p.longPress){
-        newOpts.longPress = null;
-      }
-      /* Отключаем свайпы */
-      if(!p.swipes){
-        newOpts.swipeRight = null;
-        newOpts.swipeLeft = null;
-      }
-      return orig.call(this, el, newOpts);
-    };
-    window._zrz17AttachActionsWrapped = true;
+  function _setLongPress(on){
+    try {
+      var p = _getPrefs();
+      p.longPress = !!on;
+      if(!on) delete p.gestures;
+      _setPrefs(p);
+      localStorage.removeItem(GEST_KEY);
+    } catch(e){}
   }
 
-  /* ============================================================
-     UI В ПРОФИЛЕ
-     ============================================================ */
+  function _setSwipes(on){
+    try {
+      var p = _getPrefs();
+      p.swipes = !!on;
+      if(!on) delete p.gestures;
+      _setPrefs(p);
+      localStorage.removeItem(GEST_KEY);
+    } catch(e){}
+  }
 
-  function _augmentProfile(){
-    var modal = document.querySelector('.modal');
-    if(!modal) return;
-    if(modal.querySelector('#zrz17_gestures_block')) return;
-    /* Ищем признак профиля — «Сменить PIN» или «Сменить пароль» */
-    var btns = modal.querySelectorAll('button');
-    var anchor = null;
-    for(var i=0;i<btns.length;i++){
-      var t = (btns[i].textContent || '').trim();
-      if(t.indexOf('Сменить PIN') >= 0 || t.indexOf('Сменить пароль') >= 0){
-        anchor = btns[i];
-        break;
-      }
+  function _buzz(ms){ try{ if(navigator.vibrate) navigator.vibrate(ms||8); }catch(e){} }
+
+  function _injectCss(){
+    if(document.getElementById('zrz-prefs-css')) return;
+    var st = document.createElement('style');
+    st.id = 'zrz-prefs-css';
+    st.textContent = [
+      '.zrz-pref-row{display:flex;align-items:center;gap:12px;padding:12px 14px;',
+        'background:var(--accent-soft,#eaf1fb);border-radius:14px;margin-top:8px}',
+      '.zrz-pref-row-title{flex:1;min-width:0;font-size:14px;font-weight:600;color:var(--text,#111);line-height:1.35}',
+      '.zrz-pref-row-sub{display:block;font-size:11.5px;color:var(--muted,#666);margin-top:3px;font-weight:400;line-height:1.4}',
+      '.zrz-pref-toggle{width:52px;height:32px;flex-shrink:0;',
+        'border-radius:999px;background:#d0d7e2;position:relative;cursor:pointer;border:none;padding:0}',
+      'html[data-theme="dark"] .zrz-pref-toggle{background:#3a4459}',
+      '.zrz-pref-toggle::before{content:"";position:absolute;top:3px;left:3px;width:26px;height:26px;',
+        'border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.18);',
+        'transition:transform .24s cubic-bezier(.4,0,.2,1)}',
+      'html[data-theme="dark"] .zrz-pref-toggle::before{background:#e6ecf5}',
+      '.zrz-pref-toggle.on{background:linear-gradient(135deg,#7b9dd1,#5b7fb8)}',
+      '.zrz-pref-toggle.on::before{transform:translateX(20px)}',
+      '.zrz-pref-title{margin-top:14px;font-size:12px;font-weight:700;',
+        'color:var(--accent-deep,#3b5c8f);text-transform:uppercase;letter-spacing:.8px;',
+        'padding-bottom:6px;border-bottom:1px solid var(--line-soft,#f0f4fa)}'
+    ].join('');
+    (document.head || document.documentElement).appendChild(st);
+  }
+
+  function _prefsBlockHtml(){
+    var all = _allGesturesEnabled();
+    var lp = _longPressEnabled();
+    var sw = _swipesEnabled();
+
+    var h = '';
+    h += '<div class="zrz-pref-title">⚙️ Настройки интерфейса</div>';
+    h += '<div class="zrz-pref-row">';
+    h +=   '<div class="zrz-pref-row-title">';
+    h +=     'Жесты вкл/выкл';
+    h +=     '<span class="zrz-pref-row-sub">Общий переключатель для всех карточек: долгий тап и свайпы</span>';
+    h +=   '</div>';
+    h +=   '<button type="button" class="zrz-pref-toggle' + (all ? ' on' : '') + '" data-pref="all"></button>';
+    h += '</div>';
+
+    if(all){
+      h += '<div class="zrz-pref-row">';
+      h +=   '<div class="zrz-pref-row-title">';
+      h +=     'Долгий тап';
+      h +=     '<span class="zrz-pref-row-sub">Открывает меню действий на карточке</span>';
+      h +=   '</div>';
+      h +=   '<button type="button" class="zrz-pref-toggle' + (lp ? ' on' : '') + '" data-pref="lp"></button>';
+      h += '</div>';
+
+      h += '<div class="zrz-pref-row">';
+      h +=   '<div class="zrz-pref-row-title">';
+      h +=     'Свайпы влево/вправо';
+      h +=     '<span class="zrz-pref-row-sub">Быстрые действия на карточках</span>';
+      h +=   '</div>';
+      h +=   '<button type="button" class="zrz-pref-toggle' + (sw ? ' on' : '') + '" data-pref="sw"></button>';
+      h += '</div>';
     }
-    if(!anchor) return;
 
-    var p = _readPrefs();
-
-    var html = '';
-    html += '<div id="zrz17_gestures_block" class="section-title" style="margin-top:16px">⚙️ Настройки интерфейса</div>';
-    html += '<div class="card no-tap" style="padding:14px 16px 14px 20px">';
-
-    /* Тумблер долгого тапа */
-    html += '<div class="info-line" style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0">';
-    html +=   '<div style="flex:1;min-width:0">';
-    html +=     '<div style="font-weight:600;font-size:14px;color:var(--text)">Долгий тап</div>';
-    html +=     '<div style="font-size:12px;color:var(--muted);margin-top:2px">Меню действий на карточках</div>';
-    html +=   '</div>';
-    html +=   '<button type="button" class="chip ' + (p.longPress ? 'active' : '') + '" data-toggle="longPress" onclick="zrz17TogglePref(\'longPress\')" style="min-width:80px">' + (p.longPress ? '✓ Вкл' : '✕ Выкл') + '</button>';
-    html += '</div>';
-
-    /* Тумблер свайпов */
-    html += '<div class="info-line" style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line-soft)">';
-    html +=   '<div style="flex:1;min-width:0">';
-    html +=     '<div style="font-weight:600;font-size:14px;color:var(--text)">Свайпы</div>';
-    html +=     '<div style="font-size:12px;color:var(--muted);margin-top:2px">Позвонить / Карта влево-вправо</div>';
-    html +=   '</div>';
-    html +=   '<button type="button" class="chip ' + (p.swipes ? 'active' : '') + '" data-toggle="swipes" onclick="zrz17TogglePref(\'swipes\')" style="min-width:80px">' + (p.swipes ? '✓ Вкл' : '✕ Выкл') + '</button>';
-    html += '</div>';
-
-    html += '</div>';
-
-    /* Вставляем перед кнопкой «Сменить PIN» */
-    anchor.insertAdjacentHTML('beforebegin', html);
+    return h;
   }
 
-  window.zrz17TogglePref = function(key){
-    if(key !== 'longPress' && key !== 'swipes') return;
-    var p = _readPrefs();
-    p[key] = !p[key];
-    _writePrefs(p);
-    _buzz(10);
-    /* Перерисовываем блок в текущей модалке */
-    var block = document.getElementById('zrz17_gestures_block');
-    if(block && block.parentNode) block.parentNode.removeChild(block);
-    _augmentProfile();
-    /* Уведомим пользователя */
-    try {
-      if(typeof uiAlert === 'function'){
-        var label = (key === 'longPress') ? 'Долгий тап' : 'Свайпы';
-        uiAlert(label + ': ' + (p[key] ? 'включено' : 'отключено'));
-      }
-    } catch(e){}
-  };
+  function _bindBlock(block){
+    block.querySelectorAll('.zrz-pref-toggle').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var pref = btn.getAttribute('data-pref');
+        var isOn = btn.classList.contains('on');
+        _buzz(8);
 
-  /* ============================================================
-     ОБЁРТКА openProfile
-     ============================================================ */
+        if(pref === 'all') _setAllGestures(!isOn);
+        else if(pref === 'lp') _setLongPress(!isOn);
+        else if(pref === 'sw') _setSwipes(!isOn);
+
+        try {
+          block.innerHTML = _prefsBlockHtml();
+          _bindBlock(block);
+        } catch(e){}
+      });
+    });
+  }
 
   function _wrapOpenProfile(){
     if(window._zrz17OpenProfileWrapped) return;
@@ -974,18 +920,41 @@
     window.openProfile = function(){
       var r = orig.apply(this, arguments);
       setTimeout(_augmentProfile, 100);
-      setTimeout(_augmentProfile, 300);
       return r;
     };
     window._zrz17OpenProfileWrapped = true;
   }
 
-  /* ============================================================
-     ЗАПУСК
-     ============================================================ */
+  function _augmentProfile(){
+    var modal = document.querySelector('.modal');
+    if(!modal) return;
+    if(modal.querySelector('#zrz_prefs_block')) return;
+    var h2 = modal.querySelector('h2');
+    if(!h2 || (h2.textContent || '').indexOf('Профиль') < 0) return;
+
+    _injectCss();
+
+    var block = document.createElement('div');
+    block.id = 'zrz_prefs_block';
+    block.innerHTML = _prefsBlockHtml();
+
+    var btns = modal.querySelectorAll('.btn');
+    var anchor = null;
+    for(var i=0;i<btns.length;i++){
+      var t = (btns[i].textContent || '').trim();
+      if(t === 'Закрыть' || t === 'Отмена'){ anchor = btns[i]; break; }
+    }
+    if(anchor){
+      anchor.parentNode.insertBefore(block, anchor);
+    } else {
+      modal.appendChild(block);
+    }
+
+    _bindBlock(block);
+  }
 
   function apply(){
-    try { _wrapAttachActions(); }catch(e){}
+    try { _injectCss(); }catch(e){}
     try { _wrapOpenProfile(); }catch(e){}
     try { _augmentProfile(); }catch(e){}
   }
@@ -996,10 +965,21 @@
   setTimeout(apply, 3000);
 
   var _iv = setInterval(function(){
-    try { _wrapAttachActions(); }catch(e){}
     try { _wrapOpenProfile(); }catch(e){}
+    try { _augmentProfile(); }catch(e){}
   }, 2000);
   setTimeout(function(){ clearInterval(_iv); }, 60000);
+
+  window.zrzPrefsGet = function(){
+    return {
+      all: _allGesturesEnabled(),
+      longPress: _longPressEnabled(),
+      swipes: _swipesEnabled()
+    };
+  };
+  window.zrzPrefsSetAll = _setAllGestures;
+  window.zrzPrefsSetLongPress = _setLongPress;
+  window.zrzPrefsSetSwipes = _setSwipes;
 
   try{ console.log('[17 extras p3] настройка жестов в профиле активна'); }catch(_){}
 })();
