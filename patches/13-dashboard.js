@@ -113,7 +113,6 @@
     try { return (typeof visibleOrders === 'function') ? visibleOrders() : []; }catch(e){ return []; }
   }
 
-  /* KPI */
   function calcKpi(u){
     var result = { eventsToday:0, inWork:0, dueSum:0, overdue:0 };
     try {
@@ -132,7 +131,6 @@
     return result;
   }
 
-  /* «Требует внимания» */
   function calcAttention(){
     var items = [];
     try {
@@ -385,7 +383,6 @@
       return false;
     });
 
-    /* KPI-фильтр «просрочено» */
     var evFilter = (window._zrzDash && window._zrzDash.eventsFilter) || '';
     if(evFilter === 'overdue'){
       list = list.filter(function(e){
@@ -425,7 +422,6 @@
   function buildOrdersTab(){
     var list = visibleOrdersList().slice();
 
-    /* KPI-фильтр */
     var of = (window._zrzDash && window._zrzDash.ordersFilter) || '';
     if(of === 'work'){
       list = list.filter(function(o){ return o.status === 'work' || o.status === 'ready'; });
@@ -454,7 +450,6 @@
       }
     }
 
-    /* Активные сверху */
     var order = { work:0, ready:1, approval:2, measure_done:3, measure_scheduled:4, lead:5, paused:6, installed:7, closed:8, declined:9 };
     list.sort(function(a,b){
       var oa = order[a.status] != null ? order[a.status] : 99;
@@ -566,12 +561,18 @@
 
   window.zrzDashOpenEvent = function(id){
     try {
-      var e = (typeof eventById === 'function') ? eventById(id) : null;
-      if(!e) return;
-      if(e.orderId){
-        try { if(typeof openOrder === 'function') return openOrder(e.orderId); }catch(x){}
+      /* Сначала всегда пробуем открыть форму самого события */
+      if(typeof openEventForm === 'function'){
+        try { openEventForm(id, null); return; }catch(x){}
       }
-      try { if(typeof openEventFromCalendar === 'function') return openEventFromCalendar(id); }catch(x){}
+      if(typeof openEventFromCalendar === 'function'){
+        try { openEventFromCalendar(id); return; }catch(x){}
+      }
+      /* Фолбэк — открыть заказ */
+      var e = (typeof eventById === 'function') ? eventById(id) : null;
+      if(e && e.orderId && typeof openOrder === 'function'){
+        try { return openOrder(e.orderId); }catch(x){}
+      }
     }catch(e){}
   };
 
@@ -804,7 +805,8 @@
 
   try{ console.log('[13-dashboard p1] дашборд админа/менеджера активен'); }catch(_){}
 })();
-/* patches/13-dashboard.js — Часть 2/3/* patches/13-dashboard.js — Часть 2/3
+/* patches/13-dashboard.js — Часть 2/3
+/* patches/13-dashboard.js — Часть 2/3
    · Дашборд мастера (очередь цеха + прогресс)
    · Дашборд замерщика-монтажника (расписание выездов)
    · Прогресс производства на позициях (0-100%)
@@ -1466,6 +1468,7 @@
 
   try{ console.log('[13 p2] дашборды мастера и замерщика + прогресс производства активны'); }catch(_){}
 })();
+/* patches/13-dashboard.js — Часть 3/3
 /* patches/13-dashboard.js — Часть 3/3
    · Дашборд водителя (маршруты + KPI)
    · Swipe actions на строках (вправо → позвонить / влево → карта)
