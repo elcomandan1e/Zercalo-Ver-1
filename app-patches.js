@@ -1,10 +1,10 @@
-/* app-patches.js — загрузчик модулей «Зерцало» v6.1.37
+/* app-patches.js — загрузчик модулей «Зерцало» v6.1.38
    · Прелоадер: модули грузятся за занавесом
    · Ожидание загрузки шрифта Onest перед показом
    · Версионирование модулей — HTTP-кеш работает
 */
 (function(){
-  var PATCH_VERSION = '6.1.37';
+  var PATCH_VERSION = '6.1.38';
   var BASE = 'https://raw.githubusercontent.com/elcomandan1e/Zercalo-Ver-1/main/patches/';
 
   var MODULES = [
@@ -23,7 +23,8 @@
     '14-attention.js',
     '15-tests.js',
     '16-actions.js',
-    '17-extras.js'
+    '17-extras.js',
+    '18-ui-unify.js'
   ];
 
   if(window._zrzLoaderRunning) return;
