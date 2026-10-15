@@ -262,3 +262,194 @@
   try{ console.log('[03-sync v2] защита от пустоты + снапшоты активны'); }catch(_){}
 })();
 /* Часть 2 — История базы — будет дописана ниже */
+/* ============ ZERZALO · SYNC v2 · Часть 3 — Экран входа с загрузкой ============ */
+(function(){
+  if(window._zrz03SyncV2P3) return;
+  window._zrz03SyncV2P3 = true;
+
+  var LOAD_TIMEOUT = 8000; /* макс 8 сек ждём облако */
+
+  /* ---------- Хелперы ---------- */
+
+  function _busyCount(data){
+    if(!data) return 0;
+    return (Array.isArray(data.orders)?data.orders.length:0)
+         + (Array.isArray(data.events)?data.events.length:0)
+         + (Array.isArray(data.clients)?data.clients.length:0)
+         + (Array.isArray(data.items)?data.items.length:0)
+         + (Array.isArray(data.addresses)?data.addresses.length:0)
+         + (Array.isArray(data.routes)?data.routes.length:0);
+  }
+
+  function _busyDataEmpty(){
+    try { return _busyCount(window.db || {}) === 0; }
+    catch(e){ return false; }
+  }
+
+  /* ---------- Overlay загрузки ---------- */
+
+  function _showLoadOverlay(){
+    if(document.getElementById('zrz-load-overlay')) return;
+    var el = document.createElement('div');
+    el.id = 'zrz-load-overlay';
+    el.setAttribute('data-zrz', 'load');
+    el.innerHTML = ''
+      + '<div class="zrz-load-spin"></div>'
+      + '<div class="zrz-load-box">'
+      +   '<div class="zrz-load-title">Загружаем базу</div>'
+      +   '<div class="zrz-load-status" id="zrz-load-status">Подключаемся к облаку…</div>'
+      + '</div>';
+    document.body.appendChild(el);
+  }
+
+  function _setLoadStatus(text){
+    var el = document.getElementById('zrz-load-status');
+    if(el) el.textContent = text;
+  }
+
+  function _hideLoadOverlay(){
+    var el = document.getElementById('zrz-load-overlay');
+    if(!el) return;
+    el.classList.add('zrz-load-hide');
+    setTimeout(function(){ try{ el.remove(); }catch(_){} }, 320);
+  }
+
+  /* ---------- CSS ---------- */
+
+  function _injectCss(){
+    if(document.getElementById('zrz-load-css')) return;
+    var st = document.createElement('style');
+    st.id = 'zrz-load-css';
+    st.textContent = [
+      '#zrz-load-overlay{position:fixed;inset:0;z-index:950;',
+        'background:var(--bg-1,#f6f8fc);',
+        'display:flex;flex-direction:column;align-items:center;justify-content:center;',
+        'gap:22px;padding:24px;font-family:Onest,system-ui,-apple-system,sans-serif;',
+        'opacity:1;transition:opacity .3s ease;',
+        '-webkit-tap-highlight-color:transparent;user-select:none}',
+      '#zrz-load-overlay.zrz-load-hide{opacity:0}',
+      '.zrz-load-spin{width:62px;height:62px;border-radius:50%;',
+        'border:4px solid var(--accent-line,#d6e2f3);',
+        'border-top-color:var(--accent,#5b7fb8);',
+        'animation:zrzLoadSpin .9s linear infinite;flex-shrink:0}',
+      '.zrz-load-box{text-align:center;max-width:340px}',
+      '.zrz-load-title{font-size:18px;font-weight:700;color:var(--text,#2a3547);margin-bottom:8px;letter-spacing:-0.01em}',
+      '.zrz-load-status{font-size:14px;color:var(--muted,#8894a9);line-height:1.5;word-break:break-word}',
+      '@keyframes zrzLoadSpin{to{transform:rotate(360deg)}}'
+    ].join('');
+    document.head.appendChild(st);
+  }
+
+  /* ---------- Pull с overlay ---------- */
+
+  function _pullWithOverlay(){
+    return new Promise(function(resolve){
+      var ref = window._fbDbRef;
+      if(!ref){
+        _setLoadStatus('Работаем локально');
+        setTimeout(function(){ _hideLoadOverlay(); resolve(); }, 600);
+        return;
+      }
+      if(typeof navigator !== 'undefined' && navigator.onLine === false){
+        _setLoadStatus('Нет интернета, работаем офлайн');
+        setTimeout(function(){ _hideLoadOverlay(); resolve(); }, 800);
+        return;
+      }
+
+      var done = false;
+      function finish(){
+        if(done) return;
+        done = true;
+        _hideLoadOverlay();
+        resolve();
+      }
+
+      var timeoutId = setTimeout(function(){
+        if(done) return;
+        _setLoadStatus('Медленная связь, продолжаем в офлайне');
+        setTimeout(finish, 700);
+      }, LOAD_TIMEOUT);
+
+      ref.once('value').then(function(snap){
+        clearTimeout(timeoutId);
+        if(done) return;
+        var remote = snap.val();
+        if(!remote){
+          _setLoadStatus('Начинаем с пустой базы');
+          setTimeout(finish, 500);
+          return;
+        }
+        var nO = (remote.orders || []).length;
+        var nE = (remote.events || []).length;
+        var nC = (remote.clients || []).length;
+        _setLoadStatus('Заказов: ' + nO + ' · Событий: ' + nE + ' · Клиентов: ' + nC);
+
+        if(typeof window.applySyncPayload === 'function'){
+          try {
+            window._fbApplyingRemote = true;
+            window.applySyncPayload(remote);
+          } finally {
+            setTimeout(function(){ window._fbApplyingRemote = false; }, 300);
+          }
+          if(window.db && window.db.sync) window.db.sync.lastPullAt = Date.now();
+          if(typeof window.save === 'function') window.save();
+        }
+        setTimeout(finish, 700);
+      }).catch(function(e){
+        clearTimeout(timeoutId);
+        if(done) return;
+        _setLoadStatus('Нет связи с облаком');
+        setTimeout(finish, 700);
+      });
+    });
+  }
+
+  /* ---------- Обёртка login() ---------- */
+
+  function _wrapLogin(){
+    if(window._zrz03LoginWrapped) return;
+    if(typeof window.login !== 'function') return;
+    var orig = window.login;
+
+    window.login = async function(userId, pin){
+      var r = await orig.apply(this, arguments);
+      if(r && r.ok){
+        var needLoad = _busyDataEmpty();
+        if(needLoad){
+          _injectCss();
+          setTimeout(function(){
+            _showLoadOverlay();
+            _pullWithOverlay().then(function(){
+              if(typeof window.render === 'function'){
+                try{ window.render(); }catch(_){}
+              }
+            });
+          }, 80);
+        } else {
+          /* Данные локально есть — пускаем сразу, pull в фоне */
+          if(typeof window.schedulePull === 'function'){
+            try{ window.schedulePull(); }catch(_){}
+          }
+        }
+      }
+      return r;
+    };
+    window._zrz03LoginWrapped = true;
+  }
+
+  /* ---------- Запуск ---------- */
+
+  function apply(){
+    try{ _injectCss(); }catch(e){}
+    try{ _wrapLogin(); }catch(e){}
+  }
+
+  apply();
+  setTimeout(apply, 800);
+  setTimeout(apply, 2000);
+
+  var _iv = setInterval(function(){ try{ _wrapLogin(); }catch(e){} }, 2500);
+  setTimeout(function(){ clearInterval(_iv); }, 60000);
+
+  try{ console.log('[03-sync v2 p3] экран загрузки при входе активен'); }catch(_){}
+})();
