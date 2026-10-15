@@ -561,14 +561,13 @@
 
   window.zrzDashOpenEvent = function(id){
     try {
-      /* Сначала всегда пробуем открыть форму самого события */
+      /* Сигнатура ядра: openEventForm(dateYmd, eventId, presetOrderId) */
       if(typeof openEventForm === 'function'){
-        try { openEventForm(id, null); return; }catch(x){}
+        try { openEventForm(null, id); return; }catch(x){}
       }
       if(typeof openEventFromCalendar === 'function'){
         try { openEventFromCalendar(id); return; }catch(x){}
       }
-      /* Фолбэк — открыть заказ */
       var e = (typeof eventById === 'function') ? eventById(id) : null;
       if(e && e.orderId && typeof openOrder === 'function'){
         try { return openOrder(e.orderId); }catch(x){}
