@@ -4,7 +4,7 @@
    · Вырезы (прямоугольный/круглый + отступы)
    · Фацет (рамка внутри зеркала)
    · Скругления углов (дуги + выноска R)
-   Часть 2: розетки, светильники, полная замена drawTechIso для зеркал
+   Часть 2: розетки, светильники, полная замена drawTechIso
 */
 (function(){
   if(window._zrz02DrawP1) return;
@@ -272,17 +272,18 @@
 
   try{ console.log('[02-draw p1] размеры, болты, вырезы, фацет, скругления — готовы'); }catch(_){}
 })();
-/* patches/02-draw.js — часть 2/2 (v4.1) */
-/* patches/02-draw.js — часть 2/2 (v4.1)
+/* patches/02-draw.js — часть 2/2 (v5) */
+/* patches/02-draw.js — часть 2/2 (v5)
    Розетки (X/Y, шаг, ориентация)
    Светильники (бра)
    Полная замена drawTechIso для зеркал/полок/панно:
    · штрих подсветки только по сторонам, без рамки
-   · выноска со сторонами — ниже, без наложения на размер
+   · круг и овал — правильной формы во всех видах
+   · выноска со сторонами ниже, без наложения
 */
 (function(){
-  if(window._zrz02DrawP2v4) return;
-  window._zrz02DrawP2v4 = true;
+  if(window._zrz02DrawP2v5) return;
+  window._zrz02DrawP2v5 = true;
 
   var DIM_SOCKET_COLOR = '#a05c26';
   var DIM_LIGHT_COLOR  = '#7a3d8a';
@@ -330,7 +331,6 @@
     var head = hasOn ? '💡 на зеркале' : '💡 из-за зеркала';
     var sub = names.length ? ('Стороны: ' + names.join(', ')) : '';
     var cx = x0 + pxW / 2;
-    /* Сдвиг ниже — чтобы не пересекалось с размером ширины (который идёт от y0+pxH+18) */
     var ty = y0 + pxH + 70;
     ctx.save();
     ctx.font = '700 11px "PT Sans Narrow",Arial';
@@ -344,6 +344,29 @@
       ctx.fillText(sub, cx, ty + 14);
     }
     ctx.restore();
+  }
+
+  /* ---------- Путь формы (RECT / CIRCLE / OVAL) ---------- */
+  function _shapePath(ctx, x0, y0, pxW, pxH, shape, rPx){
+    ctx.beginPath();
+    if(shape === 'CIRCLE'){
+      var rr = Math.min(pxW, pxH) / 2;
+      ctx.arc(x0 + pxW/2, y0 + pxH/2, rr, 0, Math.PI*2);
+    } else if(shape === 'OVAL'){
+      if(ctx.ellipse){
+        ctx.ellipse(x0 + pxW/2, y0 + pxH/2, pxW/2, pxH/2, 0, 0, Math.PI*2);
+      } else {
+        ctx.save();
+        ctx.translate(x0 + pxW/2, y0 + pxH/2);
+        ctx.scale(1, pxH / pxW);
+        ctx.arc(0, 0, pxW/2, 0, Math.PI*2);
+        ctx.restore();
+      }
+    } else if(typeof canvasRoundRect === 'function'){
+      canvasRoundRect(ctx, x0, y0, pxW, pxH, rPx || 0);
+    } else {
+      ctx.rect(x0, y0, pxW, pxH);
+    }
   }
 
   /* ---------- Центры розеток ---------- */
@@ -367,7 +390,6 @@
     return {pts: pts, baseX: baseX, baseY: baseY, or: or, stepCm: stepCm, edgeX: s.edgeX, edgeY: s.edgeY};
   };
 
-  /* ---------- Размеры розеток ---------- */
   function _socketDims(ctx, x0, y0, pxW, pxH, sc3, d){
     if(!d.socketsMount || !Array.isArray(d.socketsList) || !d.socketsList.length) return;
     for(var i=0;i<d.socketsList.length;i++){
@@ -406,7 +428,6 @@
     }
   }
 
-  /* ---------- Размеры светильников ---------- */
   function _lightDims(ctx, x0, y0, pxW, pxH, sc3, d){
     if(!d.lightsMount || !Array.isArray(d.lightsList) || !d.lightsList.length) return;
     for(var i=0;i<d.lightsList.length;i++){
@@ -426,8 +447,60 @@
     }
   }
 
-  /* ---------- Полная отрисовка изометрии ---------- */
-  function _drawIsoV4(ctx, x, y, w, h, dims, scale, d){
+  /* ---------- Розетки и светильники для вида спереди/сверху ---------- */
+  function _drawSocketsAndLightsFront(ctx, x, y, w, h, d, overrideSize){
+    if(d.type !== 'MIRROR' && d.type !== 'PANNO') return;
+    var gd = null; try{ gd = glassDimensions(d); }catch(e){ return; }
+    if(!gd || !gd.w || !gd.h) return;
+    var cx = x + w/2, cy = y + h/2;
+    var sc3 = Math.min((w-80)/Math.max(gd.w||1,1), (h-60)/Math.max(gd.h||1,1));
+    var pxW = gd.w * sc3, pxH = gd.h * sc3;
+    var x0 = cx - pxW/2, y0 = cy - pxH/2;
+
+    if(d.socketsMount && Array.isArray(d.socketsList) && typeof window._zrzSocketCenters === 'function'){
+      var sockR = Math.max(5, (7/2) * sc3);
+      for(var si=0; si<d.socketsList.length; si++){
+        var s = d.socketsList[si];
+        var info = window._zrzSocketCenters(s, x0, y0, pxW, pxH, sc3);
+        for(var pi=0; pi<info.pts.length; pi++){
+          var p = info.pts[pi];
+          ctx.save();
+          ctx.fillStyle = '#f5c93a';
+          ctx.strokeStyle = '#8a6a2c'; ctx.lineWidth = 1.2;
+          ctx.beginPath(); ctx.arc(p.x, p.y, sockR, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(p.x-sockR-4, p.y); ctx.lineTo(p.x+sockR+4, p.y);
+          ctx.moveTo(p.x, p.y-sockR-4); ctx.lineTo(p.x, p.y+sockR+4);
+          ctx.strokeStyle = '#8a6a2c'; ctx.lineWidth = 0.9; ctx.stroke();
+          ctx.restore();
+        }
+      }
+    }
+    if(d.lightsMount && Array.isArray(d.lightsList)){
+      var lightR = Math.max(6, (8/2) * sc3);
+      for(var li=0; li<d.lightsList.length; li++){
+        var ls = d.lightsList[li];
+        var dxL = Number(ls.distX)||0, dyL = Number(ls.distY)||0;
+        var baseX = (ls.edgeX==='right') ? (x0 + pxW - dxL*sc3) : (x0 + dxL*sc3);
+        var baseY = (ls.edgeY==='bottom')? (y0 + pxH - dyL*sc3) : (y0 + dyL*sc3);
+        ctx.save();
+        ctx.fillStyle = '#e6ecf5'; ctx.strokeStyle = '#3b5c8f'; ctx.lineWidth = 1.6;
+        ctx.beginPath(); ctx.arc(baseX, baseY, lightR, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+        ctx.beginPath(); ctx.arc(baseX, baseY, Math.max(2, lightR*0.4), 0, Math.PI*2);
+        ctx.strokeStyle = '#3b5c8f'; ctx.lineWidth = 1; ctx.stroke();
+        ctx.restore();
+      }
+    }
+    if(typeof window._zrzDimLineFull === 'function'){
+      _socketDims(ctx, x0, y0, pxW, pxH, sc3, d);
+      _lightDims(ctx, x0, y0, pxW, pxH, sc3, d);
+    }
+  }
+
+  /* ============================================================
+     ПОЛНАЯ ЗАМЕНА drawTechIso ДЛЯ MIRROR / SHELF / PANNO
+     ============================================================ */
+  function _drawIsoV5(ctx, x, y, w, h, dims, scale, d){
     var cx = x + w/2, cy = y + h/2;
     ctx.save();
     var ink = '#1a2733';
@@ -443,12 +516,14 @@
     var sc3 = Math.min(_avW/Math.max(gd.w||1,1), _avH/Math.max(gd.h||1,1));
     var pxW = gd.w * sc3, pxH = gd.h * sc3;
     var x0 = cx - pxW/2, y0 = cy - pxH/2 + 12;
+    var _shape = d.shape || 'RECT';
 
+    /* Лучи из-за зеркала */
     if(typeof window._drawMirrorBacklightRays === 'function'){
       window._drawMirrorBacklightRays(ctx, x0, y0, pxW, pxH, d, sc3);
     }
 
-    var _rMm = (d.roundedCorners && (d.shape==='RECT'||d.shape==='RECT4')) ? (Number(d.cornerRadius)||0) : 0;
+    var _rMm = (d.roundedCorners && (_shape==='RECT'||_shape==='RECT4')) ? (Number(d.cornerRadius)||0) : 0;
     var _rPx = _rMm / 10 * sc3;
 
     var _blArr = (typeof backlightArr === 'function') ? backlightArr(d) : [];
@@ -456,31 +531,32 @@
     var _boPx = Math.max(2, (Number(d.backlightOffset)||2) * sc3);
     var _bwPx = Math.max(6, (Number(d.backlightWidth)||2) * sc3);
 
+    /* Фон стекла */
     ctx.fillStyle = 'rgba(200,221,240,0.55)';
-    ctx.beginPath();
-    if(typeof canvasRoundRect === 'function'){ canvasRoundRect(ctx, x0, y0, pxW, pxH, _rPx); }
-    else { ctx.rect(x0, y0, pxW, pxH); }
+    _shapePath(ctx, x0, y0, pxW, pxH, _shape, _rPx);
     ctx.fill();
 
-    if(_hasOnBack){
+    /* Штрих подсветки — только для прямоугольных форм */
+    if(_hasOnBack && _shape !== 'CIRCLE' && _shape !== 'OVAL'){
       var sides = (typeof window._backlightSides === 'function') ? window._backlightSides(_blArr) : null;
       _hatchSided(ctx, x0, y0, pxW, pxH, _boPx, _bwPx, sides);
     }
 
+    /* Внешняя рамка стекла */
     ctx.strokeStyle = ink;
     ctx.lineWidth = 2.2;
-    ctx.beginPath();
-    if(typeof canvasRoundRect === 'function'){ canvasRoundRect(ctx, x0, y0, pxW, pxH, _rPx); }
-    else { ctx.rect(x0, y0, pxW, pxH); }
+    _shapePath(ctx, x0, y0, pxW, pxH, _shape, _rPx);
     ctx.stroke();
 
+    /* Фацет */
     if(typeof window._drawMirrorFacet === 'function'){
       window._drawMirrorFacet(ctx, x0, y0, pxW, pxH, d, sc3);
     }
 
+    /* Разрезы */
     if(d.cutV || d.cutH){
       ctx.save();
-      ctx.strokeStyle='#9d3668'; ctx.lineWidth=1.4; ctx.setLineDash([7,4]);
+      ctx.strokeStyle = '#9d3668'; ctx.lineWidth = 1.4; ctx.setLineDash([7,4]);
       if(d.cutV){
         var cvx = x0 + (Number(d.cutVPos)||0)*sc3;
         ctx.beginPath(); ctx.moveTo(cvx, y0-4); ctx.lineTo(cvx, y0+pxH+4); ctx.stroke();
@@ -492,9 +568,10 @@
       ctx.setLineDash([]); ctx.restore();
     }
 
+    /* Вырез */
     if(d.cutoutEnabled && Number(d.cutoutW) > 0){
       ctx.save();
-      ctx.strokeStyle='#c95a1e'; ctx.lineWidth=1.6;
+      ctx.strokeStyle = '#c95a1e'; ctx.lineWidth = 1.6;
       if((d.cutoutShape||'rect') === 'circle'){
         var rrC = Number(d.cutoutW)*sc3/2;
         ctx.beginPath(); ctx.arc(x0+pxW/2, y0+pxH/2, rrC, 0, Math.PI*2); ctx.stroke();
@@ -507,6 +584,7 @@
       ctx.restore();
     }
 
+    /* Розетки */
     if(d.socketsMount && Array.isArray(d.socketsList) && typeof window._zrzSocketCenters === 'function'){
       var sockR = Math.max(4, (7/2) * sc3);
       for(var si=0; si<d.socketsList.length; si++){
@@ -515,18 +593,19 @@
         for(var pi=0; pi<info.pts.length; pi++){
           var p = info.pts[pi];
           ctx.save();
-          ctx.fillStyle='#f5c93a';
-          ctx.strokeStyle='#8a6a2c'; ctx.lineWidth=1.1;
+          ctx.fillStyle = '#f5c93a';
+          ctx.strokeStyle = '#8a6a2c'; ctx.lineWidth = 1.1;
           ctx.beginPath(); ctx.arc(p.x, p.y, sockR, 0, Math.PI*2); ctx.fill(); ctx.stroke();
           ctx.beginPath();
           ctx.moveTo(p.x-sockR-3, p.y); ctx.lineTo(p.x+sockR+3, p.y);
           ctx.moveTo(p.x, p.y-sockR-3); ctx.lineTo(p.x, p.y+sockR+3);
-          ctx.strokeStyle='#8a6a2c'; ctx.lineWidth=0.85; ctx.stroke();
+          ctx.strokeStyle = '#8a6a2c'; ctx.lineWidth = 0.85; ctx.stroke();
           ctx.restore();
         }
       }
     }
 
+    /* Светильники */
     if(d.lightsMount && Array.isArray(d.lightsList)){
       var lightR = Math.max(5, (8/2) * sc3);
       for(var li=0; li<d.lightsList.length; li++){
@@ -535,58 +614,196 @@
         var baseX = (ls.edgeX==='right') ? (x0 + pxW - dxL*sc3) : (x0 + dxL*sc3);
         var baseY = (ls.edgeY==='bottom')? (y0 + pxH - dyL*sc3) : (y0 + dyL*sc3);
         ctx.save();
-        ctx.fillStyle='#e6ecf5'; ctx.strokeStyle='#3b5c8f'; ctx.lineWidth=1.6;
+        ctx.fillStyle = '#e6ecf5'; ctx.strokeStyle = '#3b5c8f'; ctx.lineWidth = 1.6;
         ctx.beginPath(); ctx.arc(baseX, baseY, lightR, 0, Math.PI*2); ctx.fill(); ctx.stroke();
         ctx.beginPath(); ctx.arc(baseX, baseY, Math.max(2, lightR*0.4), 0, Math.PI*2);
-        ctx.strokeStyle='#3b5c8f'; ctx.lineWidth=1; ctx.stroke();
+        ctx.strokeStyle = '#3b5c8f'; ctx.lineWidth = 1; ctx.stroke();
         ctx.restore();
       }
     }
 
-    if(d.boltMount && typeof window._zrzDrawBoltsWithCallout === 'function'){
+    /* Болты — только для прямоугольных форм */
+    if(d.boltMount && _shape !== 'CIRCLE' && _shape !== 'OVAL' && typeof window._zrzDrawBoltsWithCallout === 'function'){
       window._zrzDrawBoltsWithCallout(ctx, x0, y0, sc3, gd.w, gd.h, d, x);
     }
 
+    /* Выноска радиуса */
     if(_rMm > 0 && _rPx > 4 && typeof window._rCalloutArrow === 'function'){
       window._rCalloutArrow(ctx, x0+pxW-_rPx, y0+pxH-_rPx, _rPx, _rMm);
     }
 
+    /* Размеры H и W */
     if(typeof window._dimH === 'function'){ window._dimH(ctx, x0, x0+pxW, y0+pxH+18, numFmt(gd.w)+' см'); }
     if(typeof window._dimV === 'function'){ window._dimV(ctx, y0, y0+pxH, x0+pxW+22, numFmt(gd.h)+' см'); }
 
+    /* Маркер разреза */
     if(d.cutV && typeof window._drawSectionMark === 'function'){
       window._drawSectionMark(ctx, x0-22, y0, y0+pxH, 'А');
     }
 
+    /* Размеры розеток и светильников */
     if(typeof window._zrzDimLineFull === 'function'){
       _socketDims(ctx, x0, y0, pxW, pxH, sc3, d);
       _lightDims(ctx, x0, y0, pxW, pxH, sc3, d);
     }
 
+    /* Выноска со сторонами подсветки */
     _callout(ctx, x0, y0, pxW, pxH, _blArr);
 
     ctx.restore();
   }
 
-  /* ---------- Обёртки ---------- */
+  /* ============================================================
+     ОБЁРТКИ
+     ============================================================ */
+
   function wrapIso(){
-    if(window._zrzDrawIsoV4Wrapped) return;
+    if(window._zrzDrawIsoV5Wrapped) return;
     if(typeof window.drawTechIso !== 'function') return;
     var orig = window.drawTechIso;
     var nw = function(ctx, x, y, w, h, dims, scale, d){
       if(d && d.type !== 'SHOWER' && d.type !== 'APRON'){
-        try { return _drawIsoV4(ctx, x, y, w, h, dims, scale, d); }
-        catch(e){ try{console.warn('[02-draw v4] iso', e);}catch(_){} }
+        try { return _drawIsoV5(ctx, x, y, w, h, dims, scale, d); }
+        catch(e){ try{console.warn('[02-draw v5] iso', e);}catch(_){} }
       }
       return orig.apply(this, arguments);
     };
-    nw._zrzV4 = true;
+    nw._zrzV5 = true;
     window.drawTechIso = nw;
-    window._zrzDrawIsoV4Wrapped = true;
+    window._zrzDrawIsoV5Wrapped = true;
+  }
+
+  function wrapFront(){
+    if(window._zrzDrawFrontV5Wrapped) return;
+    if(typeof window.drawTechFront !== 'function') return;
+    var orig = window.drawTechFront;
+    var nw = function(ctx, x, y, w, h, d){
+      var res = orig.apply(this, arguments);
+      if(!d || d.type !== 'MIRROR') return res;
+      if(d.shape !== 'CIRCLE' && d.shape !== 'OVAL') return res;
+      try {
+        var gd = glassDimensions(d);
+        var cx = x + w/2, cy = y + h/2;
+        var sc3 = Math.min((w-80)/Math.max(gd.w||1,1), (h-60)/Math.max(gd.h||1,1));
+        var pxW = gd.w * sc3, pxH = gd.h * sc3;
+        var x0 = cx - pxW/2, y0 = cy - pxH/2;
+
+        /* Затираем ядровой прямоугольник */
+        ctx.save();
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(x0 - 6, y0 - 6, pxW + 12, pxH + 12);
+        ctx.restore();
+
+        /* Фон */
+        ctx.save();
+        ctx.fillStyle = 'rgba(200,221,240,0.35)';
+        _shapePath(ctx, x0, y0, pxW, pxH, d.shape, 0);
+        ctx.fill();
+        /* Рамка */
+        ctx.strokeStyle = '#3d86c8';
+        ctx.lineWidth = 2.5;
+        _shapePath(ctx, x0, y0, pxW, pxH, d.shape, 0);
+        ctx.stroke();
+        ctx.restore();
+
+        /* Подсветка «на зеркале» для овала (для круга обычно не ставят) */
+        if(d.shape === 'OVAL' && Array.isArray(d.backlight) && d.backlight.indexOf('На зеркале') >= 0){
+          var sides = (typeof window._backlightSides === 'function') ? window._backlightSides(d.backlight) : null;
+          var _boPx = Math.max(2, (Number(d.backlightOffset)||2) * sc3);
+          var _bwPx = Math.max(6, (Number(d.backlightWidth)||2) * sc3);
+          ctx.save();
+          ctx.beginPath();
+          if(ctx.ellipse){ ctx.ellipse(cx, cy, pxW/2, pxH/2, 0, 0, Math.PI*2); }
+          else { ctx.arc(cx, cy, pxW/2, 0, Math.PI*2); }
+          ctx.clip();
+          if(sides){
+            function hatchBand(rx, ry, rw, rh){
+              if(rw <= 0 || rh <= 0) return;
+              ctx.save();
+              ctx.beginPath();
+              ctx.rect(rx, ry, rw, rh);
+              ctx.clip();
+              ctx.strokeStyle = 'rgba(140,110,70,0.65)';
+              ctx.lineWidth = 0.9;
+              var step = 4.5;
+              ctx.beginPath();
+              for(var i = -rh; i < rw + rh; i += step){
+                ctx.moveTo(rx + i, ry);
+                ctx.lineTo(rx + i + rh, ry + rh);
+              }
+              ctx.stroke();
+              ctx.restore();
+            }
+            if(sides.left)   hatchBand(x0 + _boPx, y0 + _boPx, _bwPx, pxH - 2*_boPx);
+            if(sides.right)  hatchBand(x0 + pxW - _boPx - _bwPx, y0 + _boPx, _bwPx, pxH - 2*_boPx);
+            if(sides.top)    hatchBand(x0 + _boPx, y0 + _boPx, pxW - 2*_boPx, _bwPx);
+            if(sides.bottom) hatchBand(x0 + _boPx, y0 + pxH - _boPx - _bwPx, pxW - 2*_boPx, _bwPx);
+          }
+          ctx.restore();
+        }
+
+        /* Розетки и светильники */
+        _drawSocketsAndLightsFront(ctx, x, y, w, h, d);
+
+        /* Размеры W и H */
+        if(typeof window._dimH === 'function'){ window._dimH(ctx, x0, x0+pxW, y0+pxH+18, numFmt(gd.w)+' см'); }
+        if(typeof window._dimV === 'function'){ window._dimV(ctx, y0, y0+pxH, x0+pxW+22, numFmt(gd.h)+' см'); }
+      } catch(e){ try{console.warn('[02-draw v5 front]', e);}catch(_){} }
+      return res;
+    };
+    nw._zrzV5 = true;
+    window.drawTechFront = nw;
+    window._zrzDrawFrontV5Wrapped = true;
+  }
+
+  function wrapPlan(){
+    if(window._zrzDrawPlanV5Wrapped) return;
+    if(typeof window.drawTechPlan !== 'function') return;
+    var orig = window.drawTechPlan;
+    var nw = function(ctx, x, y, w, h, d){
+      var res = orig.apply(this, arguments);
+      if(!d || d.type !== 'MIRROR') return res;
+      if(d.shape !== 'CIRCLE' && d.shape !== 'OVAL') return res;
+      try {
+        var gd = glassDimensions(d);
+        var cx = x + w/2, cy = y + h/2;
+        var sc3 = Math.min((w-80)/Math.max(gd.w||1,1), (h-60)/Math.max(gd.h||1,1));
+        var pxW = gd.w * sc3, pxH = gd.h * sc3;
+        var x0 = cx - pxW/2, y0 = cy - pxH/2;
+
+        ctx.save();
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(x0 - 6, y0 - 6, pxW + 12, pxH + 12);
+        ctx.restore();
+
+        ctx.save();
+        ctx.fillStyle = 'rgba(200,221,240,0.4)';
+        ctx.strokeStyle = '#3d86c8';
+        ctx.lineWidth = 2.5;
+        _shapePath(ctx, x0, y0, pxW, pxH, d.shape, 0);
+        ctx.fill();
+        _shapePath(ctx, x0, y0, pxW, pxH, d.shape, 0);
+        ctx.stroke();
+        ctx.restore();
+
+        var label = 'Вид сверху: ' + numFmt(gd.w) + ' см' + (d.shape === 'CIRCLE' ? (' × Ø' + numFmt(gd.h)) : (' × ' + numFmt(gd.h))) + ' × ' + numFmt(d.th||4) + ' мм';
+        ctx.save();
+        ctx.fillStyle = '#c14d4d';
+        ctx.font = '700 14px "PT Sans Narrow",Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        ctx.fillText(label, cx, cy - Math.max(pxW,pxH)/2 - 10);
+        ctx.restore();
+      } catch(e){ try{console.warn('[02-draw v5 plan]', e);}catch(_){} }
+      return res;
+    };
+    nw._zrzV5 = true;
+    window.drawTechPlan = nw;
+    window._zrzDrawPlanV5Wrapped = true;
   }
 
   function wrapOpenTechDraw(){
-    if(window._zrzOpenTechDrawV4Wrapped) return;
+    if(window._zrzOpenTechDrawV5Wrapped) return;
     if(typeof window.openTechDraw !== 'function') return;
     var orig = window.openTechDraw;
     var nw = function(itemId){
@@ -604,15 +821,17 @@
             finally { db.items[idx] = backup; }
           }
         }
-      }catch(e){ try{console.warn('[02-draw v4] openTechDraw', e);}catch(_){} }
+      }catch(e){ try{console.warn('[02-draw v5] openTechDraw', e);}catch(_){} }
       return orig.apply(this, arguments);
     };
     window.openTechDraw = nw;
-    window._zrzOpenTechDrawV4Wrapped = true;
+    window._zrzOpenTechDrawV5Wrapped = true;
   }
 
   function apply(){
     try{ wrapIso(); }catch(e){}
+    try{ wrapFront(); }catch(e){}
+    try{ wrapPlan(); }catch(e){}
     try{ wrapOpenTechDraw(); }catch(e){}
   }
   apply();
@@ -621,9 +840,11 @@
 
   var _iv = setInterval(function(){
     try{ wrapIso(); }catch(e){}
+    try{ wrapFront(); }catch(e){}
+    try{ wrapPlan(); }catch(e){}
     try{ wrapOpenTechDraw(); }catch(e){}
   }, 2000);
   setTimeout(function(){ clearInterval(_iv); }, 60000);
 
-  try{ console.log('[02-draw v4.1] выноска сдвинута ниже, размер ленты убран'); }catch(_){}
+  try{ console.log('[02-draw v5] штрих по сторонам + круг/овал во всех видах'); }catch(_){}
 })();
