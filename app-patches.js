@@ -1,10 +1,12 @@
-/* app-patches.js — загрузчик модулей «Зерцало» v6.1.38
+/* app-patches.js — загрузчик модулей «Зерцало» v6.1.40
    · Прелоадер: модули грузятся за занавесом
    · Ожидание загрузки шрифта Onest перед показом
    · Версионирование модулей — HTTP-кеш работает
+   · Фикс мелькания старой версии — html.zrz-ready
+   · Фикс логотипа прелоадера — clip-path по кругу
 */
 (function(){
-  var PATCH_VERSION = '6.1.38';
+  var PATCH_VERSION = '6.1.40';
   var BASE = 'https://raw.githubusercontent.com/elcomandan1e/Zercalo-Ver-1/main/patches/';
 
   var MODULES = [
@@ -40,14 +42,32 @@
       '<div class="zrz-pre-inner">'
       +   '<div class="zrz-pre-logo">'
       +     '<svg viewBox="0 0 120 120" width="72" height="72" xmlns="http://www.w3.org/2000/svg">'
-      +       '<circle cx="60" cy="56" r="52" fill="#e6f1fb"/>'
+      +       '<defs>'
+      +         '<radialGradient id="zrzPreE" cx="50%" cy="38%" r="66%">'
+      +           '<stop offset="0%" stop-color="#f5fafe"/>'
+      +           '<stop offset="100%" stop-color="#e6f1fb"/>'
+      +         '</radialGradient>'
+      +         '<linearGradient id="zrzPreG" x1="0" y1="0" x2="0.35" y2="1">'
+      +           '<stop offset="0%" stop-color="#eef6fd"/>'
+      +           '<stop offset="55%" stop-color="#bfdcf2"/>'
+      +           '<stop offset="100%" stop-color="#8fbce2"/>'
+      +         '</linearGradient>'
+      +         '<clipPath id="zrzPreC"><circle cx="60" cy="56" r="52.5"/></clipPath>'
+      +       '</defs>'
+      +       '<circle cx="60" cy="56" r="52" fill="url(#zrzPreE)"/>'
+      +       '<g clip-path="url(#zrzPreC)">'
+      +         '<rect x="13" y="46.5" width="16" height="58" rx="5" fill="url(#zrzPreG)" stroke="#1e4d7b" stroke-width="1.4" opacity="0.55"/>'
+      +         '<rect x="91" y="46.5" width="16" height="58" rx="5" fill="url(#zrzPreG)" stroke="#1e4d7b" stroke-width="1.4" opacity="0.55"/>'
+      +         '<rect x="32" y="24.5" width="16" height="80" rx="5" fill="url(#zrzPreG)" stroke="#1e4d7b" stroke-width="1.4" opacity="0.7"/>'
+      +         '<rect x="72" y="24.5" width="16" height="80" rx="5" fill="url(#zrzPreG)" stroke="#1e4d7b" stroke-width="1.4" opacity="0.7"/>'
+      +         '<rect x="52" y="8.5" width="16" height="96" rx="5" fill="url(#zrzPreG)" stroke="#1e4d7b" stroke-width="1.4"/>'
+      +         '<rect x="54.5" y="2" width="4" height="104" fill="#fff" opacity="0.55"/>'
+      +         '<rect x="61.5" y="2" width="2" height="104" fill="#fff" opacity="0.35"/>'
+      +         '<ellipse cx="60" cy="97" rx="32" ry="3" fill="#1e4d7b" opacity="0.12"/>'
+      +       '</g>'
       +       '<circle cx="60" cy="56" r="50" fill="none" stroke="#1e4d7b" stroke-width="5"/>'
-      +       '<rect x="21" y="46.5" width="16" height="58" rx="5" fill="#bfdcf2" stroke="#1e4d7b" stroke-width="1.4" opacity="0.55"/>'
-      +       '<rect x="99" y="46.5" width="16" height="58" rx="5" fill="#bfdcf2" stroke="#1e4d7b" stroke-width="1.4" opacity="0.55"/>'
-      +       '<rect x="40" y="24.5" width="16" height="80" rx="5" fill="#bfdcf2" stroke="#1e4d7b" stroke-width="1.4" opacity="0.7"/>'
-      +       '<rect x="80" y="24.5" width="16" height="80" rx="5" fill="#bfdcf2" stroke="#1e4d7b" stroke-width="1.4" opacity="0.7"/>'
-      +       '<rect x="60" y="8.5" width="16" height="96" rx="5" fill="#bfdcf2" stroke="#1e4d7b" stroke-width="1.4"/>'
-      +       '<rect x="54.5" y="2" width="4" height="104" fill="#fff" opacity="0.55"/>'
+      +       '<path d="M102 6 L103.4 11.1 L108.5 12.5 L103.4 13.9 L102 19 L100.6 13.9 L95.5 12.5 L100.6 11.1 Z" fill="#e8a70c"/>'
+      +       '<circle cx="94" cy="9" r="1.6" fill="#e8a70c" opacity="0.8"/>'
       +     '</svg>'
       +   '</div>'
       +   '<div class="zrz-pre-title">Зерцало</div>'
@@ -152,13 +172,18 @@
       if(typeof window._zrzPatchInit === 'function'){
         try { window._zrzPatchInit(); } catch(e){}
       }
+      try { document.documentElement.classList.add('zrz-ready'); }catch(e){}
       waitForFonts().then(function(){
         setTimeout(hidePreloader, 300);
       });
     }).catch(function(){
+      try { document.documentElement.classList.add('zrz-ready'); }catch(e){}
       setTimeout(hidePreloader, 200);
     });
-    setTimeout(hidePreloader, 5000);
+    setTimeout(function(){
+      try { document.documentElement.classList.add('zrz-ready'); }catch(e){}
+      hidePreloader();
+    }, 5000);
   }
 
   showPreloaderNow();
