@@ -10,7 +10,7 @@
   var MODULES = [
     '01-core.js',
     '02-draw.js',
-    '03-sync.js',
+   //'03-sync.js',
     '04-docs.js',
     '05-ui.js',
     '06-nav.js',
