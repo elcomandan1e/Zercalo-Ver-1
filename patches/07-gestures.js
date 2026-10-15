@@ -159,7 +159,7 @@
     '.zrz-fab-lbl{position:absolute;left:50%;top:-28px;transform:translateX(-50%);white-space:nowrap;font-size:11px;font-weight:600;color:#fff;background:rgba(0,0,0,.75);padding:3px 8px;border-radius:8px;opacity:0;transition:opacity .2s;pointer-events:none}',
     '.zrz-fab-action.zrz-fab-preview .zrz-fab-lbl{opacity:1}',
     '.zrz-fab-action.zrz-fab-preview{box-shadow:0 0 0 4px rgba(255,255,255,.6),0 12px 26px rgba(0,0,0,.3)}',
-    '.zrz-picker-bg{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9500;display:flex;align-items:flex-end;animation:zrzFadeIn .2s ease;font-family:Onest,system-ui,sans-serif}',
+    '.zrz-picker-bg{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:99995;display:flex;align-items:flex-end;animation:zrzFadeIn .2s ease;font-family:Onest,system-ui,sans-serif}',
     '.zrz-picker{background:#fff;width:100%;max-height:72vh;border-radius:20px 20px 0 0;padding:0 0 env(safe-area-inset-bottom,0);box-shadow:0 -8px 24px rgba(0,0,0,.2);animation:zrzSlideUp .28s cubic-bezier(.34,1.56,.64,1);overflow:auto}',
     '.zrz-picker::before{content:"";display:block;width:40px;height:4px;background:#ddd;border-radius:2px;margin:10px auto 4px}',
     '.zrz-picker-h{font-weight:700;font-size:15px;padding:6px 18px 12px;color:#111;border-bottom:1px solid #f0f0f0;position:sticky;top:0;background:#fff;z-index:1}',
@@ -807,7 +807,7 @@
   var st = document.createElement('style');
   st.setAttribute('data-zrz', 'actions');
   st.textContent = [
-    '.zrz-as-bg{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9500;display:flex;align-items:flex-end;animation:zrzAsFade .2s ease;font-family:Onest,system-ui,sans-serif}',
+    '.zrz-as-bg{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:99995;display:flex;align-items:flex-end;animation:zrzAsFade .2s ease;font-family:Onest,system-ui,sans-serif}',
     '.zrz-as{background:#fff;width:100%;max-height:78vh;border-radius:22px 22px 0 0;padding:0 0 calc(env(safe-area-inset-bottom,0px) + 8px);box-shadow:0 -10px 30px rgba(0,0,0,.25);animation:zrzAsUp .28s cubic-bezier(.34,1.56,.64,1);overflow:auto}',
     '.zrz-as-handle{width:40px;height:4px;background:#ddd;border-radius:2px;margin:10px auto 6px}',
     '.zrz-as-list{padding:6px 8px 4px}',
