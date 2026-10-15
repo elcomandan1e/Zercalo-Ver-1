@@ -4,7 +4,7 @@
    · Версионирование модулей — HTTP-кеш работает
 */
 (function(){
-  var PATCH_VERSION = '6.1.23';
+  var PATCH_VERSION = '6.1.24';
   var BASE = 'https://raw.githubusercontent.com/elcomandan1e/Zercalo-Ver-1/main/patches/';
 
   var MODULES = [
