@@ -529,3 +529,279 @@
   if (document.readyState === 'complete') setTimeout(dump, 2500);
   else window.addEventListener('load', function(){ setTimeout(dump, 2500); });
 })();
+/* patches/15-tests.js — автотесты чертежей (Draw) */
+(function(){
+  if(window._zrz15DrawTests) return;
+  window._zrz15DrawTests = true;
+
+  if(typeof window._tsRegister !== 'function'){
+    try{ console.warn('[15 draw-tests] _tsRegister не найден, пропускаю'); }catch(_){}
+    return;
+  }
+
+  /* ---------- Утилиты ---------- */
+
+  function _mkItem(type, shape, extra){
+    var base = {
+      id: 999999, type: type, shape: shape || 'RECT',
+      w: 60, h: 180, th: 4, qty: 1,
+      glass: 'Серебро', edge: 'Полированный край', facetWidth: 0,
+      frameColor: 'none', mountType: '',
+      isNiche: false, socketsMount: false, socketsList: [],
+      lightsMount: false, lightsList: [],
+      cutoutEnabled: false, cutoutW: 0, cutoutH: 0,
+      cutV: false, cutVPos: 50, cutH: false, cutHPos: 50,
+      electric: false, backlight: [], voltage: '', switches: [], colorTemp: '', trafo: '',
+      showerH: 220, showerBaseType: 'floor', baseW: 0, baseD: 0, baseH: 0,
+      showerPanels: [{type:'door', length: 70, angle: 0, hingeSide: 'left', swing: 'out'}],
+      showerProfiles: [], hingeCount: 2,
+      showerHandle: { kind:'none', panelIndex:0, offsetFromTop:100, edge:'right', offsetEdge:7, holeDiameter:10, holeDistance:300 },
+      apronMaterial: 'glass', apronGlassType: 'clear', apronColorNumber: '',
+      apronShape: 'straight', apronDirection: 'right',
+      apronMeasureMode: 'niche', apronInset: 1.5,
+      apronSections: [{bottom: 100, top: 100, left: 60, right: 60}],
+      pannoLayout: 'frame', shelfDepth: 15,
+      photos: [], note: '',
+      boltMount: false, boltCount: 0, boltOffset: 5,
+      roundedCorners: false, cornerRadius: 50,
+      mirrorMeasureMode: 'glass', mirrorInset: 1.5, mirrorNicheCutMode: 'min', mirrorNicheRefCorner: 'TL',
+      T: 0, B: 0, L: 0, R: 0
+    };
+    if(extra){ for(var k in extra){ if(Object.prototype.hasOwnProperty.call(extra,k)) base[k] = extra[k]; } }
+    try { if(typeof migrateItem === 'function') migrateItem(base); }catch(e){}
+    return base;
+  }
+
+  /* Пробует создать canvas и вернуть true / описание ошибки */
+  function _tryMake(d){
+    try{
+      if(typeof window.makeTechCanvas !== 'function') return {ok:false,msg:'makeTechCanvas не найден'};
+      var cv = window.makeTechCanvas(d);
+      if(!cv || !cv.getContext) return {ok:false,msg:'canvas не создан'};
+      return {ok:true};
+    }catch(e){
+      return {ok:false, msg: String((e&&e.message)||e)};
+    }
+  }
+
+  /* Прямой вызов одного из видов на пустом canvas */
+  function _tryDraw(fnName, d){
+    try{
+      var fn = window[fnName];
+      if(typeof fn !== 'function') return {ok:false,msg: fnName+' не найден'};
+      var cv = document.createElement('canvas');
+      cv.width = 500; cv.height = 700;
+      var ctx = cv.getContext('2d');
+      var dims = (typeof techDims === 'function') ? techDims(d) : {W:60,D:4,H:180};
+      fn.call(window, ctx, 10, 10, 480, 680, dims, 1, d);
+      return {ok:true};
+    }catch(e){
+      return {ok:false, msg: String((e&&e.message)||e)};
+    }
+  }
+
+  /* ---------- Регистрация тестов ---------- */
+
+  /* Меркурий (з.) — базовые формы */
+  _tsRegister('Draw', 'Зеркало RECT 60×180', function(){
+    return _tryMake(_mkItem('MIRROR','RECT'));
+  });
+  _tsRegister('Draw', 'Зеркало RECT4', function(){
+    return _tryMake(_mkItem('MIRROR','RECT4', {T:60,B:60,L:180,R:180}));
+  });
+  _tsRegister('Draw', 'Зеркало CIRCLE', function(){
+    return _tryMake(_mkItem('MIRROR','CIRCLE', {w:60,h:60}));
+  });
+  _tsRegister('Draw', 'Зеркало OVAL', function(){
+    return _tryMake(_mkItem('MIRROR','OVAL', {w:60,h:100}));
+  });
+  _tsRegister('Draw', 'Зеркало FIGURED', function(){
+    return _tryMake(_mkItem('MIRROR','FIGURED', {cornerRadius:50}));
+  });
+  _tsRegister('Draw', 'Зеркало TEMPLATE', function(){
+    return _tryMake(_mkItem('MIRROR','TEMPLATE'));
+  });
+
+  /* Ниша */
+  _tsRegister('Draw', 'Зеркало в нишу', function(){
+    return _tryMake(_mkItem('MIRROR','RECT', {mirrorMeasureMode:'niche', T:62, B:62, L:182, R:182}));
+  });
+  _tsRegister('Draw', 'Зеркало ниша + стекло', function(){
+    return _tryMake(_mkItem('MIRROR','RECT', {mirrorMeasureMode:'both', T:62, B:62, L:182, R:182, w:60, h:180}));
+  });
+  _tsRegister('Draw', 'Зеркало закос в нише', function(){
+    return _tryMake(_mkItem('MIRROR','RECT', {mirrorMeasureMode:'niche', T:62, B:60, L:182, R:180, mirrorNicheCutMode:'bevel'}));
+  });
+
+  /* Опции зеркала */
+  _tsRegister('Draw', 'Зеркало со скруглениями R50', function(){
+    return _tryMake(_mkItem('MIRROR','RECT', {roundedCorners:true, cornerRadius:50}));
+  });
+  _tsRegister('Draw', 'Зеркало с фацетом 20 мм', function(){
+    return _tryMake(_mkItem('MIRROR','RECT', {edge:'Фацет', facetWidth:20}));
+  });
+  _tsRegister('Draw', 'Зеркало с рамкой', function(){
+    return _tryMake(_mkItem('MIRROR','RECT', {frameColor:'gold', frameThickness:30}));
+  });
+
+  /* Подсветка */
+  _tsRegister('Draw', 'Подсветка на зеркале, по периметру', function(){
+    return _tryMake(_mkItem('MIRROR','RECT', {electric:true, backlight:['На зеркале','По периметру'], backlightOffset:2, backlightWidth:2}));
+  });
+  _tsRegister('Draw', 'Подсветка на зеркале, 2 вертикальных', function(){
+    return _tryMake(_mkItem('MIRROR','RECT', {electric:true, backlight:['На зеркале','По 2 вертикальным сторонам'], backlightOffset:2, backlightWidth:2}));
+  });
+  _tsRegister('Draw', 'Подсветка на зеркале, снизу', function(){
+    return _tryMake(_mkItem('MIRROR','RECT', {electric:true, backlight:['На зеркале','Снизу'], backlightOffset:2, backlightWidth:2}));
+  });
+  _tsRegister('Draw', 'Подсветка на зеркале, сверху', function(){
+    return _tryMake(_mkItem('MIRROR','RECT', {electric:true, backlight:['На зеркале','Сверху'], backlightOffset:2, backlightWidth:2}));
+  });
+  _tsRegister('Draw', 'Подсветка из-за зеркала, по периметру', function(){
+    return _tryMake(_mkItem('MIRROR','RECT', {electric:true, backlight:['Из-за зеркала','По периметру']}));
+  });
+  _tsRegister('Draw', 'Подсветка из-за зеркала + на зеркале', function(){
+    return _tryMake(_mkItem('MIRROR','RECT', {electric:true, backlight:['Из-за зеркала','По периметру','На зеркале','По 2 горизонтальным сторонам'], backlightOffset:2, backlightWidth:2}));
+  });
+
+  /* Розетки */
+  _tsRegister('Draw', 'Зеркало с 1 розеткой', function(){
+    return _tryMake(_mkItem('MIRROR','RECT', {socketsMount:true, socketsList:[{count:1,step:7.1,distX:30,distY:110,edgeX:'left',edgeY:'bottom'}]}));
+  });
+  _tsRegister('Draw', 'Зеркало с 2 розетками, шаг 7.1', function(){
+    return _tryMake(_mkItem('MIRROR','RECT', {socketsMount:true, socketsList:[{count:2,step:7.1,distX:30,distY:110,edgeX:'left',edgeY:'bottom'}]}));
+  });
+  _tsRegister('Draw', 'Розетки горизонтально, 3 места', function(){
+    return _tryMake(_mkItem('MIRROR','RECT', {socketsMount:true, socketsList:[{count:3,step:7.1,distX:30,distY:110,edgeX:'left',edgeY:'bottom',orientation:'horizontal'}]}));
+  });
+
+  /* Светильники */
+  _tsRegister('Draw', 'Зеркало с 1 светильником', function(){
+    return _tryMake(_mkItem('MIRROR','RECT', {lightsMount:true, lightsList:[{distX:30,distY:10,edgeX:'left',edgeY:'top'}]}));
+  });
+  _tsRegister('Draw', 'Зеркало с 2 светильниками', function(){
+    return _tryMake(_mkItem('MIRROR','RECT', {lightsMount:true, lightsList:[{distX:15,distY:10,edgeX:'left',edgeY:'top'},{distX:15,distY:10,edgeX:'right',edgeY:'top'}]}));
+  });
+
+  /* Болты */
+  _tsRegister('Draw', 'Зеркало с 4 болтами', function(){
+    return _tryMake(_mkItem('MIRROR','RECT', {boltMount:true, boltCount:4, boltOffset:5}));
+  });
+  _tsRegister('Draw', 'Зеркало с 6 болтами', function(){
+    return _tryMake(_mkItem('MIRROR','RECT', {boltMount:true, boltCount:6, boltOffset:5}));
+  });
+  _tsRegister('Draw', 'Зеркало с 8 болтами', function(){
+    return _tryMake(_mkItem('MIRROR','RECT', {boltMount:true, boltCount:8, boltOffset:5}));
+  });
+
+  /* Вырез */
+  _tsRegister('Draw', 'Зеркало с вырезом прямоуг.', function(){
+    return _tryMake(_mkItem('MIRROR','RECT', {cutoutEnabled:true, cutoutShape:'rect', cutoutW:20, cutoutH:10}));
+  });
+  _tsRegister('Draw', 'Зеркало с вырезом круглым', function(){
+    return _tryMake(_mkItem('MIRROR','RECT', {cutoutEnabled:true, cutoutShape:'circle', cutoutW:15, cutoutH:15}));
+  });
+
+  /* Разрез */
+  _tsRegister('Draw', 'Зеркало с вертикальным разрезом', function(){
+    return _tryMake(_mkItem('MIRROR','RECT', {cutV:true, cutVPos:30}));
+  });
+  _tsRegister('Draw', 'Зеркало с крестом реза', function(){
+    return _tryMake(_mkItem('MIRROR','RECT', {cutV:true, cutVPos:30, cutH:true, cutHPos:90}));
+  });
+
+  /* Граничные случаи */
+  _tsRegister('Draw', 'Маленькое зеркало 20×30', function(){
+    return _tryMake(_mkItem('MIRROR','RECT', {w:20, h:30}));
+  });
+  _tsRegister('Draw', 'Большое зеркало 250×180', function(){
+    return _tryMake(_mkItem('MIRROR','RECT', {w:250, h:180}));
+  });
+  _tsRegister('Draw', 'Узкое зеркало 15×200', function(){
+    return _tryMake(_mkItem('MIRROR','RECT', {w:15, h:200}));
+  });
+
+  /* Душевая */
+  _tsRegister('Draw', 'Душевая 1 дверь + 1 добор', function(){
+    return _tryMake(_mkItem('SHOWER', null, {
+      showerPanels: [
+        {type:'door', length:70, angle:0, hingeSide:'left', swing:'out'},
+        {type:'fixed', length:50, angle:90, hingeSide:'left', swing:'out'}
+      ],
+      showerProfiles: [{kind:'wall', mount:'left', panelIndex:0, color:'chrome', note:'', offsetFromTop:null, wallLen:null}]
+    }));
+  });
+  _tsRegister('Draw', 'Душевая с поддоном', function(){
+    return _tryMake(_mkItem('SHOWER', null, {
+      showerBaseType:'tray', baseW:90, baseD:90, baseH:15,
+      showerPanels: [{type:'door', length:70, angle:0, hingeSide:'left', swing:'out'}]
+    }));
+  });
+  _tsRegister('Draw', 'Душевая с ручкой', function(){
+    return _tryMake(_mkItem('SHOWER', null, {
+      showerPanels: [{type:'door', length:70, angle:0, hingeSide:'left', swing:'out'}],
+      showerHandle: {kind:'bow', panelIndex:0, offsetFromTop:100, edge:'right', offsetEdge:7, holeDiameter:10, holeDistance:300}
+    }));
+  });
+  _tsRegister('Draw', 'Душевая со штангой', function(){
+    return _tryMake(_mkItem('SHOWER', null, {
+      showerPanels: [{type:'door', length:70, angle:0, hingeSide:'left', swing:'out'}],
+      showerProfiles: [{kind:'rod', mount:'right', panelIndex:0, color:'chrome', note:'', offsetFromTop:4, wallLen:30}]
+    }));
+  });
+
+  /* Фартук */
+  _tsRegister('Draw', 'Фартук прямая', function(){
+    return _tryMake(_mkItem('APRON', null, {
+      apronShape:'straight', apronSections:[{bottom:200, top:200, left:60, right:60}]
+    }));
+  });
+  _tsRegister('Draw', 'Фартук Г-образная', function(){
+    return _tryMake(_mkItem('APRON', null, {
+      apronShape:'L',
+      apronSections:[{bottom:200, top:200, left:60, right:60},{bottom:100, top:100, left:60, right:60}]
+    }));
+  });
+  _tsRegister('Draw', 'Фартук П-образная', function(){
+    return _tryMake(_mkItem('APRON', null, {
+      apronShape:'U',
+      apronSections:[{bottom:200, top:200, left:60, right:60},{bottom:100, top:100, left:60, right:60},{bottom:100, top:100, left:60, right:60}]
+    }));
+  });
+  _tsRegister('Draw', 'Фартук зеркальный', function(){
+    return _tryMake(_mkItem('APRON', null, {
+      apronMaterial:'mirror', apronSections:[{bottom:200, top:200, left:60, right:60}]
+    }));
+  });
+
+  /* Полка / Панно */
+  _tsRegister('Draw', 'Полка 60×80', function(){
+    return _tryMake(_mkItem('SHELF','RECT', {shelfDepth:15}));
+  });
+  _tsRegister('Draw', 'Панно 60×80', function(){
+    return _tryMake(_mkItem('PANNO','RECT', {pannoLayout:'frame'}));
+  });
+  _tsRegister('Draw', 'Панно с раскладкой "крест"', function(){
+    return _tryMake(_mkItem('PANNO','RECT', {pannoLayout:'x'}));
+  });
+
+  /* Прямые вызовы drawTechIso / drawTechFront / drawTechPlan */
+  _tsRegister('Draw', 'drawTechIso — зеркало', function(){
+    return _tryDraw('drawTechIso', _mkItem('MIRROR','RECT'));
+  });
+  _tsRegister('Draw', 'drawTechFront — зеркало', function(){
+    return _tryDraw('drawTechFront', _mkItem('MIRROR','RECT'));
+  });
+  _tsRegister('Draw', 'drawTechPlan — зеркало', function(){
+    return _tryDraw('drawTechPlan', _mkItem('MIRROR','RECT'));
+  });
+  _tsRegister('Draw', 'drawTechIso — душевая', function(){
+    return _tryDraw('drawTechIso', _mkItem('SHOWER', null));
+  });
+  _tsRegister('Draw', 'drawTechIso — фартук', function(){
+    return _tryDraw('drawTechIso', _mkItem('APRON', null));
+  });
+
+  try{ console.log('[15 draw-tests] +' + '~45 тестов чертежей зарегистрированы'); }catch(_){}
+})();
+/* patches/15-tests.js — галерея чертежей (Часть 2, будет дописана) */
