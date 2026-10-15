@@ -1,304 +1,264 @@
-/* patches/03-sync.js — синхронизация и защита базы
-   · Защита от затирания: до первого pull push НЕ отправляет
-     users/roles/settings
-   · Первый pull заменяет их серверными
-   · Кнопки zrzPullOnly() и zrzPushNow() — вручную
-   · Ре-подписка .on('value') с обёрткой защищённого set
-   · Блок «🛡 Защита базы» в Настройках
-   · Подпись разработчика в Настройках
+/* patches/03-sync.js — синхронизация v2 (защита базы)
+   Часть 1: Ур.1 — защита от пустоты; Ур.2 — снапшоты
+   Часть 2: Экран «История базы» + автоснапшот в 23:00
 */
 (function(){
-  if(window._zrz03Sync) return;
-  window._zrz03Sync = true;
+  if(window._zrz03SyncV2) return;
+  window._zrz03SyncV2 = true;
 
-  /* ---------- Состояние модуля ---------- */
+  var SNAPSHOT_MIN_INTERVAL = 15 * 60 * 1000;  /* 15 мин */
+  var SNAPSHOT_KEEP_LAST    = 30;
+  var _lastSnapshotAt = 0;
+  var _pushBlockedLogged = false;
+  var _startupGuardDone = false;
 
-  var _firstPullDone = false;
-  var _serverEmpty = false;
-  var _startTime = Date.now();
+  /* ---------- Хелперы ---------- */
 
-  function getRef(){
-    try { return window._fbDbRef || null; } catch(e){ return null; }
-  }
-  function getLastPushed(){
-    try { return Number(window._fbLastPushedAt) || 0; } catch(e){ return 0; }
-  }
-  function setLastPushed(t){
-    try { window._fbLastPushedAt = t; } catch(e){}
-  }
-  function getApplyingRemote(){
-    try { return !!window._fbApplyingRemote; } catch(e){ return false; }
-  }
-  function setApplyingRemote(v){
-    try { window._fbApplyingRemote = v; } catch(e){}
+  function _count(arr){ return (Array.isArray(arr) ? arr.length : 0); }
+
+  function _busyCount(data){
+    if(!data) return 0;
+    return _count(data.orders) + _count(data.events) + _count(data.clients)
+         + _count(data.items) + _count(data.addresses) + _count(data.routes);
   }
 
-  /* ---------- Правила защиты ---------- */
+  function _busyDataEmpty(){
+    try {
+      var d = window.db || {};
+      return _busyCount(d) === 0;
+    } catch(e){ return false; }
+  }
 
-  function guardBlock(){
-    if(window._zrzForcePush) return false;
-    if(_serverEmpty) return false;
-    if(!window.db || !db.sync) return true;
-    if(db.sync.lastPullAt){
-      if(window._zrzPushUntil && Date.now() < window._zrzPushUntil) return true;
+  function _logOnce(msg){
+    if(_pushBlockedLogged) return;
+    _pushBlockedLogged = true;
+    try{ console.warn('[03-sync] ' + msg); }catch(_){}
+    try{
+      if(typeof window.__showErr === 'function') window.__showErr('[03-sync] ' + msg);
+    }catch(_){}
+  }
+
+  function _applyRemote(remote){
+    try {
+      if(typeof window.applySyncPayload !== 'function') return false;
+      window._fbApplyingRemote = true;
+      try {
+        window.applySyncPayload(remote);
+      } finally {
+        setTimeout(function(){ window._fbApplyingRemote = false; }, 300);
+      }
+      if(window.db && window.db.sync) window.db.sync.lastPullAt = Date.now();
+      if(typeof window.save === 'function') window.save();
+      if(typeof window.render === 'function'){ try{ window.render(); }catch(_){} }
+      return true;
+    } catch(e){
+      try{ console.warn('[03-sync] applyRemote err', e); }catch(_){}
       return false;
     }
-    if(Date.now() - _startTime > 60000) return false;
-    return true;
   }
 
-  function safePayload(data){
-    if(!data || typeof data !== 'object') return data;
-    var safe = {};
-    for(var k in data){
-      if(!Object.prototype.hasOwnProperty.call(data, k)) continue;
-      if(k === 'users' || k === 'roles' || k === 'settings') continue;
-      safe[k] = data[k];
-    }
-    return safe;
-  }
+  /* ---------- Ур.2: снапшоты ---------- */
 
-  function firstPullProcess(remote){
-    if(_firstPullDone) return;
-    _firstPullDone = true;
-    if(!remote || !remote.users || !remote.users.length){ _serverEmpty = true; return; }
+  function _getBackupRef(){
     try {
-      if(Array.isArray(remote.users)) window.db.users = JSON.parse(JSON.stringify(remote.users));
-      if(remote.roles && typeof remote.roles === 'object') window.db.roles = JSON.parse(JSON.stringify(remote.roles));
-      if(remote.settings && typeof remote.settings === 'object'){
-        var keepSync = window.db.sync;
-        window.db.settings = JSON.parse(JSON.stringify(remote.settings));
-        window.db.sync = keepSync;
+      if(!window._fbDbRef) return null;
+      if(!window.firebase || typeof window.firebase.database !== 'function') return null;
+      return window.firebase.database().ref('zerzalo_backups');
+    } catch(e){ return null; }
+  }
+
+  function _pruneSnapshots(backupRef){
+    if(!backupRef) return Promise.resolve();
+    return backupRef.once('value').then(function(snap){
+      var all = snap.val() || {};
+      var keys = Object.keys(all).sort();
+      if(keys.length <= SNAPSHOT_KEEP_LAST) return;
+      var cut = keys.length - SNAPSHOT_KEEP_LAST;
+      var toDelete = keys.slice(0, cut);
+      return Promise.all(toDelete.map(function(k){
+        return backupRef.child(k).remove().catch(function(){});
+      }));
+    }).catch(function(){});
+  }
+
+  function _maybeSnapshot(){
+    try {
+      var now = Date.now();
+      if(now - _lastSnapshotAt < SNAPSHOT_MIN_INTERVAL){
+        return Promise.resolve();
       }
-    } catch(e){}
+      var mainRef = window._fbDbRef;
+      if(!mainRef) return Promise.resolve();
+      var backupRef = _getBackupRef();
+      if(!backupRef) return Promise.resolve();
+
+      _lastSnapshotAt = now;
+
+      return mainRef.once('value').then(function(snap){
+        var cur = snap.val();
+        if(!cur) return;
+        if(_busyCount(cur) === 0) return;
+        var key = 'z' + now;
+        var payload = {
+          createdAt: now,
+          schemaVersion: cur.schemaVersion || 0,
+          orders: cur.orders || [],
+          events: cur.events || [],
+          clients: cur.clients || [],
+          items: cur.items || [],
+          addresses: cur.addresses || [],
+          routes: cur.routes || [],
+          contractors: cur.contractors || [],
+          users: cur.users || [],
+          notifications: cur.notifications || [],
+          roles: cur.roles || null,
+          settings: cur.settings || {},
+          nextOrder: cur.nextOrder || 1,
+          nextItem: cur.nextItem || 1,
+          nextUser: cur.nextUser || 1,
+          nextClient: cur.nextClient || 1,
+          nextAddress: cur.nextAddress || 1,
+          nextEvent: cur.nextEvent || 1,
+          nextContractor: cur.nextContractor || 1,
+          nextRoute: cur.nextRoute || 1,
+          nextNotification: cur.nextNotification || 1
+        };
+        return backupRef.child(key).set(payload).then(function(){
+          try{ console.log('[03-sync] snapshot ' + key); }catch(_){}
+          return _pruneSnapshots(backupRef);
+        });
+      }).catch(function(e){
+        try{ console.warn('[03-sync] snapshot err', e); }catch(_){}
+      });
+    } catch(e){
+      return Promise.resolve();
+    }
   }
 
-  /* ---------- Обёртка ref.set и ref.once ---------- */
+  /* ---------- Ур.1: обёртка fbPushAll ---------- */
 
-  function blockRef(ref){
-    try {
-      if(!ref || ref.__zrzBlocked) return;
-      var origSet = ref.set.bind(ref);
-      ref.set = function(data){
-        if(guardBlock()) return origSet(safePayload(data));
-        return origSet(data);
-      };
-      var origOnce = ref.once.bind(ref);
-      ref.once = function(event){
-        var promise = origOnce(event);
-        if(event === 'value'){
-          return promise.then(function(snap){
-            var remote = snap.val();
-            if(!remote){ _serverEmpty = true; }
-            else if(!_firstPullDone){ firstPullProcess(remote); }
-            return snap;
+  function wrapFbPushAll(){
+    if(window._zrz03PushAllWrapped) return;
+    if(typeof window.fbPushAll !== 'function') return;
+    var orig = window.fbPushAll;
+
+    window.fbPushAll = function(){
+      try {
+        var ref = window._fbDbRef;
+        if(!ref) return orig.apply(this, arguments);
+
+        /* Локально есть данные — можно пушить, но сначала снапшот */
+        if(!_busyDataEmpty()){
+          return _maybeSnapshot().then(function(){
+            return orig.apply(null, arguments);
           });
         }
-        return promise;
-      };
-      ref.__zrzBlocked = true;
-    } catch(e){}
+
+        /* Локально пусто → проверяем облако */
+        return ref.once('value').then(function(snap){
+          var remote = snap.val();
+          var cloudN = _busyCount(remote);
+
+          if(cloudN > 0){
+            _logOnce('push заблокирован: локально пусто, в облаке ' + cloudN);
+            _applyRemote(remote);
+            return Promise.resolve();
+          }
+
+          /* Облако тоже пусто — можно пушить (первый запуск) */
+          return orig.apply(null, arguments);
+        }).catch(function(e){
+          try{ console.warn('[03-sync] guard err', e); }catch(_){}
+          /* При ошибке проверки — не пушим */
+          return Promise.resolve();
+        });
+      } catch(e){
+        try{ console.warn('[03-sync] wrapFbPushAll err', e); }catch(_){}
+        return Promise.resolve();
+      }
+    };
+    window._zrz03PushAllWrapped = true;
   }
 
-  /* ---------- Ре-подписка на .on('value') ---------- */
+  /* ---------- Ур.1: обёртка schedulePush ---------- */
 
-  function resubscribe(){
+  function wrapSchedulePush(){
+    if(window._zrz03SchedulePushWrapped) return;
+    if(typeof window.schedulePush !== 'function') return;
+    var orig = window.schedulePush;
+
+    window.schedulePush = function(){
+      try {
+        if(_busyDataEmpty() && !window._zrzForcePush){
+          /* Локально пусто — таймер не ставим.
+             Данные придут при следующем pull из облака. */
+          return;
+        }
+      } catch(e){}
+      return orig.apply(this, arguments);
+    };
+    window._zrz03SchedulePushWrapped = true;
+  }
+
+  /* ---------- Обёртка syncNow (ручная команда — разрешаем всегда) ---------- */
+
+  function wrapSyncNow(){
+    if(window._zrz03SyncNowWrapped) return;
+    if(typeof window.syncNow !== 'function') return;
+    var orig = window.syncNow;
+
+    window.syncNow = function(){
+      try {
+        window._zrzForcePush = true;
+        setTimeout(function(){ window._zrzForcePush = false; }, 3000);
+      } catch(e){}
+      return orig.apply(this, arguments);
+    };
+    window._zrz03SyncNowWrapped = true;
+  }
+
+  /* ---------- Проверка при старте ---------- */
+
+  function _startupGuard(){
+    if(_startupGuardDone) return;
+    _startupGuardDone = true;
     try {
-      var ref = getRef();
+      var ref = window._fbDbRef;
       if(!ref) return;
-      blockRef(ref);
-      if(ref.__zrzResubscribed) return;
-      ref.off('value');
-      ref.on('value', function(snap){
-        if(Date.now() - getLastPushed() < 800) return;
+      if(!_busyDataEmpty()) return;
+
+      ref.once('value').then(function(snap){
         var remote = snap.val();
         if(!remote) return;
-        setApplyingRemote(true);
-        try {
-          firstPullProcess(remote);
-          if(typeof window.applySyncPayload === 'function') window.applySyncPayload(remote);
-          if(window.db.sync) window.db.sync.lastPullAt = Date.now();
-          if(typeof window.save === 'function') window.save();
-          if(typeof window.render === 'function'){ try{ window.render(); }catch(e){} }
-        } finally {
-          setTimeout(function(){ setApplyingRemote(false); }, 300);
-        }
-      }, function(err){
-        if(window.db.sync){
-          window.db.sync.status = 'error';
-          window.db.sync.lastError = String((err && err.message) || err);
-        }
-        try{ if(typeof window.updateSyncDot === 'function') window.updateSyncDot(); }catch(_){}
-      });
-      ref.__zrzResubscribed = true;
+        var cnt = _busyCount(remote);
+        if(cnt === 0) return;
+        try{ console.log('[03-sync] startup: локально пусто, в облаке ' + cnt + ' → pull'); }catch(_){}
+        _applyRemote(remote);
+      }).catch(function(){});
     } catch(e){}
-  }
-
-  /* ---------- Периодический блок на старте ---------- */
-
-  var _setupIv = setInterval(function(){
-    var ref = getRef();
-    if(ref){
-      blockRef(ref);
-      resubscribe();
-    }
-  }, 250);
-  setTimeout(function(){ clearInterval(_setupIv); }, 25000);
-
-  setTimeout(resubscribe, 80);
-  setTimeout(resubscribe, 600);
-  setTimeout(resubscribe, 1500);
-
-  /* ---------- Ручные команды ---------- */
-
-  window.zrzPullOnly = function(){
-    try {
-      var ref = getRef();
-      if(!ref){ if(typeof uiAlert === 'function') uiAlert('Firebase не инициализирован'); return; }
-      if(typeof isOnline === 'function' && !isOnline()){ uiAlert('Нет интернета'); return; }
-      uiConfirm('Подтянуть данные с сервера?','Подтянуть',{yesLabel:'Подтянуть'}).then(function(ok){
-        if(!ok) return;
-        ref.once('value').then(function(snap){
-          var remote = snap.val();
-          if(!remote){ uiAlert('На сервере пока пусто'); return; }
-          _firstPullDone = false;
-          setApplyingRemote(true);
-          try {
-            firstPullProcess(remote);
-            if(typeof window.applySyncPayload === 'function') window.applySyncPayload(remote);
-            if(window.db.sync) window.db.sync.lastPullAt = Date.now();
-            if(typeof window.save === 'function') window.save();
-            if(typeof window.render === 'function') window.render();
-          } finally {
-            setTimeout(function(){ setApplyingRemote(false); }, 400);
-          }
-          uiAlert('✔ Данные подтянуты с сервера');
-        }).catch(function(e){ uiAlert('Ошибка: '+((e&&e.message)||e)); });
-      });
-    } catch(e){ if(typeof uiAlert === 'function') uiAlert('Ошибка: '+((e&&e.message)||e)); }
-  };
-
-  window.zrzPushNow = function(){
-    window._zrzForcePush = true;
-    try {
-      var ref = getRef();
-      if(!ref){ uiAlert('Firebase не инициализирован'); return; }
-      if(typeof isOnline === 'function' && !isOnline()){ uiAlert('Нет интернета'); return; }
-      var payload = (typeof window.buildSyncPayload === 'function') ? window.buildSyncPayload() : null;
-      if(!payload){ uiAlert('buildSyncPayload недоступен'); return; }
-      setLastPushed(Date.now());
-      ref.set(payload).then(function(){
-        if(window.db.sync){
-          window.db.sync.lastPushAt = Date.now();
-          window.db.sync.status = 'idle';
-          window.db.sync.lastError = '';
-        }
-        try{ if(typeof window.updateSyncDot === 'function') window.updateSyncDot(); }catch(_){}
-        uiAlert('✔ Отправлено на сервер');
-      }).catch(function(e){
-        if(window.db.sync){
-          window.db.sync.status = 'error';
-          window.db.sync.lastError = String((e && e.message) || e);
-        }
-        try{ if(typeof window.updateSyncDot === 'function') window.updateSyncDot(); }catch(_){}
-        uiAlert('Ошибка: '+((e&&e.message)||e));
-      });
-    } finally {
-      setTimeout(function(){ window._zrzForcePush = false; }, 3000);
-    }
-  };
-
-  /* ---------- Блок «🛡 Защита базы» в Настройках ---------- */
-
-  function augmentSettings(){
-    var modal = document.querySelector('.modal');
-    if(!modal) return;
-    if(modal.querySelector('#zrz_guard_block')) return;
-    if(!document.getElementById('s_phone')) return;
-
-    var html = '<div id="zrz_guard_block" style="margin-top:14px;padding:14px;'
-      + 'background:linear-gradient(180deg,rgba(76,175,125,0.10),rgba(76,175,125,0.04));'
-      + 'border:1.5px solid rgba(76,175,125,0.35);border-radius:14px">';
-    html += '<div style="font-size:12px;font-weight:800;text-transform:uppercase;'
-      + 'letter-spacing:1px;color:#2c7a54;margin-bottom:8px">🛡 Защита базы</div>';
-    var pulled = window.db && window.db.sync && window.db.sync.lastPullAt;
-    var pushed = window.db && window.db.sync && window.db.sync.lastPushAt;
-    if(pulled) html += '<div style="font-size:12px;color:var(--muted);line-height:1.5">'
-      + '📥 Приём: <b>' + new Date(pulled).toLocaleString('ru-RU') + '</b></div>';
-    if(pushed) html += '<div style="font-size:12px;color:var(--muted);line-height:1.5;margin-top:2px">'
-      + '📤 Отправка: <b>' + new Date(pushed).toLocaleString('ru-RU') + '</b></div>';
-    html += '<button type="button" class="btn btn-secondary" style="margin-top:10px;padding:10px;font-size:14px" onclick="zrzPullOnly()">📥 Только подтянуть с сервера</button>';
-    html += '<button type="button" class="btn btn-secondary" style="margin-top:6px;padding:10px;font-size:14px" onclick="zrzPushNow()">📤 Отправить сейчас</button>';
-    html += '</div>';
-
-    var allBtns = modal.querySelectorAll('.btn');
-    var cancelBtn = null;
-    for(var i=0;i<allBtns.length;i++){
-      if((allBtns[i].textContent||'').trim() === 'Отмена'){ cancelBtn = allBtns[i]; break; }
-    }
-    if(cancelBtn) cancelBtn.insertAdjacentHTML('beforebegin', html);
-    else modal.insertAdjacentHTML('beforeend', html);
-  }
-
-  /* ---------- Подпись разработчика ---------- */
-
-  function injectAuthorSignature(){
-    var modal = document.querySelector('.modal');
-    if(!modal) return;
-    if(modal.querySelector('#zrz_author_sig')) return;
-    if(!document.getElementById('s_phone')) return;
-
-    var html = '<div id="zrz_author_sig" style="text-align:center;padding:18px 0 6px;'
-      + 'color:var(--muted);font-size:12px;line-height:1.7">'
-      + '<div style="font-weight:800;color:var(--accent-deep);font-size:13px">'
-      + 'Разработчик: Лютиков А.С.</div>'
-      + '<div>✈️ @el_c0mandan1e</div>'
-      + '<div style="opacity:.7">© 2026 «Зерцало»</div>'
-      + '</div>';
-
-    var allBtns = modal.querySelectorAll('.btn');
-    var cancelBtn = null;
-    for(var i=0;i<allBtns.length;i++){
-      if((allBtns[i].textContent||'').trim() === 'Отмена'){ cancelBtn = allBtns[i]; break; }
-    }
-    if(cancelBtn) cancelBtn.insertAdjacentHTML('beforebegin', html);
-    else modal.insertAdjacentHTML('beforeend', html);
-  }
-
-  /* ---------- Обёртка openSettings ---------- */
-
-  function wrapOpenSettings(){
-    if(window._zrzSyncOpenSettingsWrapped) return;
-    if(typeof window.openSettings !== 'function') return;
-    var orig = window.openSettings;
-    window.openSettings = function(){
-      var r = orig.apply(this, arguments);
-      setTimeout(augmentSettings, 70);
-      setTimeout(injectAuthorSignature, 90);
-      return r;
-    };
-    window._zrzSyncOpenSettingsWrapped = true;
   }
 
   /* ---------- Запуск ---------- */
 
   function apply(){
-    try { blockRef(getRef()); } catch(e){}
-    try { resubscribe(); } catch(e){}
-    try { wrapOpenSettings(); } catch(e){}
+    try{ wrapFbPushAll(); }catch(e){}
+    try{ wrapSchedulePush(); }catch(e){}
+    try{ wrapSyncNow(); }catch(e){}
   }
 
-  if(document.body) apply();
-  else document.addEventListener('DOMContentLoaded', apply, {once:true});
-  setTimeout(apply, 500);
-  setTimeout(apply, 1500);
+  apply();
+  setTimeout(apply, 800);
+  setTimeout(apply, 2000);
 
-  /* Polling для обёртки openSettings — если ядро переопределит */
+  setTimeout(_startupGuard, 2500);
+
   var _iv = setInterval(function(){
-    try { wrapOpenSettings(); } catch(e){}
-    try { blockRef(getRef()); } catch(e){}
+    try{ wrapFbPushAll(); }catch(e){}
+    try{ wrapSchedulePush(); }catch(e){}
+    try{ wrapSyncNow(); }catch(e){}
   }, 2000);
   setTimeout(function(){ clearInterval(_iv); }, 60000);
 
-  try{ console.log('[03-sync] синхронизация и защита базы активны'); }catch(_){}
+  try{ console.log('[03-sync v2] защита от пустоты + снапшоты активны'); }catch(_){}
 })();
+/* Часть 2 — История базы — будет дописана ниже */
