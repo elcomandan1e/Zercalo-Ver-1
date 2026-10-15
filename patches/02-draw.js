@@ -285,6 +285,16 @@
    · Обёртки drawTechIso и drawTechFront —
      заставляют ядро рисовать болты, вырезы, фацет,
      скругления, розетки и светильники на чертеже.
+   · ФИКС: штриховка подсветки в изометрии — только по нужным сторонам
+*/
+/* patches/02-draw.js — часть 2/2
+   · Розетки (X/Y, шаг, ориентация)
+   · Светильники (бра)
+   · Обёртки drawTechIso и drawTechFront —
+     заставляют ядро рисовать болты, вырезы, фацет,
+     скругления, розетки и светильники на чертеже.
+   · ФИКС: штриховка подсветки «на зеркале» в изометрии —
+     только по сторонам из _backlightSides().
 */
 (function(){
   if(window._zrz02DrawP2) return;
@@ -293,7 +303,94 @@
   var DIM_SOCKET_COLOR = '#a05c26';
   var DIM_LIGHT_COLOR  = '#7a3d8a';
 
-  /* ---------- Точка-розетка (жёлтый кружок с крестиком) ---------- */
+  /* ============================================================
+     ФИКС ШТРИХОВКИ ПОДСВЕТКИ «НА ЗЕРКАЛЕ»
+     Ядровой _drawHatchBand рисует штрих по всему периметру.
+     Мы подменяем его на свою версию, которая знает про стороны.
+     ============================================================ */
+
+  function _hatchRoundPath(ctx, x, y, w, h, r){
+    r = Math.min(Number(r)||0, w/2, h/2);
+    if(r <= 0){ ctx.rect(x, y, w, h); return; }
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  function _drawHatchBandSided(ctx, x, y, w, h, rOuter, bandInset, bandWidth, sides){
+    if(bandWidth <= 0) return;
+    var bw = (bandInset||0) + bandWidth;
+    if(bw*2 >= w || bw*2 >= h) return;
+    if(!sides || (!sides.top && !sides.right && !sides.bottom && !sides.left)){
+      sides = { top:true, right:true, bottom:true, left:true };
+    }
+    var ins = bandInset || 0;
+    var bwd = bandWidth;
+
+    function hatchRect(rx, ry, rw, rh){
+      if(rw <= 0 || rh <= 0) return;
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(rx, ry, rw, rh);
+      ctx.clip();
+      ctx.strokeStyle = 'rgba(140,110,70,0.65)';
+      ctx.lineWidth = 0.9;
+      var step = 4.5;
+      ctx.beginPath();
+      for(var i = -rh; i < rw + rh; i += step){
+        ctx.moveTo(rx + i, ry);
+        ctx.lineTo(rx + i + rh, ry + rh);
+      }
+      ctx.stroke();
+      ctx.restore();
+      /* Внутренняя граница */
+      ctx.save();
+      ctx.strokeStyle = 'rgba(100,80,50,0.9)';
+      ctx.lineWidth = 0.8;
+      ctx.setLineDash([3,2]);
+      ctx.strokeRect(rx, ry, rw, rh);
+      ctx.setLineDash([]);
+      ctx.restore();
+    }
+
+    if(sides.top)    hatchRect(x + ins,               y + ins,               w - 2*ins, bwd);
+    if(sides.bottom) hatchRect(x + ins,               y + h - ins - bwd,     w - 2*ins, bwd);
+    if(sides.left)   hatchRect(x + ins,               y + ins,               bwd,       h - 2*ins);
+    if(sides.right)  hatchRect(x + w - ins - bwd,     y + ins,               bwd,       h - 2*ins);
+  }
+
+  /* Временно подменяем ядровой _drawHatchBand на нашу версию,
+     вызываем ядровой drawTechIso, потом возвращаем обратно. */
+  function _withSidedHatch(ctx, d, drawFn){
+    var orig = window._drawHatchBand;
+    var sides = null;
+    try {
+      var bl = (typeof backlightArr === 'function') ? backlightArr(d) : (Array.isArray(d.backlight)?d.backlight:(d.backlight?[d.backlight]:[]));
+      if(typeof window._backlightSides === 'function'){
+        sides = window._backlightSides(bl);
+      } else if(typeof _backlightSides === 'function'){
+        sides = _backlightSides(bl);
+      }
+    } catch(e){}
+    if(!sides){ sides = { top:true, right:true, bottom:true, left:true }; }
+
+    window._drawHatchBand = function(ctx2, x, y, w, h, rOuter, bandInset, bandWidth){
+      _drawHatchBandSided(ctx2, x, y, w, h, rOuter, bandInset, bandWidth, sides);
+    };
+    try {
+      return drawFn();
+    } finally {
+      if(orig) window._drawHatchBand = orig;
+    }
+  }
+
+  /* ============================================================
+     РОЗЕТКИ
+     ============================================================ */
+
   function drawSocketDot(ctx, cx, cy, r){
     ctx.save();
     ctx.fillStyle = '#f5c93a'; ctx.strokeStyle = '#8a6a2c'; ctx.lineWidth = 1.2;
@@ -305,7 +402,6 @@
     ctx.restore();
   }
 
-  /* ---------- Центры розеток ---------- */
   window._zrzSocketCenters = function(s, x0, y0, pxW, pxH, sc3){
     var cnt = Math.max(1, Number(s.count)||1);
     var stepCm = Number(s.step)||7.1;
@@ -326,7 +422,6 @@
     return {pts: pts, baseX: baseX, baseY: baseY, or: or, stepCm: stepCm, edgeX: s.edgeX, edgeY: s.edgeY};
   };
 
-  /* ---------- Размеры розеток ---------- */
   function drawSocketDims(ctx, x0, y0, pxW, pxH, sc3, d){
     if(!d.socketsMount || !Array.isArray(d.socketsList) || !d.socketsList.length) return;
     for(var i=0;i<d.socketsList.length;i++){
@@ -358,7 +453,6 @@
     }
   }
 
-  /* ---------- Размеры светильников ---------- */
   function drawLightDims(ctx, x0, y0, pxW, pxH, sc3, d){
     if(!d.lightsMount || !Array.isArray(d.lightsList) || !d.lightsList.length) return;
     for(var i=0;i<d.lightsList.length;i++){
@@ -374,7 +468,6 @@
     }
   }
 
-  /* ---------- Розетки + светильники на виде спереди ---------- */
   function drawSocketsAndLightsFront(ctx, x, y, w, h, d){
     if(d.type!=='MIRROR' && d.type!=='PANNO') return;
     var gd = null; try{ gd = glassDimensions(d); }catch(e){ return; }
@@ -408,7 +501,6 @@
     drawLightDims(ctx, x0, y0, pxW, pxH, sc3, d);
   }
 
-  /* ---------- Розетки + светильники на изометрии ---------- */
   function drawSocketLightDimsIso(ctx, x, y, w, h, d){
     if(d.type!=='MIRROR' && d.type!=='PANNO') return;
     var gd = null; try{ gd = glassDimensions(d); }catch(e){ return; }
@@ -423,17 +515,27 @@
     drawLightDims(ctx, x0, y0, pxW, pxH, sc3, d);
   }
 
-  /* ---------- Обёртки чертежей ---------- */
+  /* ============================================================
+     ОБЁРТКИ ЧЕРТЕЖЕЙ
+     ============================================================ */
 
   function wrapTechDraw(){
     if(window._zrzTechDrawWrapped) return;
     window._zrzTechDrawWrapped = true;
 
-    /* Изометрия */
+    /* ---------- Изометрия ---------- */
     if(typeof window.drawTechIso === 'function'){
       var origIso = window.drawTechIso;
       window.drawTechIso = function(ctx, x, y, w, h, dims, scale, d){
-        var res = origIso.apply(this, arguments);
+        var self = this;
+        var args = arguments;
+
+        /* Вызываем ядровой drawTechIso с подменённой _drawHatchBand */
+        var res = _withSidedHatch(ctx, d, function(){
+          return origIso.apply(self, args);
+        });
+
+        /* Дорисовываем наши элементы поверх */
         try{
           var cx=x+w/2, cy=y+h/2;
           var _padL=64,_padR=88,_padT=48,_padB=78;
@@ -462,11 +564,15 @@
       };
     }
 
-    /* Вид спереди */
+    /* ---------- Вид спереди ---------- */
     if(typeof window.drawTechFront === 'function'){
       var origFront = window.drawTechFront;
       window.drawTechFront = function(ctx, x, y, w, h, d){
-        var res = origFront.apply(this, arguments);
+        var self = this;
+        var args = arguments;
+        var res = _withSidedHatch(ctx, d, function(){
+          return origFront.apply(self, args);
+        });
         try{
           var cx=x+w/2, cy=y+h/2;
           if(d.type==='MIRROR'){
@@ -537,12 +643,11 @@
   setTimeout(apply, 500);
   setTimeout(apply, 1500);
 
-  /* Polling на случай, если ядро переопределило функции после нас */
   var _iv = setInterval(function(){
     try{ wrapTechDraw(); }catch(e){}
     try{ wrapOpenTechDraw(); }catch(e){}
   }, 2000);
   setTimeout(function(){ clearInterval(_iv); }, 60000);
 
-  try{ console.log('[02-draw p2] розетки, светильники, обёртки чертежей — готовы'); }catch(_){}
+  try{ console.log('[02-draw p2] розетки, светильники, обёртки чертежей + ФИКС штриховки'); }catch(_){}
 })();
