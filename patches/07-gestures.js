@@ -1,3 +1,471 @@
+/* ============ ZERZALO · RADIAL FAB · 07-gestures part2 v3 ============ */
+(function () {
+  'use strict';
+  if (window._zrzFabLoadedV3) return;
+  window._zrzFabLoadedV3 = true;
+
+  var oldRoot = document.getElementById('zrz-fab-root');
+  if (oldRoot && oldRoot.parentNode) oldRoot.parentNode.removeChild(oldRoot);
+
+  var DIST = window.innerWidth < 360 ? 88 : 105;
+
+  var ICONS = {
+    event:     '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="6" width="16" height="14" rx="2.5"/><path d="M8 3v5M16 3v5M4 11h16"/></svg>',
+    order:     '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+    client:    '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.6"/><path d="M5 20c0-3.6 3.1-6.2 7-6.2s7 2.6 7 6.2"/></svg>',
+    route:     '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 18-9-5-9 5z"/></svg>',
+    measure:   '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="8" width="20" height="8" rx="1.5"/><path d="M6 8v3M10 8v3M14 8v3M18 8v3"/></svg>',
+    note:      '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l4-1 10-10-3-3L5 16z"/><path d="M14 6l4 4"/></svg>',
+    events:    '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg>',
+    call:      '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.6a2 2 0 0 1-.5 2.1L8.1 9.6a16 16 0 0 0 6 6l1.2-1.2a2 2 0 0 1 2.1-.5c.8.3 1.7.6 2.6.7a2 2 0 0 1 1.7 2z"/></svg>',
+    navigator: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M16 8l-2.5 6.5L7 17l2.5-6.5z"/></svg>',
+    pin:       '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s7-6.6 7-12a7 7 0 1 0-14 0c0 5.4 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg>',
+    phone:     '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.6a2 2 0 0 1-.5 2.1L8.1 9.6a16 16 0 0 0 6 6l1.2-1.2a2 2 0 0 1 2.1-.5c.8.3 1.7.6 2.6.7a2 2 0 0 1 1.7 2z"/></svg>'
+  };
+
+  var ACTIONS_BY_ROLE = {
+    admin:    [ {id:'event',    label:'Новое событие', color:'#FF9500', angle:-60},
+                {id:'order',    label:'Новый заказ',  color:'#4A90E2', angle:-20},
+                {id:'client',   label:'Новый клиент', color:'#34C759', angle: 20},
+                {id:'route',    label:'Маршрут дня',  color:'#AF52DE', angle: 60} ],
+    manager:  [ {id:'event',    label:'Новое событие', color:'#FF9500', angle:-60},
+                {id:'order',    label:'Новый заказ',  color:'#4A90E2', angle:-20},
+                {id:'client',   label:'Новый клиент', color:'#34C759', angle: 20},
+                {id:'route',    label:'Маршрут дня',  color:'#AF52DE', angle: 60} ],
+    surveyor: [ {id:'measure',  label:'Новый замер',  color:'#FF9500', angle:-60},
+                {id:'route',    label:'Маршрут дня',  color:'#AF52DE', angle:-20},
+                {id:'client',   label:'Новый клиент', color:'#34C759', angle: 20},
+                {id:'note',     label:'Заметка',      color:'#4A90E2', angle: 60} ],
+    driver:   [ {id:'route',     label:'Маршрут',   color:'#AF52DE', angle:-60},
+                {id:'events',    label:'События',   color:'#FF9500', angle:-20},
+                {id:'call',      label:'Позвонить', color:'#34C759', angle: 20},
+                {id:'navigator', label:'Навигатор', color:'#4A90E2', angle: 60} ],
+    master:   []
+  };
+
+  function getRole() {
+    try {
+      if (typeof currentUser !== 'function') return null;
+      var u = currentUser();
+      return u ? u.role : null;
+    } catch (e) { return null; }
+  }
+  function gesturesDisabled() {
+    try {
+      if (localStorage.getItem('zrz_gestures_disabled') === '1') return true;
+      var p = JSON.parse(localStorage.getItem('zrz_user_prefs') || '{}');
+      if (p && p.gestures === false) return true;
+    } catch (e) {}
+    return false;
+  }
+  function buzz(ms) { try { if (navigator.vibrate) navigator.vibrate(ms || 12); } catch (e) {} }
+  function onHome() {
+    var h = (location.hash || '').replace(/^#/, '').trim();
+    return h === '';
+  }
+  function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c];
+    });
+  }
+  function todayKey() {
+    var d = new Date();
+    var m = String(d.getMonth() + 1).padStart(2, '0');
+    var day = String(d.getDate()).padStart(2, '0');
+    return d.getFullYear() + '-' + m + '-' + day;
+  }
+  function getTodayEvents() {
+    var today = todayKey();
+    var list = [];
+    try {
+      if (typeof eventsByDate === 'function') {
+        var r = eventsByDate(today);
+        if (Array.isArray(r) && r.length) return r;
+      }
+    } catch (e) {}
+    try {
+      if (typeof visibleEvents === 'function') {
+        var all = visibleEvents();
+        if (Array.isArray(all)) {
+          list = all.filter(function (ev) {
+            var d = (ev && (ev.date || ev.when || ev.datetime)) || '';
+            return String(d).slice(0, 10) === today;
+          });
+        }
+      }
+    } catch (e) {}
+    return list;
+  }
+  function getOrderById(id) {
+    try {
+      if (typeof visibleOrders !== 'function') return null;
+      var list = visibleOrders();
+      if (!Array.isArray(list)) return null;
+      for (var i = 0; i < list.length; i++) if (list[i].id === id) return list[i];
+    } catch (e) {}
+    return null;
+  }
+  function clientPhoneOf(order) {
+    if (!order) return '';
+    try { if (typeof orderClientPhone === 'function') return orderClientPhone(order) || ''; } catch (e) {}
+    return order.clientPhone || order.phone || '';
+  }
+  function clientNameOf(order) {
+    if (!order) return 'Событие';
+    try { if (typeof orderClientName === 'function') return orderClientName(order) || 'Клиент'; } catch (e) {}
+    return order.clientName || 'Клиент';
+  }
+  function clientAddrOf(order) {
+    if (!order) return '';
+    try { if (typeof orderAddressFull === 'function') return orderAddressFull(order) || ''; } catch (e) {}
+    return order.address || '';
+  }
+
+  function pickEventTypeInModal(label) {
+    var done = false;
+    [300, 600, 1000, 1400].forEach(function (delay) {
+      setTimeout(function () {
+        if (done) return;
+        var modals = document.querySelectorAll('.modal, .modal-bg');
+        if (!modals.length) return;
+        var last = modals[modals.length - 1];
+        var chips = last.querySelectorAll('button, .chip, [class*="chip"], [role="button"], label');
+        for (var i = 0; i < chips.length; i++) {
+          var raw = (chips[i].textContent || '').replace(/\s+/g, ' ').trim();
+          var clean = raw.replace(/[^\u0400-\u04FFa-zA-Z0-9 ]+/g, '').trim();
+          if (clean === label) {
+            chips[i].click();
+            done = true;
+            console.info('[zrzFab] preselect type:', label);
+            return;
+          }
+        }
+      }, delay);
+    });
+  }
+
+  var st = document.createElement('style');
+  st.setAttribute('data-zrz', 'fab');
+  st.textContent = [
+    '#zrz-fab-root{position:fixed;inset:0;pointer-events:none;z-index:9000;font-family:Onest,system-ui,-apple-system,sans-serif;opacity:0;transition:opacity .25s ease}',
+    '#zrz-fab-root.zrz-fab-visible{opacity:1}',
+    '#zrz-fab-backdrop{position:absolute;inset:0;background:rgba(0,0,0,0);backdrop-filter:blur(0);-webkit-backdrop-filter:blur(0);transition:background .25s ease,backdrop-filter .25s ease;pointer-events:none}',
+    '#zrz-fab-root.open #zrz-fab-backdrop{background:rgba(0,0,0,.32);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);pointer-events:auto}',
+    '#zrz-fab-main{position:absolute;left:50%;bottom:calc(84px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);width:62px;height:62px;border-radius:50%;border:none;padding:0;background:linear-gradient(135deg,#4A90E2 0%,#2D6FD1 100%);color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 24px rgba(45,111,209,.42),0 2px 6px rgba(0,0,0,.18);pointer-events:auto;cursor:pointer;transition:transform .3s cubic-bezier(.34,1.56,.64,1);-webkit-tap-highlight-color:transparent;touch-action:none;user-select:none}',
+    '#zrz-fab-main svg{display:block;pointer-events:none;transition:transform .3s cubic-bezier(.34,1.56,.64,1)}',
+    '#zrz-fab-root.open #zrz-fab-main svg{transform:rotate(135deg)}',
+    '.zrz-fab-action{position:absolute;left:50%;bottom:calc(84px + env(safe-area-inset-bottom,0px));width:54px;height:54px;border-radius:50%;border:none;padding:0;display:flex;align-items:center;justify-content:center;color:#fff;box-shadow:0 6px 16px rgba(0,0,0,.22);cursor:pointer;pointer-events:none;opacity:0;transform:translate(-50%,0) scale(.3);transition:transform .32s cubic-bezier(.34,1.56,.64,1),opacity .2s ease,box-shadow .2s;-webkit-tap-highlight-color:transparent;touch-action:none}',
+    '.zrz-fab-action svg{display:block;pointer-events:none}',
+    '.zrz-fab-lbl{position:absolute;left:50%;top:-28px;transform:translateX(-50%);white-space:nowrap;font-size:11px;font-weight:600;color:#fff;background:rgba(0,0,0,.75);padding:3px 8px;border-radius:8px;opacity:0;transition:opacity .2s;pointer-events:none}',
+    '.zrz-fab-action.zrz-fab-preview .zrz-fab-lbl{opacity:1}',
+    '.zrz-fab-action.zrz-fab-preview{box-shadow:0 0 0 4px rgba(255,255,255,.6),0 12px 26px rgba(0,0,0,.3)}',
+    '.zrz-picker-bg{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9500;display:flex;align-items:flex-end;animation:zrzFadeIn .2s ease;font-family:Onest,system-ui,sans-serif}',
+    '.zrz-picker{background:#fff;width:100%;max-height:72vh;border-radius:20px 20px 0 0;padding:0 0 env(safe-area-inset-bottom,0);box-shadow:0 -8px 24px rgba(0,0,0,.2);animation:zrzSlideUp .28s cubic-bezier(.34,1.56,.64,1);overflow:auto}',
+    '.zrz-picker::before{content:"";display:block;width:40px;height:4px;background:#ddd;border-radius:2px;margin:10px auto 4px}',
+    '.zrz-picker-h{font-weight:700;font-size:15px;padding:6px 18px 12px;color:#111;border-bottom:1px solid #f0f0f0;position:sticky;top:0;background:#fff;z-index:1}',
+    '.zrz-picker-item{display:flex;align-items:center;gap:12px;padding:14px 18px;cursor:pointer;border-bottom:1px solid #f6f6f6;transition:background .15s}',
+    '.zrz-picker-item:active{background:#eef3ff}',
+    '.zrz-pk-ico{width:38px;height:38px;border-radius:12px;background:#eef3ff;color:#2D6FD1;display:flex;align-items:center;justify-content:center;flex-shrink:0}',
+    '.zrz-pk-body{flex:1;min-width:0}',
+    '.zrz-pk-lbl{font-weight:600;font-size:14px;color:#111;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+    '.zrz-pk-sub{font-size:12px;color:#888;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+    '.zrz-picker-empty{padding:36px 18px;text-align:center;color:#999;font-size:14px}',
+    '@keyframes zrzFadeIn{from{opacity:0}to{opacity:1}}',
+    '@keyframes zrzSlideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}'
+  ].join('');
+  if (!document.querySelector('style[data-zrz="fab"]')) document.head.appendChild(st);
+
+  var root = document.createElement('div');
+  root.id = 'zrz-fab-root';
+  root.innerHTML =
+    '<div id="zrz-fab-backdrop"></div>' +
+    '<div id="zrz-fab-actions"></div>' +
+    '<button id="zrz-fab-main" type="button" aria-label="Быстрые действия">' +
+      '<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>' +
+    '</button>';
+
+  var currentActions = [];
+  var actionEls = [];
+  var isOpen = false, swipeMode = false, pointerId = null, pointerStart = null, previewIdx = -1, moved = false;
+
+  function buildActions() {
+    var role = getRole();
+    currentActions = (role && ACTIONS_BY_ROLE[role]) ? ACTIONS_BY_ROLE[role].slice() : [];
+    var wrap = root.querySelector('#zrz-fab-actions');
+    wrap.innerHTML = '';
+    actionEls = [];
+    currentActions.forEach(function (a) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'zrz-fab-action';
+      b.dataset.id = a.id;
+      b.style.background = a.color;
+      b.innerHTML = (ICONS[a.id] || '') + '<span class="zrz-fab-lbl">' + a.label + '</span>';
+      b.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        var id = b.dataset.id;
+        close();
+        setTimeout(function () { runAction(id); }, 60);
+      });
+      wrap.appendChild(b);
+      actionEls.push(b);
+    });
+  }
+
+  function positions(open) {
+    actionEls.forEach(function (el, i) {
+      var a = currentActions[i];
+      var rad = a.angle * Math.PI / 180;
+      var x = Math.sin(rad) * DIST;
+      var y = -Math.cos(rad) * DIST;
+      if (open) {
+        el.style.transform = 'translate(calc(-50% + ' + x + 'px), ' + y + 'px) scale(1)';
+        el.style.opacity = '1';
+        el.style.pointerEvents = 'auto';
+        el.style.transitionDelay = (i * 30) + 'ms';
+      } else {
+        el.style.transform = 'translate(-50%, 0) scale(.3)';
+        el.style.opacity = '0';
+        el.style.pointerEvents = 'none';
+        el.style.transitionDelay = '0ms';
+      }
+    });
+  }
+
+  function open()  { if (isOpen || !currentActions.length) return; isOpen = true; root.classList.add('open'); positions(true); buzz(10); }
+  function close() { if (!isOpen && !swipeMode) return; isOpen = false; swipeMode = false; previewIdx = -1; root.classList.remove('open'); positions(false); actionEls.forEach(function (el) { el.classList.remove('zrz-fab-preview'); }); }
+  function toggle() { isOpen ? close() : open(); }
+
+  function nearestAction(dx, dy) {
+    var ang = Math.atan2(dx, -dy) * 180 / Math.PI;
+    var best = 0, bestDiff = 1e9;
+    currentActions.forEach(function (a, i) {
+      var d = Math.abs(ang - a.angle);
+      if (d > 180) d = 360 - d;
+      if (d < bestDiff) { bestDiff = d; best = i; }
+    });
+    return best;
+  }
+  function previewAt(idx) {
+    if (idx === previewIdx) return;
+    previewIdx = idx;
+    actionEls.forEach(function (el, i) { el.classList.toggle('zrz-fab-preview', i === idx); });
+    if (idx >= 0) buzz(6);
+  }
+
+  function openPicker(opts) {
+    var bg = document.createElement('div');
+    bg.className = 'zrz-picker-bg';
+    var html = '<div class="zrz-picker"><div class="zrz-picker-h">' + escapeHtml(opts.title) + '</div>';
+    if (!opts.items.length) {
+      html += '<div class="zrz-picker-empty">' + escapeHtml(opts.empty || 'Ничего нет') + '</div>';
+    } else {
+      opts.items.forEach(function (it, i) {
+        html += '<div class="zrz-picker-item" data-i="' + i + '">' +
+          (it.ico ? '<div class="zrz-pk-ico">' + it.ico + '</div>' : '') +
+          '<div class="zrz-pk-body"><div class="zrz-pk-lbl">' + escapeHtml(it.label) + '</div>' +
+          (it.sub ? '<div class="zrz-pk-sub">' + escapeHtml(it.sub) + '</div>' : '') +
+          '</div></div>';
+      });
+    }
+    html += '</div>';
+    bg.innerHTML = html;
+    document.body.appendChild(bg);
+
+    function done() { try { bg.remove(); } catch (e) {} document.removeEventListener('keydown', onKey); }
+    function onKey(e) { if (e.key === 'Escape') done(); }
+    bg.addEventListener('click', function (e) {
+      if (e.target === bg) { done(); return; }
+      var it = e.target.closest('.zrz-picker-item');
+      if (!it) return;
+      var idx = parseInt(it.getAttribute('data-i'), 10);
+      var item = opts.items[idx];
+      if (item && typeof item.action === 'function') {
+        done();
+        setTimeout(function () { try { item.action(); } catch (err) { console.warn('[zrzFab picker]', err); } }, 60);
+      }
+    });
+    document.addEventListener('keydown', onKey);
+  }
+
+  function openCallPicker() {
+    var events = getTodayEvents();
+    var items = [];
+    events.forEach(function (ev) {
+      var order = ev.orderId ? getOrderById(ev.orderId) : null;
+      var phone = clientPhoneOf(order) || ev.phone || '';
+      if (!phone) return;
+      var name = clientNameOf(order);
+      var t = ev.time || '';
+      items.push({
+        ico: ICONS.phone,
+        label: name,
+        sub: t ? (t + ' · ' + phone) : phone,
+        action: (function (p) { return function () { location.href = 'tel:' + p; }; })(phone)
+      });
+    });
+    openPicker({ title: 'Позвонить', items: items, empty: 'На сегодня нет событий с телефоном' });
+  }
+
+  function openNavPicker() {
+    var events = getTodayEvents();
+    var items = [];
+    events.forEach(function (ev) {
+      var order = ev.orderId ? getOrderById(ev.orderId) : null;
+      var addr = clientAddrOf(order) || ev.address || '';
+      if (!addr) return;
+      var name = clientNameOf(order);
+      var t = ev.time || '';
+      items.push({
+        ico: ICONS.pin,
+        label: name,
+        sub: t ? (t + ' · ' + addr) : addr,
+        action: (function (evLocal, addrLocal) {
+          return function () {
+            try { if (typeof evOpenYandex === 'function') { evOpenYandex(evLocal); return; } } catch (e) {}
+            try { if (typeof openMap === 'function') { openMap(addrLocal); return; } } catch (e) {}
+            location.href = 'https://yandex.ru/maps/?rtext=~' + encodeURIComponent(addrLocal);
+          };
+        })(ev, addr)
+      });
+    });
+    openPicker({ title: 'Куда едем', items: items, empty: 'На сегодня нет событий с адресом' });
+  }
+
+  function runAction(id) {
+    buzz(18);
+    var role = getRole();
+    try { document.dispatchEvent(new CustomEvent('zrz:fab-action', { detail: { id: id, role: role } })); } catch (e) {}
+
+    var handlers = {
+      event: function () { if (typeof openEventForm === 'function') openEventForm(null, null); },
+      order: function () { if (typeof openNewOrder === 'function') openNewOrder(); },
+      client: function () {
+        if (typeof openClientForm === 'function') { openClientForm(); return; }
+        if (typeof openClient === 'function') openClient();
+      },
+      route: function () { if (typeof openRoute === 'function') openRoute(); },
+      measure: function () {
+        if (typeof openEventForm === 'function') {
+          openEventForm(null, null);
+          pickEventTypeInModal('Замер');
+        }
+      },
+      note: function () {
+        if (typeof openEventForm === 'function') {
+          openEventForm(null, null);
+          pickEventTypeInModal('Встреча');
+        }
+      },
+      events: function () {
+        if (typeof openDayModal === 'function') {
+          try { openDayModal(new Date()); return; } catch (e) {}
+          try { openDayModal(); return; } catch (e) {}
+        }
+        if (typeof openRoute === 'function') openRoute();
+      },
+      call: function () { openCallPicker(); },
+      navigator: function () { openNavPicker(); }
+    };
+
+    var f = handlers[id];
+    if (f) { try { f(); return; } catch (e) { console.warn('[zrzFab] run error', id, e); } }
+    console.info('[zrzFab] action', id, 'role', role, '— handler not found');
+  }
+
+  function updateVisibility() {
+    var role = getRole();
+    if (!role || !ACTIONS_BY_ROLE[role] || !ACTIONS_BY_ROLE[role].length) {
+      root.classList.remove('zrz-fab-visible');
+      close();
+      return;
+    }
+    if (onHome()) {
+      root.classList.add('zrz-fab-visible');
+      buildActions();
+    } else {
+      root.classList.remove('zrz-fab-visible');
+      close();
+    }
+  }
+
+  function bindMain() {
+    var main = root.querySelector('#zrz-fab-main');
+    var backdrop = root.querySelector('#zrz-fab-backdrop');
+
+    main.addEventListener('pointerdown', function (e) {
+      if (pointerId !== null) return;
+      pointerId = e.pointerId;
+      pointerStart = { x: e.clientX, y: e.clientY };
+      moved = false; swipeMode = false;
+      try { main.setPointerCapture(e.pointerId); } catch (err) {}
+    });
+    main.addEventListener('pointermove', function (e) {
+      if (pointerId !== e.pointerId || !pointerStart) return;
+      var dx = e.clientX - pointerStart.x;
+      var dy = e.clientY - pointerStart.y;
+      var dist = Math.sqrt(dx * dx + dy * dy);
+      if (!moved && dist > 14) {
+        moved = true;
+        if (!gesturesDisabled()) {
+          swipeMode = true;
+          if (!isOpen) open();
+        }
+      }
+      if (swipeMode) { e.preventDefault(); previewAt(nearestAction(dx, dy)); }
+    }, { passive: false });
+    function endPointer(e) {
+      if (pointerId !== e.pointerId) return;
+      var dx = e.clientX - pointerStart.x;
+      var dy = e.clientY - pointerStart.y;
+      var dist = Math.sqrt(dx * dx + dy * dy);
+      var wasSwipe = swipeMode;
+      var idx = previewIdx;
+      pointerId = null; pointerStart = null; swipeMode = false; previewIdx = -1;
+      if (wasSwipe) {
+        if (dist > 42 && idx >= 0) {
+          var id = currentActions[idx].id;
+          close();
+          setTimeout(function () { runAction(id); }, 60);
+        } else { close(); }
+        moved = false;
+        return;
+      }
+      if (!moved) toggle();
+      moved = false;
+    }
+    main.addEventListener('pointerup', endPointer);
+    main.addEventListener('pointercancel', function (e) {
+      if (pointerId === e.pointerId) { pointerId = null; pointerStart = null; swipeMode = false; previewIdx = -1; close(); }
+    });
+    backdrop.addEventListener('click', function () { close(); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && isOpen) close(); });
+    window.addEventListener('scroll', function () { if (isOpen) close(); }, { passive: true });
+  }
+
+  function mount() {
+    if (!document.body) { setTimeout(mount, 60); return; }
+    if (!document.getElementById('zrz-fab-root')) document.body.appendChild(root);
+    bindMain();
+    updateVisibility();
+    window.addEventListener('hashchange', updateVisibility);
+    document.addEventListener('visibilitychange', updateVisibility);
+    setInterval(function () {
+      if (!onHome() && root.classList.contains('zrz-fab-visible')) updateVisibility();
+      else if (onHome() && !root.classList.contains('zrz-fab-visible')) updateVisibility();
+    }, 1200);
+  }
+  mount();
+
+  window.zrzFab = {
+    open: open,
+    close: close,
+    toggle: toggle,
+    refresh: updateVisibility,
+    getRole: getRole
+  };
+})();
+/* ============ ZERZALO · GESTURE TESTER (debug only) ============ */
 /* ============ ZERZALO · GESTURE TESTER (debug only) ============ */
 (function () {
   'use strict';
@@ -51,7 +519,7 @@
     ['🧪 Тестовое событие №1', '🧪 Тестовое событие №2', '🧪 Тестовое событие №3'].forEach(function (lbl, i) {
       html += '<div class="zrz_gt_item" data-i="' + i + '" style="background:#fff;border-radius:16px;padding:16px;margin-bottom:10px;' +
         'box-shadow:0 2px 8px rgba(0,0,0,.06);display:flex;align-items:center;gap:12px;' +
-        'user-select:none;-webkit-user-select:none;cursor:pointer;transition:background .15s">';
+        'user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;cursor:pointer;transition:background .15s">';
       html +=   '<div style="font-size:22px">📏</div>';
       html +=   '<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:15px">' + esc2(lbl) + '</div>';
       html +=   '<div style="font-size:12.5px;color:#888;margin-top:2px">Удерживай / свайпай</div></div>';
@@ -99,7 +567,6 @@
         swipeLeft:  { ico:'🗺', label:'Карта',     act:function () { log('✅ Свайп влево → Карта (' + name + ')'); toast('🗺 ' + name, '#4A90E2'); } }
       });
 
-      /* Обычный тап — просто лог */
       el.addEventListener('click', function (e) {
         if (el._zrzBlockClick) return;
         log('👆 Обычный тап (' + name + ')');
@@ -132,6 +599,7 @@
 
   try { console.log('[07] тестер жестов активен (только ?debug=1)'); } catch (_) {}
 })();
+/* ============ ZERZALO · UNIVERSAL ACTIONS · 07-gestures part3 ============ */
 /* ============ ZERZALO · UNIVERSAL ACTIONS · 07-gestures part3 ============ */
 (function () {
   'use strict';
@@ -202,6 +670,14 @@
     if (!el || el._zrzActionsAttached) return;
     el._zrzActionsAttached = true;
     opts = opts || {};
+
+    /* Отключаем выделение текста и системное меню Chrome */
+    try {
+      el.style.userSelect = 'none';
+      el.style.webkitUserSelect = 'none';
+      el.style.webkitTouchCallout = 'none';
+      el.style.touchAction = 'pan-y';
+    } catch (e) {}
 
     var st = {
       id: null,
