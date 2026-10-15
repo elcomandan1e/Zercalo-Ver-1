@@ -517,7 +517,7 @@
     html += '<div style="font-size:13px;font-weight:700;color:#666;text-transform:uppercase;letter-spacing:1px;margin:0 4px 10px">ТЕСТОВЫЕ ЭЛЕМЕНТЫ</div>';
 
     ['🧪 Тестовое событие №1', '🧪 Тестовое событие №2', '🧪 Тестовое событие №3'].forEach(function (lbl, i) {
-      html += '<div class="zrz_gt_item" data-i="' + i + '" style="background:#fff;border-radius:16px;padding:16px;margin-bottom:10px;' +
+      html += '<div class="zrz_gt_item" data-i="' + i + '" data-zrz-no-select style="background:#fff;border-radius:16px;padding:16px;margin-bottom:10px;' +
         'box-shadow:0 2px 8px rgba(0,0,0,.06);display:flex;align-items:center;gap:12px;' +
         'user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;cursor:pointer;transition:background .15s">';
       html +=   '<div style="font-size:22px">📏</div>';
@@ -672,12 +672,10 @@
     opts = opts || {};
 
     /* Отключаем выделение текста и системное меню Chrome */
-    try {
-      el.style.userSelect = 'none';
-      el.style.webkitUserSelect = 'none';
-      el.style.webkitTouchCallout = 'none';
-      el.style.touchAction = 'pan-y';
-    } catch (e) {}
+    el.setAttribute('data-zrz-no-select', '');
+    el.addEventListener('selectstart', function (e) { e.preventDefault(); });
+    el.addEventListener('dragstart', function (e) { e.preventDefault(); });
+    el.addEventListener('longpress', function (e) { e.preventDefault(); });
 
     var st = {
       id: null,
@@ -823,6 +821,8 @@
     '.zrz-as-cancel:active{background:#e8e8eb}',
     '.zrz-sw-r{background:linear-gradient(90deg,rgba(76,175,125,0.20) 0%,var(--surface, #fff) 45%) !important}',
     '.zrz-sw-l{background:linear-gradient(270deg,rgba(59,134,200,0.20) 0%,var(--surface, #fff) 45%) !important}',
+    '[data-zrz-no-select],[data-zrz-no-select] *{-webkit-user-select:none !important;user-select:none !important;-webkit-touch-callout:none !important;-webkit-tap-highlight-color:transparent !important;}',
+    '[data-zrz-no-select]{touch-action:pan-y}',
     '@keyframes zrzAsFade{from{opacity:0}to{opacity:1}}',
     '@keyframes zrzAsUp{from{transform:translateY(100%)}to{transform:translateY(0)}}'
   ].join('');
